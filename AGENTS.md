@@ -38,6 +38,7 @@ TrackAttack/App.xaml
 - `Engine/QuizEngine.cs` is the quiz state machine. Keep scoring, rotation, timer, and power rules there rather than in view code.
 - `MetadataView` presents and stages edits in `MetadataEditEntry` models. `LocalMetadataManager` scans files, validates and writes tags, and creates/restores recovery snapshots. Keep TagLib and filesystem mutation out of the view.
 - `Models/` holds quiz, song, result, preset, and metadata models. `Services/` contains local source/playback, answer matching, and catalog suggestion providers. `Data/` contains SQLite initialization and the async history repository. `Settings/AppSettings.cs` owns settings serialization.
+- `MainWindow` persists whether the sidebar is collapsed in `AppSettings.NavigationCollapsed` and restores that state at startup.
 
 ## Local library, quiz setup, and presets
 
@@ -76,7 +77,7 @@ TrackAttack/App.xaml
 
 ## Persistence
 
-- Settings JSON: `%APPDATA%\MusicQuiz\settings.json` (`AppSettings.FilePath`).
+- Settings JSON: `%APPDATA%\MusicQuiz\settings.json` (`AppSettings.FilePath`), including the sidebar collapsed preference.
 - History SQLite database: `%APPDATA%\MusicQuiz\history.db` (`DatabaseInitializer.DatabasePath`); `DatabaseInitializer.Initialize()` creates and migrates the schema at startup.
 - `IQuizHistoryRepository` exposes async save/list/detail/recent-song/clear operations. Quiz results are saved through the history repository; abandoning a running quiz saves partial results.
 - `QuizConfig` is serialized as JSON in `QuizHistory.ConfigJson`; individual song outcome fields are stored in `QuizSongResult`.

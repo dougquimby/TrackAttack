@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DatabaseInitializer.Initialize();
+        SetNavigationCollapsed(AppSettings.Load().NavigationCollapsed);
         ShowHome(pushHistory: false);
         UpdateLibraryStatus();
         Closed += (_, _) => _activeQuiz?.Dispose();
@@ -176,7 +177,23 @@ public partial class MainWindow : Window
 
     private void OnToggleNavigationClick(object sender, RoutedEventArgs e)
     {
-        _navigationCollapsed = !_navigationCollapsed;
+        SetNavigationCollapsed(!_navigationCollapsed);
+        var settings = AppSettings.Load();
+        settings.NavigationCollapsed = _navigationCollapsed;
+        try
+        {
+            settings.Save();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"Navigation changed, but the preference could not be saved:\n{exception.Message}",
+                "Settings save failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void SetNavigationCollapsed(bool collapsed)
+    {
+        _navigationCollapsed = collapsed;
         var navigationWidth = ((Grid)Content).ColumnDefinitions[0];
         navigationWidth.Width = _navigationCollapsed ? new GridLength(64) : new GridLength(230);
         ToggleNavigationButton.Content = _navigationCollapsed ? "»" : "«";

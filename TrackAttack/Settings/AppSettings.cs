@@ -25,6 +25,7 @@ public class AppSettings
     public bool WindowMaximized { get; set; }
     public bool WindowRestored { get; set; }
     public Rectangle WindowBounds { get; set; }
+    public bool NavigationCollapsed { get; set; }
 
     public static string FilePath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

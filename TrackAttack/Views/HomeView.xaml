@@ -20,7 +20,6 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center" MaxWidth="620">
                         <TextBlock Text="TRACK ATTACK  /  MUSIC QUIZ" Foreground="#72BFFF"
@@ -61,8 +60,6 @@
                     <TextBlock Text="Manage your library and review your progress."
                                Foreground="#65738A" Margin="0,4,0,0"/>
                 </StackPanel>
-                <TextBlock Grid.Column="1" Text="QUICK ACCESS" Foreground="#8290A3"
-                           FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
             </Grid>
 
             <UniformGrid Columns="3" Rows="1" Margin="0,0,0,8">
