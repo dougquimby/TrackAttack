@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace TrackAttack.Services;
@@ -6,6 +7,7 @@ public static class AnswerMatcher
 {
     private static readonly Regex PunctuationRegex = new(@"[^\w\s]", RegexOptions.Compiled);
     private static readonly Regex LoosePunctuationRegex = new(@"[^\p{L}\p{N}\s]", RegexOptions.Compiled);
+    private static readonly Regex CombiningMarksRegex = new(@"\p{M}", RegexOptions.Compiled);
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
     private static readonly Regex WhitespaceParenRegex = new(@"\s+\([^()]*\)", RegexOptions.Compiled);
     private static readonly string[] LeadingArticles = ["the ", "a ", "an "];
@@ -57,7 +59,9 @@ public static class AnswerMatcher
 
     private static string Normalize(string value, GuessMatchingOptions options, bool ignoreWhitespace)
     {
-        var s = value.Trim().ToLowerInvariant();
+        var s = CombiningMarksRegex.Replace(
+            value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD),
+            "");
 
         if (options.IgnorePunctuation)
         {

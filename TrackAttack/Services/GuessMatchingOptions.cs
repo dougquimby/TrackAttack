@@ -5,7 +5,8 @@ namespace TrackAttack.Services;
 /// <summary>
 /// Controls how strict guess matching is. Each property relaxes a different
 /// aspect of matching, so new strictness settings can be added over time
-/// without changing the AnswerMatcher call sites again.
+/// without changing the AnswerMatcher call sites again. Guess matching is
+/// accent-insensitive, so letters such as "ñ" and "ÿ" match "n" and "y".
 /// </summary>
 public class GuessMatchingOptions
 {
