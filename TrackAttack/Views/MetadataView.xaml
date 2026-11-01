@@ -1,0 +1,107 @@
+<UserControl x:Class="TrackAttack.Views.MetadataView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="MetadataToolbarButton" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+        <Style x:Key="MetadataActionButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+        <Style x:Key="MetadataToolbarComboBox" TargetType="ComboBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+            <RowDefinition Height="170"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Review and correct local track metadata" Style="{StaticResource PageTitle}"/>
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="FolderText" Margin="0,0,6,0" VerticalContentAlignment="Center"/>
+            <Button x:Name="BrowseButton" Grid.Column="1" Content="Browse…" Style="{StaticResource MetadataToolbarButton}" Click="OnBrowseClick"/>
+            <Button x:Name="ScanButton" Grid.Column="2" Content="Scan" Style="{StaticResource MetadataActionButton}" Click="OnScanClick"/>
+            <ComboBox x:Name="ProviderCombo" Grid.Column="3" Width="145" Style="{StaticResource MetadataToolbarComboBox}"/>
+            <Button x:Name="LookupButton" Grid.Column="4" Content="Lookup selected" Style="{StaticResource MetadataToolbarButton}" Click="OnLookupSelectedClick"/>
+            <Button x:Name="CancelLookupButton" Grid.Column="5" Content="Cancel lookup" Style="{StaticResource MetadataToolbarButton}" Click="OnCancelClick" IsEnabled="False"/>
+            <CheckBox x:Name="AlbumLookupCheck" Grid.Row="1" Grid.ColumnSpan="4"
+                      Content="One lookup per album (stage year/genre on matching album tracks)"
+                      VerticalAlignment="Center" Margin="0,5,12,0"/>
+            <CheckBox x:Name="NeedsReviewCheck" Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2"
+                      Content="Needs review only" IsChecked="True" VerticalAlignment="Center" Margin="0,5,0,0"
+                      Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
+            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal"
+                        VerticalAlignment="Center" Margin="0,5,0,0">
+                <TextBlock Text="Minimum score to auto-stage (0–100)" Foreground="#65738A"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="MinimumMatchScoreText" Text="90" Width="52" Height="28"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                         ToolTip="Candidates below this score remain for manual review."/>
+            </StackPanel>
+        </Grid>
+        <DataGrid x:Name="MetadataGrid" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False"
+                  SelectionMode="Extended" SelectionUnit="FullRow" CellEditEnding="OnCellEditEnding">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Title" Binding="{Binding Title, UpdateSourceTrigger=PropertyChanged}" Width="1.5*"/>
+                <DataGridTextColumn Header="Artist" Binding="{Binding Artist, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                <DataGridTextColumn Header="Album" Binding="{Binding Album, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                <DataGridTextColumn Header="Genre" Binding="{Binding Genre, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                <DataGridTextColumn Header="Year" Binding="{Binding Year, UpdateSourceTrigger=PropertyChanged}" Width="70"/>
+                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" IsReadOnly="True" Width="80"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" IsReadOnly="True" Width="2*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <Grid Grid.Row="3" Margin="0,10,0,6">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <TextBlock Text="Catalog candidates — select a result, then stage it for review. Staging never writes files." FontWeight="SemiBold" Margin="2,0,0,5"/>
+            <DataGrid x:Name="CandidatesGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Score" Binding="{Binding MatchScore}" Width="60"/>
+                    <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
+                    <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="*"/>
+                    <DataGridTextColumn Header="Album" Binding="{Binding Album}" Width="*"/>
+                    <DataGridTextColumn Header="Genre" Binding="{Binding Genre}" Width="*"/>
+                    <DataGridTextColumn Header="Year" Binding="{Binding Year}" Width="60"/>
+                    <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="90"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="#65738A"
+                       Text="Scan a folder to review its metadata." TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="StageCandidateButton" Content="Stage selected candidate"
+                        Style="{StaticResource MetadataToolbarButton}" Click="OnStageCandidateClick"/>
+                <Button x:Name="ApplyButton" Content="Apply changes…" Style="{StaticResource MetadataActionButton}" Click="OnApplyClick"/>
+                <Button x:Name="UndoButton" Content="Undo last apply" Style="{StaticResource MetadataToolbarButton}" Margin="0"
+                        Click="OnUndoClick"/>
+            </StackPanel>
+        </Grid>
+        <TextBlock x:Name="SummaryText" Grid.Row="5" Margin="0,6,0,0" Foreground="#65738A"
+                   Text="0 audio file(s) scanned; 0 need review; 0 change(s) staged."/>
+    </Grid>
+</UserControl>

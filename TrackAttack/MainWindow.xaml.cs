@@ -1,0 +1,163 @@
+using System.Windows;
+using System.Windows.Controls;
+using TrackAttack.Data;
+using TrackAttack.Models;
+using TrackAttack.Services;
+using TrackAttack.Settings;
+using TrackAttack.Views;
+
+namespace TrackAttack;
+
+public partial class MainWindow : Window
+{
+    private readonly IMusicSource _musicSource = new LocalFileMusicSource();
+    private readonly IQuizHistoryRepository _history = new SQLiteQuizHistoryRepository();
+    private readonly Stack<(UserControl View, string Title)> _viewHistory = new();
+    private UserControl? _currentView;
+    private QuizView? _activeQuiz;
+    private bool _navigationCollapsed;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        DatabaseInitializer.Initialize();
+        ShowHome(pushHistory: false);
+        UpdateLibraryStatus();
+        Closed += (_, _) => _activeQuiz?.Dispose();
+    }
+
+    private void UpdateLibraryStatus()
+    {
+        var directory = AppSettings.Load().MusicDirectory;
+        LibraryStatus.Text = string.IsNullOrWhiteSpace(directory) ? "No music library selected" : directory;
+        LibraryStatus.ToolTip = LibraryStatus.Text;
+    }
+
+    private void Navigate(UserControl view, string title, bool pushHistory = true)
+    {
+        if (pushHistory && _currentView is not null && _currentView != view)
+            _viewHistory.Push((_currentView, PageHeading.Text));
+        _currentView = view;
+        PageHost.Content = view;
+        PageHeading.Text = title;
+        BackButton.Visibility = _viewHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ShowHome(bool pushHistory = true)
+    {
+        var home = new HomeView(_history);
+        home.NewQuizRequested += OnNewQuizClickFromHome;
+        home.MetadataRequested += OnMetadataClickFromHome;
+        home.HistoryRequested += OnHistoryClickFromHome;
+        home.SettingsRequested += OnSettingsClickFromHome;
+        Navigate(home, "Home", pushHistory);
+    }
+
+    private void OnNewQuizClickFromHome() => OnNewQuizClick(this, new RoutedEventArgs());
+    private void OnMetadataClickFromHome() => OnMetadataClick(this, new RoutedEventArgs());
+    private void OnHistoryClickFromHome() => OnHistoryClick(this, new RoutedEventArgs());
+    private void OnSettingsClickFromHome() => OnSettingsClick(this, new RoutedEventArgs());
+
+    private void OnHomeClick(object sender, RoutedEventArgs e)
+    {
+        if (GuardActiveQuiz())
+        {
+            _viewHistory.Clear();
+            ShowHome(pushHistory: false);
+        }
+    }
+
+    private void OnNewQuizClick(object sender, RoutedEventArgs e)
+    {
+        if (!GuardActiveQuiz())
+            return;
+        var settings = AppSettings.Load();
+        if (string.IsNullOrWhiteSpace(settings.MusicDirectory) || !Directory.Exists(settings.MusicDirectory))
+        {
+            MessageBox.Show(this, "Choose a music folder in Settings before starting a quiz.",
+                "Music folder required", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowSettings();
+            return;
+        }
+
+        var setup = new QuizSetupView(_musicSource, _history);
+        setup.QuizRequested += OnQuizRequested;
+        setup.SongsRequested += songs => Navigate(new SongsView(songs), "Songs matching filters");
+        Navigate(setup, "New Quiz");
+    }
+
+    private void OnQuizRequested(QuizConfig config, IReadOnlyList<Song> songs, IReadOnlyList<Song> reserve)
+    {
+        _activeQuiz = new QuizView(config, songs, reserve, _history);
+        _activeQuiz.QuizFinished += session =>
+        {
+            _activeQuiz = null;
+            var results = new ResultsView(session, _history);
+            results.PlayAgainRequested += OnNewQuizClickFromHome;
+            Navigate(results, "Quiz Results", pushHistory: false);
+        };
+        Navigate(_activeQuiz, config.QuizTitle);
+    }
+
+    private void OnMetadataClick(object sender, RoutedEventArgs e)
+    {
+        if (GuardActiveQuiz())
+            Navigate(new MetadataView(), "Fix Library Metadata");
+    }
+
+    private void OnHistoryClick(object sender, RoutedEventArgs e)
+    {
+        if (GuardActiveQuiz())
+            Navigate(new HistoryView(_history), "Quiz History");
+    }
+
+    private void OnSettingsClick(object sender, RoutedEventArgs e)
+    {
+        if (GuardActiveQuiz())
+            ShowSettings();
+    }
+
+    private void ShowSettings()
+    {
+        var view = new SettingsView(_history);
+        view.SettingsSaved += UpdateLibraryStatus;
+        Navigate(view, "Settings");
+    }
+
+    private bool GuardActiveQuiz()
+    {
+        if (_activeQuiz is null)
+            return true;
+        if (MessageBox.Show(this, "A quiz is in progress. Abandon it and continue?",
+                "Abandon Quiz", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return false;
+        _activeQuiz.Abandon();
+        _activeQuiz.Dispose();
+        _activeQuiz = null;
+        _currentView = null;
+        PageHost.Content = null;
+        return true;
+    }
+
+    private void OnBackClick(object sender, RoutedEventArgs e)
+    {
+        if (!GuardActiveQuiz() || _viewHistory.Count == 0)
+            return;
+        var (view, title) = _viewHistory.Pop();
+        _currentView = view;
+        PageHost.Content = view;
+        PageHeading.Text = title;
+        BackButton.Visibility = _viewHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateLibraryStatus();
+    }
+
+    private void OnToggleNavigationClick(object sender, RoutedEventArgs e)
+    {
+        _navigationCollapsed = !_navigationCollapsed;
+        NavigationPanel.Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        var navigationWidth = ((Grid)Content).ColumnDefinitions[0];
+        navigationWidth.Width = _navigationCollapsed ? new GridLength(0) : new GridLength(230);
+        ToggleNavigationButton.Content = _navigationCollapsed ? "»" : "«";
+        ToggleNavigationButton.ToolTip = _navigationCollapsed ? "Expand navigation" : "Collapse navigation";
+    }
+}

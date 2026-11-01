@@ -1,0 +1,34 @@
+<UserControl x:Class="TrackAttack.Views.SongsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <TextBlock Text="Songs matching your selected filters" Style="{StaticResource PageTitle}"/>
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ComboBox x:Name="SearchColumn" SelectedIndex="0" Margin="0,0,8,0">
+                <ComboBoxItem Content="Title"/><ComboBoxItem Content="Artist"/><ComboBoxItem Content="Album"/>
+                <ComboBoxItem Content="Genre"/><ComboBoxItem Content="Year"/>
+            </ComboBox>
+            <TextBox x:Name="SearchText" Grid.Column="1" Margin="0,0,8,0" MinWidth="180" Height="30" VerticalContentAlignment="Center"
+                     KeyDown="OnSearchKeyDown"/>
+            <Button Grid.Column="2" Content="Search" Click="OnSearchClick" Margin="0,0,8,0"/>
+            <TextBlock x:Name="CountText" Grid.Column="3" VerticalAlignment="Center" Foreground="#65738A"/>
+        </Grid>
+        <DataGrid x:Name="SongsGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="2*"/>
+                <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="*"/>
+                <DataGridTextColumn Header="Album" Binding="{Binding Album}" Width="*"/>
+                <DataGridTextColumn Header="Genre" Binding="{Binding Genre}" Width="*"/>
+                <DataGridTextColumn Header="Year" Binding="{Binding Year}" Width="70"/>
+                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

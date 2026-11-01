@@ -1,0 +1,174 @@
+<UserControl x:Class="TrackAttack.Views.QuizSetupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,14">
+            <TextBlock Text="Quiz setup" Style="{StaticResource PageTitle}"/>
+            <Border Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+                <Grid VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Saved setup" VerticalAlignment="Center" Margin="4,0,8,0"/>
+                    <ComboBox x:Name="PresetCombo" Grid.Column="1" Height="32" Margin="0,0,8,0"
+                              DisplayMemberPath="Name" SelectionChanged="OnPresetSelected"/>
+                    <TextBox x:Name="PresetNameText" Grid.Column="2" MinWidth="140" Height="32"
+                             VerticalContentAlignment="Center" Margin="0,0,8,0"
+                             ToolTip="Enter a name to save the current setup"/>
+                    <Button Grid.Column="3" Content="Save preset" Height="32" Padding="10,4" Margin="0,0,6,0"
+                            Click="OnSavePresetClick"/>
+                    <Button Grid.Column="4" Content="Delete preset" Height="32" Padding="10,4"
+                            Click="OnDeletePresetClick"/>
+                </Grid>
+            </Border>
+            <Border Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="Music library" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <DockPanel>
+                        <Button x:Name="BrowseLibraryButton" Content="Browse…" Click="OnBrowseClick" DockPanel.Dock="Right" Margin="8,0,0,0"/>
+                        <TextBox x:Name="FolderText" Height="30" VerticalContentAlignment="Center"/>
+                    </DockPanel>
+                    <DockPanel Margin="0,8,0,0">
+                        <Button x:Name="ScanButton" Content="Scan / Refresh" Click="OnScanClick" DockPanel.Dock="Left"/>
+                        <TextBlock x:Name="ScanStatus" VerticalAlignment="Center" Margin="10,0"
+                                   Foreground="#65738A" Text="Choose a folder and scan your tracks."/>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+
+            <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Track filters" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Genres (none selected includes all)" Foreground="#65738A" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="All" Padding="7,2" Margin="2,0" Click="OnSelectAllGenresClick"/>
+                            <Button Grid.Column="2" Content="None" Padding="7,2" Margin="2,0" Click="OnSelectNoGenresClick"/>
+                        </Grid>
+                        <ListBox x:Name="GenreList" Height="150">
+                            <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Display}" IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                Checked="OnFilterCheckedChanged" Unchecked="OnFilterCheckedChanged"/></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
+                        <Grid Margin="0,10,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Decades (none selected includes all)" Foreground="#65738A" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="All" Padding="7,2" Margin="2,0" Click="OnSelectAllDecadesClick"/>
+                            <Button Grid.Column="2" Content="None" Padding="7,2" Margin="2,0" Click="OnSelectNoDecadesClick"/>
+                        </Grid>
+                        <ListBox x:Name="DecadeList" Height="130">
+                            <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Display}" IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                Checked="OnFilterCheckedChanged" Unchecked="OnFilterCheckedChanged"/></DataTemplate></ListBox.ItemTemplate>
+                        </ListBox>
+                        <CheckBox x:Name="UniqueArtistsCheck" Content="Use no more than one song per artist" Margin="0,12,0,0"
+                                  Checked="OnUniqueArtistsChanged" Unchecked="OnUniqueArtistsChanged"/>
+                        <CheckBox x:Name="ExcludeRecentCheck" Content="Exclude songs from recent quizzes" Margin="0,6,0,0"
+                                  Checked="OnRecentOptionsChanged" Unchecked="OnRecentOptionsChanged"/>
+                        <WrapPanel Margin="0,4,0,0">
+                            <TextBlock Text="Recent quizzes to exclude" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox x:Name="RecentQuizCountText" Width="55" Text="5" TextChanged="OnRecentCountChanged"/>
+                        </WrapPanel>
+                        <WrapPanel Margin="0,10,0,0">
+                            <StackPanel Margin="0,0,12,0"><TextBlock Text="Min track length (sec)"/><TextBox x:Name="MinLengthText" Text="60" Width="115" TextChanged="OnFiltersChanged"/></StackPanel>
+                            <StackPanel><TextBlock Text="Max track length (sec)"/><TextBox x:Name="MaxLengthText" Text="3540" Width="115" TextChanged="OnFiltersChanged"/></StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Quiz rules" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Songs"/><TextBox x:Name="SongCountText" Text="20" Width="80"/></StackPanel>
+                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Seconds per song"/><TextBox x:Name="SecondsText" Text="30" Width="110"/></StackPanel>
+                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Clip duration (sec)"/><TextBox x:Name="ClipDurationText" Text="15" Width="120"/></StackPanel>
+                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Fixed clip start (sec)"/><TextBox x:Name="ClipStartText" Text="30" Width="130"/></StackPanel>
+                        </WrapPanel>
+                        <WrapPanel Margin="0,2,0,8">
+                            <StackPanel Margin="0,0,16,0"><TextBlock Text="Timer mode"/><ComboBox x:Name="TimerModeCombo" Width="180">
+                                <ComboBoxItem Content="Per song"/><ComboBoxItem Content="Total quiz"/>
+                            </ComboBox></StackPanel>
+                            <StackPanel><TextBlock Text="Grid columns"/><ComboBox x:Name="GridColumnsCombo" Width="160">
+                                <ComboBoxItem Content="Auto"/><ComboBoxItem Content="One"/><ComboBoxItem Content="Two"/>
+                                <ComboBoxItem Content="Three"/><ComboBoxItem Content="Four"/>
+                            </ComboBox></StackPanel>
+                        </WrapPanel>
+                        <WrapPanel Margin="0,2,0,8">
+                            <StackPanel Margin="0,0,16,0"><TextBlock Text="Quiz mode"/><ComboBox x:Name="QuizModeCombo" Width="180">
+                                <ComboBoxItem Content="Guess song title"/><ComboBoxItem Content="Guess artist"/><ComboBoxItem Content="Guess both"/>
+                            </ComboBox></StackPanel>
+                            <StackPanel><TextBlock Text="Playback"/><ComboBox x:Name="PlaybackCombo" Width="200">
+                                <ComboBoxItem Content="Loop"/><ComboBoxItem Content="Play once"/><ComboBoxItem Content="Play once, auto-advance"/>
+                            </ComboBox></StackPanel>
+                        </WrapPanel>
+                        <CheckBox x:Name="RandomClipCheck" Content="Choose a random clip start point" IsChecked="True"/>
+                        <CheckBox x:Name="FuzzyArtistCheck" Content="Allow fuzzy artist matching" IsChecked="True"/>
+                        <CheckBox x:Name="FuzzyTitleCheck" Content="Allow fuzzy song-title matching" IsChecked="True"/>
+                        <CheckBox x:Name="IgnorePunctuationCheck" Content="Ignore punctuation when matching" IsChecked="True"/>
+                        <CheckBox x:Name="SkipCorrectCheck" Content="Advance immediately after a correct guess" IsChecked="True"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <Border Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,14,0,0">
+                <StackPanel>
+                    <TextBlock Text="Powers and scoring" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <UniformGrid Columns="4">
+                        <GroupBox Header="Mulligans" Margin="0,0,8,8">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,6,0"><TextBlock Text="Count"/><TextBox x:Name="MulliganCountText" Text="0"/></StackPanel>
+                                <StackPanel Grid.Column="1"><TextBlock Text="Penalty"/><TextBox x:Name="MulliganPenaltyText" Text="0"/></StackPanel>
+                            </Grid>
+                        </GroupBox>
+                        <GroupBox Header="Extenders" Margin="0,0,8,8">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,6,0"><TextBlock Text="Count"/><TextBox x:Name="ExtenderCountText" Text="0"/></StackPanel>
+                                <StackPanel Grid.Column="1"><TextBlock Text="Penalty"/><TextBox x:Name="ExtenderPenaltyText" Text="0"/></StackPanel>
+                            </Grid>
+                        </GroupBox>
+                        <GroupBox Header="Hints" Margin="0,0,8,8">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,6,0"><TextBlock Text="Count"/><TextBox x:Name="HintCountText" Text="0"/></StackPanel>
+                                <StackPanel Grid.Column="1"><TextBlock Text="Penalty"/><TextBox x:Name="HintPenaltyText" Text="0"/></StackPanel>
+                            </Grid>
+                        </GroupBox>
+                        <GroupBox Header="Maximum penalty per song" Margin="0,0,0,8">
+                            <StackPanel Margin="4"><TextBlock Text="Maximum"/><TextBox x:Name="MaxPenaltyText" Text="1"/></StackPanel>
+                        </GroupBox>
+                    </UniformGrid>
+                    <Grid Margin="0,4,0,5">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Hint types available to the hint power:" Foreground="#65738A" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Content="All" Padding="7,2" Margin="2,0" Click="OnSelectAllHintsClick"/>
+                        <Button Grid.Column="2" Content="None" Padding="7,2" Margin="2,0" Click="OnSelectNoHintsClick"/>
+                    </Grid>
+                    <UniformGrid x:Name="HintTypesPanel" Columns="3"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" Background="White" BorderBrush="#D5DCE5" BorderThickness="1,1,1,0"
+                Padding="12,8">
+            <DockPanel LastChildFill="True">
+                <Button x:Name="StartQuizButton" Content="Start Quiz" Style="{StaticResource ActionButton}"
+                        DockPanel.Dock="Right" MinWidth="130" Height="40" Margin="8,0,0,0"
+                        FontWeight="SemiBold" Click="OnStartQuizClick"/>
+                <Button x:Name="ViewSongsButton" Content="View matching songs"
+                        DockPanel.Dock="Left" VerticalAlignment="Center" Click="OnViewSongsClick"/>
+                <TextBlock x:Name="MatchCountText" VerticalAlignment="Center" Foreground="#65738A"
+                           Margin="12,0" Text="0 matching tracks"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

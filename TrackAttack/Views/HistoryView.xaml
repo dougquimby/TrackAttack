@@ -1,0 +1,62 @@
+<UserControl x:Class="TrackAttack.Views.HistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <DockPanel>
+            <Button x:Name="ClearHistoryButton" Content="Clear history…" DockPanel.Dock="Right" Height="34" Padding="12,5"
+                    Margin="0,0,4,16" Click="OnClearHistoryClick"/>
+            <TextBlock Text="Quiz History" Style="{StaticResource PageTitle}"/>
+        </DockPanel>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="4*"/></Grid.ColumnDefinitions>
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TextBlock Text="Completed quizzes" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                <DataGrid x:Name="HistoryGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionMode="Single" SelectionChanged="OnSelectionChanged">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Date" Binding="{Binding DateLabel}" Width="*"/>
+                        <DataGridTextColumn Header="Quiz" Binding="{Binding Title}" Width="*"/>
+                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="100"/>
+                        <DataGridTextColumn Header="%" Binding="{Binding Percentage}" Width="60"/>
+                        <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="17"
+                           FontWeight="SemiBold" Margin="0,0,0,10" TextTrimming="CharacterEllipsis"/>
+                <DataGrid x:Name="DetailGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Status}" Value="Correct">
+                                    <Setter Property="Background" Value="#C6EFCE"/>
+                                    <Setter Property="Foreground" Value="#006100"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="Partial">
+                                    <Setter Property="Background" Value="#FFEB96"/>
+                                    <Setter Property="Foreground" Value="#644600"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="Missed">
+                                    <Setter Property="Background" Value="#FFC7CE"/>
+                                    <Setter Property="Foreground" Value="#9C0006"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="40"/>
+                        <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
+                        <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="*"/>
+                        <DataGridTextColumn Header="Title guess" Binding="{Binding Guess}" Width="*"/>
+                        <DataGridTextColumn Header="Artist guess" Binding="{Binding ArtistGuess}" Width="*"/>
+                        <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="60"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>
