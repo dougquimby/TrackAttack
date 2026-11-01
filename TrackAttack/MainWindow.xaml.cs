@@ -177,10 +177,43 @@ public partial class MainWindow : Window
     private void OnToggleNavigationClick(object sender, RoutedEventArgs e)
     {
         _navigationCollapsed = !_navigationCollapsed;
-        NavigationPanel.Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
         var navigationWidth = ((Grid)Content).ColumnDefinitions[0];
-        navigationWidth.Width = _navigationCollapsed ? new GridLength(0) : new GridLength(230);
+        navigationWidth.Width = _navigationCollapsed ? new GridLength(64) : new GridLength(230);
         ToggleNavigationButton.Content = _navigationCollapsed ? "»" : "«";
         ToggleNavigationButton.ToolTip = _navigationCollapsed ? "Expand navigation" : "Collapse navigation";
+
+        NavigationBrand.Margin = _navigationCollapsed
+            ? new Thickness(10, 24, 10, 24)
+            : new Thickness(18, 24, 18, 24);
+        NavigationBrand.HorizontalAlignment = _navigationCollapsed
+            ? HorizontalAlignment.Center
+            : HorizontalAlignment.Left;
+        NavigationLogoIcon.Margin = _navigationCollapsed
+            ? new Thickness(0)
+            : new Thickness(0, 0, 10, 0);
+        NavigationWordmark.Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
+
+        var navigationButtons = new (Button Button, TextBlock Label)[]
+        {
+            (HomeNavigationButton, HomeNavigationLabel),
+            (NewQuizNavigationButton, NewQuizNavigationLabel),
+            (MetadataNavigationButton, MetadataNavigationLabel),
+            (HistoryNavigationButton, HistoryNavigationLabel),
+            (SettingsNavigationButton, SettingsNavigationLabel)
+        };
+        foreach (var (button, label) in navigationButtons)
+        {
+            label.Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
+            button.Margin = _navigationCollapsed
+                ? new Thickness(8, 4, 8, 4)
+                : new Thickness(12, 4, 12, 4);
+            button.Padding = _navigationCollapsed
+                ? new Thickness(4)
+                : new Thickness(14, 8, 14, 8);
+            button.HorizontalContentAlignment = _navigationCollapsed
+                ? HorizontalAlignment.Center
+                : HorizontalAlignment.Left;
+            button.ToolTip = _navigationCollapsed ? label.Text : null;
+        }
     }
 }

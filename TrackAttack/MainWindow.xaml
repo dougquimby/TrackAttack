@@ -11,15 +11,66 @@
         </Grid.ColumnDefinitions>
         <Border x:Name="NavigationPanel" Grid.Column="0" Background="#1B2638">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="18,24,18,24">
-                    <TextBlock Text="TRACK ATTACK" Foreground="White" FontSize="24" FontWeight="Bold"/>
+                <StackPanel x:Name="NavigationBrand" DockPanel.Dock="Top" Orientation="Horizontal"
+                            HorizontalAlignment="Left" VerticalAlignment="Center" Margin="18,24,18,24">
+                    <Grid x:Name="NavigationLogoIcon" Width="44" Height="44"
+                          VerticalAlignment="Center" Margin="0,0,10,0">
+                        <Ellipse Fill="#253248" Stroke="#4FA8FF" StrokeThickness="2"/>
+                        <Ellipse Width="30" Height="30" Stroke="#9BCFFF" StrokeThickness="1.5"/>
+                        <Ellipse Width="20" Height="20" Stroke="#4FA8FF" StrokeThickness="1.5"/>
+                        <Ellipse Width="7" Height="7" Fill="#F5A623"/>
+                        <Path Data="M 26,5 L 17,21 L 23,21 L 18,39 L 31,18 L 25,18 L 30,5 Z"
+                              Fill="#F5A623" Stroke="#1B2638" StrokeThickness="1"
+                              Stretch="Fill" Width="18" Height="34"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                    <StackPanel x:Name="NavigationWordmark" VerticalAlignment="Center">
+                        <TextBlock Text="TRACK" Foreground="White" FontSize="19" FontWeight="Bold"
+                                   LineHeight="20"/>
+                        <TextBlock Text="ATTACK" Foreground="#68B7FF" FontSize="19" FontWeight="Bold"
+                                   LineHeight="20"/>
+                        <TextBlock Text="MUSIC QUIZ" Foreground="#A9BED7" FontSize="8"
+                                   FontWeight="SemiBold" Margin="1,3,0,0"/>
+                    </StackPanel>
                 </StackPanel>
-                <StackPanel>
-                    <Button Style="{StaticResource NavigationButton}" Content="Home" Click="OnHomeClick"/>
-                    <Button Style="{StaticResource NavigationButton}" Content="New Quiz" Click="OnNewQuizClick"/>
-                    <Button Style="{StaticResource NavigationButton}" Content="Fix Library Metadata" Click="OnMetadataClick"/>
-                    <Button Style="{StaticResource NavigationButton}" Content="Quiz History" Click="OnHistoryClick"/>
-                    <Button Style="{StaticResource NavigationButton}" Content="Settings" Click="OnSettingsClick"/>
+                <StackPanel x:Name="NavigationButtons">
+                    <Button x:Name="HomeNavigationButton" Style="{StaticResource NavigationButton}"
+                            ToolTip="Home" AutomationProperties.Name="Home" Click="OnHomeClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⌂" FontSize="20" Width="28" TextAlignment="Center"/>
+                            <TextBlock x:Name="HomeNavigationLabel" Text="Home" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="NewQuizNavigationButton" Style="{StaticResource NavigationButton}"
+                            Background="#1769AA" FontWeight="SemiBold" ToolTip="New Quiz"
+                            AutomationProperties.Name="New Quiz" Click="OnNewQuizClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="+" FontSize="22" Width="28" TextAlignment="Center"/>
+                            <TextBlock x:Name="NewQuizNavigationLabel" Text="New Quiz" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="MetadataNavigationButton" Style="{StaticResource NavigationButton}"
+                            ToolTip="Fix Library Metadata" AutomationProperties.Name="Fix Library Metadata"
+                            Click="OnMetadataClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="✎" FontSize="18" Width="28" TextAlignment="Center"/>
+                            <TextBlock x:Name="MetadataNavigationLabel" Text="Fix Library Metadata" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="HistoryNavigationButton" Style="{StaticResource NavigationButton}"
+                            ToolTip="Quiz History" AutomationProperties.Name="Quiz History" Click="OnHistoryClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="◷" FontSize="18" Width="28" TextAlignment="Center"/>
+                            <TextBlock x:Name="HistoryNavigationLabel" Text="Quiz History" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SettingsNavigationButton" Style="{StaticResource NavigationButton}"
+                            ToolTip="Settings" AutomationProperties.Name="Settings" Click="OnSettingsClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚙" FontSize="18" Width="28" TextAlignment="Center"/>
+                            <TextBlock x:Name="SettingsNavigationLabel" Text="Settings" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </DockPanel>
         </Border>

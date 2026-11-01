@@ -1,28 +1,127 @@
 <UserControl x:Class="TrackAttack.Views.HomeView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="HomeActionCard" TargetType="Button">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#172338"/>
+            <Setter Property="BorderBrush" Value="#DCE4EF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,12,12"/>
+            <Setter Property="Height" Value="104"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel MaxWidth="900" HorizontalAlignment="Left">
-            <TextBlock Text="Welcome to Track Attack" Style="{StaticResource PageTitle}" FontSize="32"/>
-            <TextBlock Text="Play a quiz from your local music library, review previous results, or clean up track metadata."
-                       FontSize="16" Foreground="#65738A" TextWrapping="Wrap" Margin="0,0,0,28"/>
-            <UniformGrid Columns="2" Rows="2">
-                <Button Content="Start a New Quiz" Style="{StaticResource ActionButton}" Height="90" FontSize="18"
-                        Click="OnNewQuizClick"/>
-                <Button Content="Fix Library Metadata" Style="{StaticResource ActionButton}" Height="90" FontSize="18"
-                        Click="OnMetadataClick"/>
-                <Button Content="Quiz History" Style="{StaticResource ActionButton}" Height="90" FontSize="18"
-                        Click="OnHistoryClick"/>
-                <Button Content="Settings" Style="{StaticResource ActionButton}" Height="90" FontSize="18"
-                        Click="OnSettingsClick"/>
-            </UniformGrid>
-            <Border Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6"
-                    Padding="18" Margin="4,28,4,0">
+        <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
+            <Border Background="#1B2638" CornerRadius="10" Padding="30" Margin="0,0,0,24">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center" MaxWidth="620">
+                        <TextBlock Text="TRACK ATTACK  /  MUSIC QUIZ" Foreground="#72BFFF"
+                                   FontSize="11" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <TextBlock Text="Ready to name that track?" Foreground="White"
+                                   FontSize="32" FontWeight="Bold" TextWrapping="Wrap"/>
+                        <TextBlock Text="Build a quiz from your library, trust your ears, and climb the leaderboard."
+                                   Foreground="#C5D2E3" FontSize="15" TextWrapping="Wrap"
+                                   Margin="0,10,12,22"/>
+                        <Button Content="START A NEW QUIZ    ›" Click="OnNewQuizClick"
+                                HorizontalAlignment="Left" Padding="20,12"
+                                Background="#1677C8" Foreground="White" BorderThickness="0"
+                                FontSize="14" FontWeight="Bold" Cursor="Hand"/>
+                    </StackPanel>
+                    <Grid Grid.Column="1" Width="190" Height="190" Margin="24,0,8,0"
+                          VerticalAlignment="Center" Opacity="0.9">
+                        <Ellipse Fill="#253248" Stroke="#3E91D2" StrokeThickness="3"/>
+                        <Ellipse Margin="15" Stroke="#52718F" StrokeThickness="2"/>
+                        <Ellipse Margin="34" Stroke="#3E91D2" StrokeThickness="2"/>
+                        <Ellipse Margin="54" Stroke="#52718F" StrokeThickness="2"/>
+                        <Ellipse Width="18" Height="18" Fill="#F5A623"/>
+                        <Path Data="M 115,20 L 85,96 L 108,96 L 91,171 L 143,79 L 119,79 L 139,20 Z"
+                              Fill="#F5A623" Stroke="#1B2638" StrokeThickness="4"
+                              Stretch="Fill" Width="62" Height="152"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="Most recent quiz" FontSize="17" FontWeight="SemiBold" Foreground="#253248"/>
-                    <TextBlock x:Name="LastQuizText" Text="Quiz history will appear here after your first game."
-                               Margin="0,8,0,0" Foreground="#65738A" TextWrapping="Wrap"/>
+                    <TextBlock Text="YOUR CONTROL ROOM" Foreground="#253248"
+                               FontSize="18" FontWeight="Bold"/>
+                    <TextBlock Text="Manage your library and review your progress."
+                               Foreground="#65738A" Margin="0,4,0,0"/>
                 </StackPanel>
+                <TextBlock Grid.Column="1" Text="QUICK ACCESS" Foreground="#8290A3"
+                           FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+            </Grid>
+
+            <UniformGrid Columns="3" Rows="1" Margin="0,0,0,8">
+                <Button Style="{StaticResource HomeActionCard}" Click="OnMetadataClick">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="✎  LIBRARY TOOLS" Foreground="#1677C8"
+                                   FontSize="10" FontWeight="Bold"/>
+                        <TextBlock Text="Fix library metadata" FontSize="16" FontWeight="SemiBold"
+                                   Margin="0,8,0,0"/>
+                        <TextBlock Text="Clean up track details" Foreground="#65738A" FontSize="12"
+                                   Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource HomeActionCard}" Click="OnHistoryClick">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="◷  YOUR RECORD" Foreground="#1677C8"
+                                   FontSize="10" FontWeight="Bold"/>
+                        <TextBlock Text="Quiz history" FontSize="16" FontWeight="SemiBold"
+                                   Margin="0,8,0,0"/>
+                        <TextBlock Text="Scores and past rounds" Foreground="#65738A" FontSize="12"
+                                   Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource HomeActionCard}" Click="OnSettingsClick">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="⚙  PREFERENCES" Foreground="#1677C8"
+                                   FontSize="10" FontWeight="Bold"/>
+                        <TextBlock Text="Settings" FontSize="16" FontWeight="SemiBold"
+                                   Margin="0,8,0,0"/>
+                        <TextBlock Text="Tune your experience" Foreground="#65738A" FontSize="12"
+                                   Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
+            </UniformGrid>
+
+            <Border Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
+                    CornerRadius="8" Padding="20" Margin="0,10,12,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="42" Height="42" CornerRadius="21" Background="#EAF4FD"
+                            VerticalAlignment="Center" Margin="0,0,14,0">
+                        <TextBlock Text="♫" Foreground="#1677C8" FontSize="22"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="RECENT SESSION" Foreground="#8290A3"
+                                   FontSize="10" FontWeight="Bold"/>
+                        <TextBlock x:Name="LastQuizText" Text="Your quiz history will appear here after your first game."
+                                   Foreground="#253248" FontSize="14" FontWeight="SemiBold"
+                                   TextWrapping="Wrap" Margin="0,5,0,0"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="LATEST" Foreground="#1677C8"
+                               FontSize="10" FontWeight="Bold" VerticalAlignment="Center"
+                               Margin="16,0,0,0"/>
+                </Grid>
             </Border>
         </StackPanel>
     </ScrollViewer>
