@@ -17,6 +17,7 @@ public partial class QuizSetupView : UserControl
     private readonly ObservableCollection<FilterChoice> _genres = [];
     private readonly ObservableCollection<FilterChoice> _decades = [];
     private readonly HashSet<string> _recentQuizSongPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _recentQuizSongIdentities = new(StringComparer.OrdinalIgnoreCase);
     private List<Song> _scannedSongs = [];
     private bool _busy;
     private bool _initializing;
@@ -141,9 +142,16 @@ public partial class QuizSetupView : UserControl
         if (TryInt(MaxLengthText.Text, 0, 0, 86400, out var maximumSeconds) && maximumSeconds > 0)
             songs = songs.Where(song => song.Duration.TotalSeconds <= maximumSeconds);
         if (ExcludeRecentCheck.IsChecked == true)
-            songs = _recentHistoryLoaded ? songs.Where(song => !_recentQuizSongPaths.Contains(song.SourcePath)) : [];
+            songs = _recentHistoryLoaded
+                ? songs.Where(song => !_recentQuizSongPaths.Contains(song.SourcePath)
+                    && !_recentQuizSongIdentities.Contains(GetSongIdentity(song)))
+                : [];
         if (UniqueArtistsCheck.IsChecked == true)
-            songs = songs.OrderBy(_ => Random.Shared.Next()).DistinctBy(song => song.Artist, StringComparer.OrdinalIgnoreCase);
+        {
+            var randomizedSongs = songs.ToArray();
+            Random.Shared.Shuffle(randomizedSongs);
+            songs = randomizedSongs.DistinctBy(song => song.Artist, StringComparer.OrdinalIgnoreCase);
+        }
         return songs.ToList();
     }
 
@@ -201,6 +209,7 @@ public partial class QuizSetupView : UserControl
         else
         {
             _recentQuizSongPaths.Clear();
+            _recentQuizSongIdentities.Clear();
             _recentHistoryLoaded = true;
         }
         UpdateMatchCount();
@@ -210,12 +219,18 @@ public partial class QuizSetupView : UserControl
     {
         _recentHistoryLoaded = false;
         _recentQuizSongPaths.Clear();
+        _recentQuizSongIdentities.Clear();
         var count = Math.Max(1, ParseInt(RecentQuizCountText.Text));
         try
         {
             var recent = await _history.GetRecentQuizSongsAsync(count, "Local", FolderText.Text.Trim());
-            foreach (var song in recent.Where(song => !string.IsNullOrWhiteSpace(song.SourcePath)))
-                _recentQuizSongPaths.Add(song.SourcePath);
+            foreach (var song in recent)
+            {
+                if (!string.IsNullOrWhiteSpace(song.SourcePath))
+                    _recentQuizSongPaths.Add(song.SourcePath);
+                else if (!string.IsNullOrWhiteSpace(song.Title) && !string.IsNullOrWhiteSpace(song.Artist))
+                    _recentQuizSongIdentities.Add(GetSongIdentity(song));
+            }
             _recentHistoryLoaded = true;
         }
         catch (Exception ex)
@@ -282,9 +297,10 @@ public partial class QuizSetupView : UserControl
         }
 
         var count = Math.Min(requestedCount, candidates.Count);
-        var shuffled = candidates.OrderBy(_ => Random.Shared.Next()).ToList();
+        var shuffled = candidates.ToArray();
+        Random.Shared.Shuffle(shuffled);
         var selected = shuffled.Take(count).ToArray();
-        var reserveCount = Math.Min(ParseInt(MulliganCountText.Text), shuffled.Count - count);
+        var reserveCount = Math.Min(ParseInt(MulliganCountText.Text), shuffled.Length - count);
         var reserve = shuffled.Skip(count).Take(reserveCount).ToArray();
         var settings = AppSettings.Load();
         settings.MusicDirectory = FolderText.Text.Trim();
@@ -346,6 +362,9 @@ public partial class QuizSetupView : UserControl
         };
         QuizRequested?.Invoke(config, selected, reserve);
     }
+
+    private static string GetSongIdentity(Song song)
+        => $"{song.Title.Trim()}\0{song.Artist.Trim()}";
 
     private void OnSavePresetClick(object sender, RoutedEventArgs e)
     {

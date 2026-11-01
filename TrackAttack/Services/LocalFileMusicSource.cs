@@ -48,7 +48,9 @@ public class LocalFileMusicSource : IMusicSource
         if (config.MaxSongDuration.HasValue)
             songs = songs.Where(s => s.Duration <= config.MaxSongDuration.Value).ToList();
 
-        return songs.OrderBy(_ => Random.Shared.Next()).Take(config.SongCount);
+        var shuffledSongs = songs.ToArray();
+        Random.Shared.Shuffle(shuffledSongs);
+        return shuffledSongs.Take(config.SongCount);
     }
 
     public Task<IEnumerable<string>> GetAvailableGenresAsync(string sourceIdentifier)
