@@ -2,7 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
-        <Style x:Key="HomeActionCard" TargetType="Button">
+        <Style x:Key="HomeActionCard" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Background" Value="White"/>
             <Setter Property="Foreground" Value="#172338"/>
             <Setter Property="BorderBrush" Value="#DCE4EF"/>
@@ -20,8 +20,9 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="190"/>
                     </Grid.ColumnDefinitions>
-                    <StackPanel VerticalAlignment="Center" MaxWidth="620">
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" MaxWidth="620" Margin="0,0,12,0">
                         <TextBlock Text="TRACK ATTACK  /  MUSIC QUIZ" Foreground="#72BFFF"
                                    FontSize="11" FontWeight="Bold" Margin="0,0,0,12"/>
                         <TextBlock Text="Ready to name that track?" Foreground="White"
@@ -34,7 +35,7 @@
                                 Background="#1677C8" Foreground="White" BorderThickness="0"
                                 FontSize="14" FontWeight="Bold" Cursor="Hand"/>
                     </StackPanel>
-                    <Grid Grid.Column="1" Width="190" Height="190" Margin="24,0,8,0"
+                    <Grid Grid.Column="1" Width="160" Height="160"
                           VerticalAlignment="Center" Opacity="0.9">
                         <Ellipse Fill="#253248" Stroke="#3E91D2" StrokeThickness="3"/>
                         <Ellipse Margin="15" Stroke="#52718F" StrokeThickness="2"/>

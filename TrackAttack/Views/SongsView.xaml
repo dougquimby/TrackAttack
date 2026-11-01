@@ -4,7 +4,9 @@
     <Grid>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
         <TextBlock Text="Songs matching your selected filters" Style="{StaticResource PageTitle}"/>
-        <Grid Grid.Row="1" Margin="0,0,0,10">
+        <Border Grid.Row="1" Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
+                CornerRadius="8" Padding="12" Margin="0,0,0,12">
+        <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="140"/>
                 <ColumnDefinition Width="*"/>
@@ -20,6 +22,7 @@
             <Button Grid.Column="2" Content="Search" Click="OnSearchClick" Margin="0,0,8,0"/>
             <TextBlock x:Name="CountText" Grid.Column="3" VerticalAlignment="Center" Foreground="#65738A"/>
         </Grid>
+        </Border>
         <DataGrid x:Name="SongsGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="2*"/>

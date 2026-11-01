@@ -16,8 +16,10 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
 
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
-            INSERT INTO QuizHistory (Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage, DurationSeconds, ConfigJson)
-            VALUES (@Date, @SourceType, @SourceDir, @Total, @Correct, @Pct, @Duration, @Config);
+            INSERT INTO QuizHistory (Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage,
+                                     DurationSeconds, ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed)
+            VALUES (@Date, @SourceType, @SourceDir, @Total, @Correct, @Pct, @Duration, @Config,
+                    @MulligansUsed, @ExtendersUsed, @HintsUsed);
             SELECT last_insert_rowid();
             """;
         cmd.Parameters.AddWithValue("@Date", session.Date.ToString("O"));
@@ -28,6 +30,9 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         cmd.Parameters.AddWithValue("@Pct", session.Percentage);
         cmd.Parameters.AddWithValue("@Duration", session.Duration.TotalSeconds);
         cmd.Parameters.AddWithValue("@Config", JsonSerializer.Serialize(session.Config));
+        cmd.Parameters.AddWithValue("@MulligansUsed", (object?)session.MulligansUsed ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ExtendersUsed", (object?)session.ExtendersUsed ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@HintsUsed", (object?)session.HintsUsed ?? DBNull.Value);
 
         session.Id = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 
@@ -63,7 +68,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
 
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
-            SELECT Id, Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage, DurationSeconds, ConfigJson
+            SELECT Id, Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage, DurationSeconds,
+                   ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed
             FROM QuizHistory ORDER BY Date DESC
             """;
 
@@ -78,7 +84,10 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                     Id = reader.GetInt32(0),
                     Date = DateTime.Parse(reader.GetString(1)),
                     Config = config,
-                    Duration = TimeSpan.FromSeconds(reader.GetDouble(7))
+                    Duration = TimeSpan.FromSeconds(reader.GetDouble(7)),
+                    MulligansUsed = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                    ExtendersUsed = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                    HintsUsed = reader.IsDBNull(11) ? null : reader.GetInt32(11)
                 };
                 sessions.Add(session);
             }
@@ -133,7 +142,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
 
         using var histCmd = connection.CreateCommand();
         histCmd.CommandText = """
-            SELECT Id, Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage, DurationSeconds, ConfigJson
+            SELECT Id, Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage, DurationSeconds,
+                   ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed
             FROM QuizHistory WHERE Id = @Id
             """;
         histCmd.Parameters.AddWithValue("@Id", id);
@@ -148,7 +158,10 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                     Id = reader.GetInt32(0),
                     Date = DateTime.Parse(reader.GetString(1)),
                     Config = JsonSerializer.Deserialize<QuizConfig>(reader.GetString(8)) ?? new QuizConfig(),
-                    Duration = TimeSpan.FromSeconds(reader.GetDouble(7))
+                    Duration = TimeSpan.FromSeconds(reader.GetDouble(7)),
+                    MulligansUsed = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                    ExtendersUsed = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                    HintsUsed = reader.IsDBNull(11) ? null : reader.GetInt32(11)
                 };
             }
         }

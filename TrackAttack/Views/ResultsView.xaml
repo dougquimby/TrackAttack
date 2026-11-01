@@ -13,8 +13,8 @@
                     MinWidth="130" Click="OnPlayAgainClick"/>
             <TextBlock x:Name="TitleText" Text="Quiz complete" Style="{StaticResource PageTitle}"/>
         </DockPanel>
-        <Border Grid.Row="1" Background="White" BorderBrush="#E0E5EC" BorderThickness="1"
-                CornerRadius="6" Padding="16" Margin="0,0,0,8">
+        <Border Grid.Row="1" Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
+                CornerRadius="8" Padding="18" Margin="0,0,0,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -32,23 +32,23 @@
                            Foreground="#65738A" TextAlignment="Right"/>
             </Grid>
         </Border>
-        <TextBlock Grid.Row="2" Text="Song-by-song results" FontSize="17" FontWeight="SemiBold"
+        <TextBlock Grid.Row="2" Text="SONG-BY-SONG RESULTS" FontSize="12" FontWeight="Bold"
                    Foreground="#253248" Margin="0,0,0,8"/>
         <DataGrid x:Name="ResultsGrid" Grid.Row="3" AutoGenerateColumns="False" IsReadOnly="True">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding Status}" Value="Correct">
-                            <Setter Property="Background" Value="#C6EFCE"/>
-                            <Setter Property="Foreground" Value="#006100"/>
+                            <Setter Property="Background" Value="#E1F2E8"/>
+                            <Setter Property="Foreground" Value="#245B38"/>
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Status}" Value="Partial">
-                            <Setter Property="Background" Value="#FFEB96"/>
-                            <Setter Property="Foreground" Value="#644600"/>
+                            <Setter Property="Background" Value="#FFF2D6"/>
+                            <Setter Property="Foreground" Value="#74520A"/>
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Status}" Value="Missed">
-                            <Setter Property="Background" Value="#FFC7CE"/>
-                            <Setter Property="Foreground" Value="#9C0006"/>
+                            <Setter Property="Background" Value="#FCE6E8"/>
+                            <Setter Property="Foreground" Value="#8A3540"/>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>

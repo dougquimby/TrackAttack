@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Focusable="True" PreviewKeyDown="OnQuizPreviewKeyDown">
     <UserControl.Resources>
-        <Style x:Key="QuizControlButton" TargetType="Button">
+        <Style x:Key="QuizControlButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Height" Value="36"/>
             <Setter Property="MinWidth" Value="82"/>
             <Setter Property="Padding" Value="12,6"/>
@@ -14,33 +14,31 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style x:Key="MulliganButton" TargetType="Button" BasedOn="{StaticResource QuizControlButton}">
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="MinWidth" Value="72"/>
-            <Setter Property="Padding" Value="8,3"/>
-            <Setter Property="Margin" Value="0,0,6,0"/>
-            <Setter Property="Background" Value="#604878"/>
-            <Setter Property="BorderBrush" Value="#80649A"/>
-            <Setter Property="Foreground" Value="White"/>
+        <Style x:Key="QuizPowerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="40"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+            <Setter Property="Cursor" Value="Hand"/>
         </Style>
-        <Style x:Key="ExtenderButton" TargetType="Button" BasedOn="{StaticResource QuizControlButton}">
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="MinWidth" Value="72"/>
-            <Setter Property="Padding" Value="8,3"/>
-            <Setter Property="Margin" Value="0,0,6,0"/>
-            <Setter Property="Background" Value="#3D6843"/>
-            <Setter Property="BorderBrush" Value="#628469"/>
-            <Setter Property="Foreground" Value="White"/>
+        <Style x:Key="MulliganButton" TargetType="Button" BasedOn="{StaticResource QuizPowerButton}">
+            <Setter Property="Background" Value="#F1EAF7"/>
+            <Setter Property="BorderBrush" Value="#DCCFE8"/>
+            <Setter Property="Foreground" Value="#604878"/>
         </Style>
-        <Style x:Key="HintButton" TargetType="Button" BasedOn="{StaticResource QuizControlButton}">
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="MinWidth" Value="72"/>
-            <Setter Property="Padding" Value="8,3"/>
-            <Setter Property="Background" Value="#286583"/>
-            <Setter Property="BorderBrush" Value="#4C849F"/>
-            <Setter Property="Foreground" Value="White"/>
+        <Style x:Key="ExtenderButton" TargetType="Button" BasedOn="{StaticResource QuizPowerButton}">
+            <Setter Property="Background" Value="#EAF3EB"/>
+            <Setter Property="BorderBrush" Value="#CFDFD1"/>
+            <Setter Property="Foreground" Value="#3D6843"/>
         </Style>
-        <Style x:Key="QuizIconButton" TargetType="Button">
+        <Style x:Key="HintButton" TargetType="Button" BasedOn="{StaticResource QuizPowerButton}">
+            <Setter Property="Background" Value="#E8F1F6"/>
+            <Setter Property="BorderBrush" Value="#CBDDE7"/>
+            <Setter Property="Foreground" Value="#286583"/>
+        </Style>
+        <Style x:Key="QuizIconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="Margin" Value="6,0,0,0"/>
@@ -60,14 +58,18 @@
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <DockPanel Grid.Row="0" Margin="0,0,0,14">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="MuteButton" Content="&#xE767;" Style="{StaticResource QuizIconButton}"
+                        Width="30" Height="30" Margin="0,0,8,0" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                        ToolTip="Mute audio" AutomationProperties.Name="Mute audio" Click="OnMuteClick"/>
                 <TextBlock Text="Volume" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#65738A"/>
                 <Slider x:Name="VolumeSlider" Minimum="0" Maximum="1" Value="1" Width="110"
+                        IsMoveToPointEnabled="True"
                         VerticalAlignment="Center" ValueChanged="OnVolumeChanged"/>
             </StackPanel>
             <Button x:Name="QuizPauseButton" DockPanel.Dock="Right" Content="Ⅱ"
@@ -77,7 +79,7 @@
             <TextBlock x:Name="TimerText" DockPanel.Dock="Right" FontSize="26" FontWeight="Bold" Foreground="#1769AA" Margin="0,0,24,0"/>
             <TextBlock x:Name="ScoreText" FontSize="18" FontWeight="SemiBold" Foreground="#253248"/>
         </DockPanel>
-        <Border Grid.Row="1" Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16">
+        <Border Grid.Row="1" Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="18">
             <StackPanel>
                 <TextBlock x:Name="NowPlayingText" Text="Starting…" FontSize="18" FontWeight="SemiBold"
                            Foreground="#172338"/>
@@ -108,40 +110,65 @@
                 </Grid>
             </StackPanel>
         </Border>
-        <Border x:Name="PowerGroupPanel" Grid.Row="2" Background="#253248" CornerRadius="5"
-                Padding="10,4" Margin="0,8,0,10" HorizontalAlignment="Left" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="POWERS" Foreground="#C5D2E3" FontSize="10" FontWeight="Bold"
-                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <Button x:Name="MulliganButton" Content="Mulligan" Style="{StaticResource MulliganButton}" Click="OnMulliganClick"/>
-                    <Button x:Name="ExtenderButton" Content="Extender" Style="{StaticResource ExtenderButton}" Click="OnExtenderClick"/>
-                    <Button x:Name="HintButton" Content="Hint" Style="{StaticResource HintButton}" Margin="0" Click="OnHintClick"/>
-                </StackPanel>
-        </Border>
-        <Border Grid.Row="3" Background="White" BorderBrush="#D5DCE5" BorderThickness="1" CornerRadius="6"
+        <Border Grid.Row="2" Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8"
                 Padding="14" Margin="0,0,0,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="1.2*"/>
+                    <ColumnDefinition Width="1.5*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="YOUR ANSWER" FontSize="12" FontWeight="Bold" Foreground="#65738A"
                            VerticalAlignment="Center" Margin="0,0,14,0"/>
                 <TextBox x:Name="AnswerText" Grid.Column="1" Height="36" FontSize="17" Padding="10,4"
-                     VerticalContentAlignment="Center" KeyDown="OnAnswerKeyDown" TextChanged="OnAnswerTextChanged"
-                     SpellCheck.IsEnabled="True"/>
-                <Grid Grid.Column="2" Margin="16,0,0,0">
+                         VerticalContentAlignment="Center" KeyDown="OnAnswerKeyDown" TextChanged="OnAnswerTextChanged"
+                         SpellCheck.IsEnabled="True"/>
+                <Grid Grid.Column="2" Margin="14,0,0,0">
                     <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <TextBlock x:Name="AnswerPrompt" Foreground="#65738A" TextWrapping="Wrap"
                                VerticalAlignment="Center"/>
                     <TextBlock x:Name="FeedbackText" Grid.Row="1" Foreground="#1769AA" FontSize="15"
                                FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,3,0,0"/>
                 </Grid>
+                <Border x:Name="PowerGroupPanel" Grid.Column="3" Background="#F4F6FA"
+                        BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="6"
+                        Padding="4" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="MulliganButton" Style="{StaticResource MulliganButton}"
+                                ToolTip="Replace the current song" AutomationProperties.Name="Use mulligan power"
+                                Click="OnMulliganClick">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="↻" FontSize="17" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="MulliganCountText" FontFamily="Segoe UI" FontSize="11"
+                                           FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,1,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ExtenderButton" Style="{StaticResource ExtenderButton}"
+                                ToolTip="Extend the current song clip" AutomationProperties.Name="Use extender power"
+                                Click="OnExtenderClick">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="⏱" FontSize="16" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ExtenderCountText" FontFamily="Segoe UI" FontSize="11"
+                                           FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,1,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="HintButton" Style="{StaticResource HintButton}" Margin="0"
+                                ToolTip="Reveal a hint for the current song" AutomationProperties.Name="Use hint power"
+                                Click="OnHintClick">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="?" FontFamily="Segoe UI" FontSize="15" FontWeight="Bold"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock x:Name="HintCountText" FontFamily="Segoe UI" FontSize="11"
+                                           FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,1,0,0"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
-        <Border Grid.Row="4" Background="White" BorderBrush="#D5DCE5" BorderThickness="1"
-                CornerRadius="6" Padding="8">
+        <Border Grid.Row="3" Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
+                CornerRadius="8" Padding="10">
             <DataGrid x:Name="SongsGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
                       SelectionMode="Single" SelectionUnit="Cell" HeadersVisibility="Column"
                       PreviewMouseLeftButtonDown="OnSongGridMouseDown"
@@ -149,8 +176,8 @@
                       ScrollViewer.VerticalScrollBarVisibility="Auto"
                       ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
         </Border>
-        <Border Grid.Row="5" Background="White" BorderBrush="#D5DCE5" BorderThickness="1"
-                CornerRadius="6" Padding="12,8" Margin="0,10,0,0">
+        <Border Grid.Row="4" Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
+                CornerRadius="8" Padding="14,10" Margin="0,10,0,0">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <TextBlock Text="HINTS" FontSize="11" FontWeight="Bold" Foreground="#65738A" Margin="0,3,8,0"/>
@@ -170,7 +197,7 @@
                 </ScrollViewer>
             </Grid>
         </Border>
-        <TextBlock Grid.Row="6" Text="Ctrl+P passes · Ctrl+R replays · Ctrl+Space pauses the clip · Ctrl+Shift+Space pauses the quiz · Tab passes"
+        <TextBlock Grid.Row="5" Text="Ctrl+P passes · Ctrl+R replays · Ctrl+Space pauses the clip · Ctrl+Shift+Space pauses the quiz · Tab passes"
                    Foreground="#65738A" FontSize="11" Margin="0,8,0,0"/>
     </Grid>
 </UserControl>

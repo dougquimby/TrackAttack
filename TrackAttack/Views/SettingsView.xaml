@@ -4,14 +4,15 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Settings" Style="{StaticResource PageTitle}"/>
-            <Border Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="18">
+            <Border Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="22">
                 <StackPanel>
-                    <TextBlock Text="Music library" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="MUSIC LIBRARY" FontSize="12" FontWeight="Bold" Foreground="#65738A"/>
                     <DockPanel Margin="0,10,0,20">
                         <Button Content="Browse…" Click="OnBrowseClick" DockPanel.Dock="Right" Margin="8,0"/>
                         <TextBox x:Name="FolderText" Height="32" VerticalContentAlignment="Center"/>
                     </DockPanel>
-                    <TextBlock Text="Default quiz behavior" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock Text="DEFAULT QUIZ BEHAVIOR" FontSize="12" FontWeight="Bold"
+                               Foreground="#65738A" Margin="0,0,0,10"/>
                     <WrapPanel>
                         <StackPanel Margin="0,0,18,8"><TextBlock Text="Seconds per song"/><TextBox x:Name="SecondsText" Width="120"/></StackPanel>
                         <StackPanel Margin="0,0,18,8"><TextBlock Text="Clip duration (sec)"/><TextBox x:Name="ClipDurationText" Width="120"/></StackPanel>
@@ -22,7 +23,7 @@
                     <CheckBox x:Name="SkipCorrectCheck" Content="Advance immediately after a correct guess" Margin="0,4"/>
                     <CheckBox x:Name="ShowCountsCheck" Content="Show track counts in genre and decade filters" Margin="0,4"/>
                     <Separator Margin="0,16,0,12"/>
-                    <TextBlock Text="Optional quiz sources" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="OPTIONAL QUIZ SOURCES" FontSize="12" FontWeight="Bold" Foreground="#65738A"/>
                     <CheckBox x:Name="EnableSpotifyCheck" Content="Enable Spotify playlist quizzes"
                               Margin="0,8,0,6" Checked="OnSpotifyFeatureChanged" Unchecked="OnSpotifyFeatureChanged"/>
                     <StackPanel x:Name="SpotifySettingsPanel" Visibility="Collapsed" Margin="0,0,0,10">
@@ -37,7 +38,8 @@
                                        Foreground="#65738A"/>
                         </WrapPanel>
                     </StackPanel>
-                    <TextBlock Text="Default metadata lookup provider" FontWeight="SemiBold" Margin="0,18,0,5"/>
+                    <TextBlock Text="DEFAULT METADATA LOOKUP PROVIDER" FontSize="12" FontWeight="Bold"
+                               Foreground="#65738A" Margin="0,18,0,5"/>
                     <ComboBox x:Name="ProviderCombo" Width="220" HorizontalAlignment="Left"/>
                     <TextBlock x:Name="PathsText" Foreground="#65738A" TextWrapping="Wrap" Margin="0,18,0,8"/>
                     <WrapPanel>

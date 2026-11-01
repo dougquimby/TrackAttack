@@ -6,10 +6,37 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,0,0,14">
+        <Grid Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Background="#EEF3FA" BorderBrush="#DCE4EF" BorderThickness="1"
+                    CornerRadius="8" Padding="5,4" Margin="0,0,0,8"
+                    VerticalAlignment="Top">
+                <DockPanel LastChildFill="True">
+                    <TextBlock Text="JUMP TO" FontSize="10" FontWeight="Bold" Foreground="#65738A"
+                               VerticalAlignment="Center" Margin="4,0,8,0"/>
+                    <WrapPanel>
+                        <Button Content="Source &amp; library" Tag="SourceSection"
+                                Click="OnSectionNavigationClick" Height="27" MinHeight="27"
+                                Padding="8,2" FontSize="12" Margin="0,0,4,0"/>
+                        <Button Content="Track filters" Tag="TrackFiltersSection"
+                                Click="OnSectionNavigationClick" Height="27" MinHeight="27"
+                                Padding="8,2" FontSize="12" Margin="0,0,4,0"/>
+                        <Button Content="Quiz rules" Tag="QuizRulesSection"
+                                Click="OnSectionNavigationClick" Height="27" MinHeight="27"
+                                Padding="8,2" FontSize="12" Margin="0,0,4,0"/>
+                        <Button Content="Powers &amp; scoring" Tag="PowersSection"
+                                Click="OnSectionNavigationClick" Height="27" MinHeight="27"
+                                Padding="8,2" FontSize="12" Margin="0"/>
+                    </WrapPanel>
+                </DockPanel>
+            </Border>
+            <ScrollViewer x:Name="SetupScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,0,14">
             <TextBlock Text="Quiz setup" Style="{StaticResource PageTitle}"/>
-            <Border Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+            <Border Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,12">
                 <Grid VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -30,17 +57,18 @@
                             Click="OnDeletePresetClick"/>
                 </Grid>
             </Border>
-            <Grid Margin="0,0,0,12">
+            <Grid x:Name="SourceSection" Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border x:Name="SourceSelectorPanel" Grid.Column="0" Background="White" BorderBrush="#E0E5EC"
-                        BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,12,0"
+                        BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,12,0"
                         VerticalAlignment="Stretch" Visibility="Collapsed">
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Quiz source" FontSize="17" FontWeight="SemiBold" Margin="4,0,4,6"/>
-                        <ComboBox x:Name="SourceCombo" Width="200" Height="30" SelectedIndex="0"
+                    <StackPanel VerticalAlignment="Top">
+                        <TextBlock Text="Quiz source" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <ComboBox x:Name="SourceCombo" Width="200" Height="30" HorizontalAlignment="Left"
+                                  SelectedIndex="0"
                                   SelectionChanged="OnSourceTypeChanged">
                             <ComboBoxItem Content="Local library"/>
                             <ComboBoxItem Content="Spotify playlist"/>
@@ -48,7 +76,7 @@
                     </StackPanel>
                 </Border>
                 <Border x:Name="LocalSourcePanel" Grid.Column="1" Background="White" BorderBrush="#E0E5EC"
-                        BorderThickness="1" CornerRadius="6" Padding="16">
+                        BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel>
                         <TextBlock Text="Music library" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <DockPanel>
@@ -63,7 +91,7 @@
                     </StackPanel>
                 </Border>
                 <Border x:Name="SpotifySourcePanel" Grid.Column="1" Background="White" BorderBrush="#E0E5EC"
-                        BorderThickness="1" CornerRadius="6" Padding="16" Visibility="Collapsed">
+                        BorderThickness="1" CornerRadius="8" Padding="18" Visibility="Collapsed">
                     <StackPanel>
                         <TextBlock Text="Spotify playlist" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <DockPanel>
@@ -80,9 +108,10 @@
 
             <Grid Margin="0,14,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16">
+                <Border x:Name="TrackFiltersSection" Grid.Column="0" Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel>
-                        <TextBlock Text="Track filters" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="TrackFiltersHeading" Text="Track filters" FontSize="17"
+                                   FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <StackPanel x:Name="GenreFilterPanel">
                         <Grid Margin="0,4">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -119,9 +148,10 @@
                         </WrapPanel>
                     </StackPanel>
                 </Border>
-                <Border Grid.Column="2" Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16">
+                <Border x:Name="QuizRulesSection" Grid.Column="2" Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="18">
                     <StackPanel>
-                        <TextBlock Text="Quiz rules" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="QuizRulesHeading" Text="Quiz rules" FontSize="17"
+                                   FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <WrapPanel>
                             <StackPanel Margin="0,0,18,8"><TextBlock Text="Songs"/><TextBox x:Name="SongCountText" Text="20" Width="80"/></StackPanel>
                             <StackPanel Margin="0,0,18,8"><TextBlock Text="Seconds per song"/><TextBox x:Name="SecondsText" Text="30" Width="110"/></StackPanel>
@@ -157,9 +187,10 @@
                     </StackPanel>
                 </Border>
             </Grid>
-            <Border Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,14,0,0">
+            <Border x:Name="PowersSection" Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,14,0,0">
                 <StackPanel>
-                    <TextBlock Text="Powers and scoring" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock x:Name="PowersHeading" Text="Powers and scoring" FontSize="17"
+                               FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <UniformGrid Columns="4">
                         <GroupBox Header="Mulligans" Margin="0,0,8,8">
                             <Grid Margin="4">
@@ -195,9 +226,10 @@
                     <UniformGrid x:Name="HintTypesPanel" Columns="3"/>
                 </StackPanel>
             </Border>
-        </StackPanel>
-        </ScrollViewer>
-        <Border Grid.Row="1" Background="White" BorderBrush="#D5DCE5" BorderThickness="1,1,1,0"
+            </StackPanel>
+            </ScrollViewer>
+        </Grid>
+        <Border Grid.Row="1" Background="White" BorderBrush="#DCE4EF" BorderThickness="1,1,1,0"
                 Padding="12,8">
             <DockPanel LastChildFill="True">
                 <Button x:Name="StartQuizButton" Content="Start Quiz" Style="{StaticResource ActionButton}"

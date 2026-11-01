@@ -6,6 +6,9 @@ public class QuizSession
     public DateTime Date { get; set; }
     public QuizConfig Config { get; set; } = new();
     public List<SongResult> Results { get; set; } = [];
+    public int? MulligansUsed { get; set; }
+    public int? ExtendersUsed { get; set; }
+    public int? HintsUsed { get; set; }
     public int Score => Results.Count(r => r.IsCorrect);
     public double TotalPoints => Results.Sum(result => CalculatePoints(result, Config));
     public double MaxPoints => Config.QuizMode == QuizMode.GuessBoth ? Results.Count * 2.0 : Results.Count;

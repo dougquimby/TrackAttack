@@ -4,7 +4,7 @@
     <Grid>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
         <DockPanel>
-            <Button x:Name="ClearHistoryButton" Content="Clear history…" DockPanel.Dock="Right" Height="34" Padding="12,5"
+            <Button x:Name="ClearHistoryButton" Content="Clear history…" DockPanel.Dock="Right" Height="36" Padding="12,5"
                     Margin="0,0,4,16" Click="OnClearHistoryClick"/>
             <TextBlock Text="Quiz History" Style="{StaticResource PageTitle}"/>
         </DockPanel>
@@ -12,10 +12,37 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="4*"/></Grid.ColumnDefinitions>
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <TextBlock Text="Completed quizzes" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                <TextBlock Text="COMPLETED QUIZZES" FontSize="12" FontWeight="Bold"
+                           Foreground="#65738A" Margin="0,0,0,10"/>
                 <DataGrid x:Name="HistoryGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
                           SelectionMode="Single" SelectionChanged="OnSelectionChanged">
                     <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="" Width="36" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid Width="22" Height="22" ToolTip="{Binding SourceLabel}"
+                                          AutomationProperties.Name="{Binding SourceLabel}">
+                                        <Grid x:Name="LocalSourceIcon">
+                                            <Ellipse Fill="#1677C8"/>
+                                            <Ellipse Margin="5" Stroke="White" StrokeThickness="1.5"/>
+                                            <Ellipse Width="4" Height="4" Fill="White"/>
+                                        </Grid>
+                                        <Grid x:Name="SpotifySourceIcon" Visibility="Collapsed">
+                                            <Ellipse Fill="#1DB954"/>
+                                            <Path Data="M 4,8 C 9,6 15,7 19,9 M 5,11 C 9,10 14,10.5 18,12.5 M 6,14 C 10,13 13,13.5 16,15"
+                                                  Stroke="White" StrokeThickness="1.4" StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round" Fill="Transparent"/>
+                                        </Grid>
+                                    </Grid>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsSpotify}" Value="True">
+                                            <Setter TargetName="LocalSourceIcon" Property="Visibility" Value="Collapsed"/>
+                                            <Setter TargetName="SpotifySourceIcon" Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Date" Binding="{Binding DateLabel}" Width="*"/>
                         <DataGridTextColumn Header="Quiz" Binding="{Binding Title}" Width="*"/>
                         <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="100"/>
@@ -25,24 +52,28 @@
                 </DataGrid>
             </Grid>
             <Grid Grid.Column="2">
-                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="17"
-                           FontWeight="SemiBold" Margin="0,0,0,10" TextTrimming="CharacterEllipsis"/>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="12"
+                           Foreground="#65738A" FontWeight="Bold" Margin="0,0,0,10" TextTrimming="CharacterEllipsis"/>
                 <DataGrid x:Name="DetailGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Status}" Value="Correct">
-                                    <Setter Property="Background" Value="#C6EFCE"/>
-                                    <Setter Property="Foreground" Value="#006100"/>
+                                    <Setter Property="Background" Value="#E1F2E8"/>
+                                    <Setter Property="Foreground" Value="#245B38"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="Partial">
-                                    <Setter Property="Background" Value="#FFEB96"/>
-                                    <Setter Property="Foreground" Value="#644600"/>
+                                    <Setter Property="Background" Value="#FFF2D6"/>
+                                    <Setter Property="Foreground" Value="#74520A"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="Missed">
-                                    <Setter Property="Background" Value="#FFC7CE"/>
-                                    <Setter Property="Foreground" Value="#9C0006"/>
+                                    <Setter Property="Background" Value="#FCE6E8"/>
+                                    <Setter Property="Foreground" Value="#8A3540"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -56,6 +87,15 @@
                         <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="60"/>
                     </DataGrid.Columns>
                 </DataGrid>
+                <Border Grid.Row="2" Background="#F4F6FA" BorderBrush="#DCE4EF" BorderThickness="1"
+                        CornerRadius="8" Padding="12" Margin="0,10,0,0">
+                    <StackPanel>
+                        <TextBlock Text="SCORE-IMPACTING SETTINGS" FontSize="11" FontWeight="Bold"
+                                   Foreground="#65738A" Margin="0,0,0,5"/>
+                        <TextBlock x:Name="SettingsSummaryText" Text="Select a quiz to see its settings and power usage."
+                                   Foreground="#34445C" FontSize="12" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Grid>
     </Grid>

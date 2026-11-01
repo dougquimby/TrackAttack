@@ -87,6 +87,9 @@ public class QuizEngine : IDisposable
     public int MulligansRemaining => _mulligansRemaining;
     public int ExtendersRemaining => _extendersRemaining;
     public int HintsRemaining => _hintsRemaining;
+    public int MulligansUsed => Math.Max(0, _config.MulliganCount - _mulligansRemaining);
+    public int ExtendersUsed => Math.Max(0, _config.ExtenderCount - _extendersRemaining);
+    public int HintsUsed => Math.Max(0, _config.HintCount - _hintsRemaining);
 
     public QuizEngine(QuizConfig config, IEnumerable<Song> songs, IEnumerable<Song> mulliganReserve, IPlaybackService playback)
     {

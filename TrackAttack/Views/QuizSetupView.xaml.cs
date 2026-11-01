@@ -88,6 +88,18 @@ public partial class QuizSetupView : UserControl
         GenreFilterPanel.Visibility = spotify ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    private void OnSectionNavigationClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string targetName }
+            && FindName(targetName) is FrameworkElement target)
+        {
+            var targetTop = target.TransformToAncestor(SetupScrollViewer)
+                .Transform(new Point(0, 0)).Y;
+            SetupScrollViewer.ScrollToVerticalOffset(
+                SetupScrollViewer.VerticalOffset + targetTop - 8);
+        }
+    }
+
     private void OnRandomClipCheckChanged(object sender, RoutedEventArgs e)
         => UpdateClipStartInput();
 

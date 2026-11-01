@@ -26,7 +26,10 @@ public static class DatabaseInitializer
                 CorrectCount    INTEGER NOT NULL,
                 Percentage      REAL    NOT NULL,
                 DurationSeconds REAL    NOT NULL,
-                ConfigJson      TEXT    NOT NULL
+                ConfigJson      TEXT    NOT NULL,
+                MulligansUsed   INTEGER,
+                ExtendersUsed   INTEGER,
+                HintsUsed       INTEGER
             );
             CREATE TABLE IF NOT EXISTS QuizSongResult (
                 Id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +67,15 @@ public static class DatabaseInitializer
             }
         }
 
+        var historyColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var historyColumnsCmd = connection.CreateCommand())
+        {
+            historyColumnsCmd.CommandText = "PRAGMA table_info(QuizHistory);";
+            using var reader = historyColumnsCmd.ExecuteReader();
+            while (reader.Read())
+                historyColumns.Add(reader.GetString(1));
+        }
+
         using (var alterCmd = connection.CreateCommand())
         {
             if (!hasArtistGuess)
@@ -84,6 +96,21 @@ public static class DatabaseInitializer
             if (!hasPowerPenalty)
             {
                 alterCmd.CommandText = "ALTER TABLE QuizSongResult ADD COLUMN PowerPenalty REAL NOT NULL DEFAULT 0;";
+                alterCmd.ExecuteNonQuery();
+            }
+            if (!historyColumns.Contains("MulligansUsed"))
+            {
+                alterCmd.CommandText = "ALTER TABLE QuizHistory ADD COLUMN MulligansUsed INTEGER;";
+                alterCmd.ExecuteNonQuery();
+            }
+            if (!historyColumns.Contains("ExtendersUsed"))
+            {
+                alterCmd.CommandText = "ALTER TABLE QuizHistory ADD COLUMN ExtendersUsed INTEGER;";
+                alterCmd.ExecuteNonQuery();
+            }
+            if (!historyColumns.Contains("HintsUsed"))
+            {
+                alterCmd.CommandText = "ALTER TABLE QuizHistory ADD COLUMN HintsUsed INTEGER;";
                 alterCmd.ExecuteNonQuery();
             }
         }

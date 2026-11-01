@@ -29,6 +29,8 @@ public partial class QuizView : UserControl, IDisposable
     private long _lastClipDurationSecond = -1;
     private long _lastSongPositionSecond = -1;
     private long _lastSongDurationSecond = -1;
+    private float _lastAudibleVolume = 1f;
+    private bool _isMuted;
     private bool _finished;
     private bool _disposed;
     private string? _playbackFailureMessage;
@@ -47,6 +49,7 @@ public partial class QuizView : UserControl, IDisposable
         _playback = playback ?? new NAudioPlaybackService();
         _engine = new QuizEngine(config, songs, reserve, _playback);
         InitializeComponent();
+        UpdateMuteButton();
         if (_playback is SpotifyPlaybackService spotifyPlayback)
         {
             spotifyPlayback.PlaybackFailed += OnPlaybackFailed;
@@ -234,7 +237,16 @@ public partial class QuizView : UserControl, IDisposable
             return;
         _finished = true;
         _progressTimer.Stop();
-        var session = new QuizSession { Date = DateTime.Now, Config = _config, Results = e.Results.ToList(), Duration = e.Duration };
+        var session = new QuizSession
+        {
+            Date = DateTime.Now,
+            Config = _config,
+            Results = e.Results.ToList(),
+            MulligansUsed = _engine.MulligansUsed,
+            ExtendersUsed = _engine.ExtendersUsed,
+            HintsUsed = _engine.HintsUsed,
+            Duration = e.Duration
+        };
         try { await _history.SaveAsync(session); }
         catch (Exception ex)
         {
@@ -343,13 +355,16 @@ public partial class QuizView : UserControl, IDisposable
     {
         var hasPowers = _config.MulliganCount > 0 || _config.ExtenderCount > 0 || _config.HintCount > 0;
         PowerGroupPanel.Visibility = hasPowers ? Visibility.Visible : Visibility.Collapsed;
-        MulliganButton.Content = $"Mulligan ({_engine.MulligansRemaining})";
+        MulliganCountText.Text = _engine.MulligansRemaining.ToString();
+        MulliganButton.ToolTip = $"Replace the current song ({_engine.MulligansRemaining} remaining)";
         MulliganButton.IsEnabled = _engine.CanUseMulligan;
         MulliganButton.Visibility = _config.MulliganCount > 0 ? Visibility.Visible : Visibility.Collapsed;
-        ExtenderButton.Content = $"Extender ({_engine.ExtendersRemaining})";
+        ExtenderCountText.Text = _engine.ExtendersRemaining.ToString();
+        ExtenderButton.ToolTip = $"Extend the current song clip ({_engine.ExtendersRemaining} remaining)";
         ExtenderButton.IsEnabled = _engine.CanUseExtender;
         ExtenderButton.Visibility = _config.ExtenderCount > 0 ? Visibility.Visible : Visibility.Collapsed;
-        HintButton.Content = $"Hint ({_engine.HintsRemaining})";
+        HintCountText.Text = _engine.HintsRemaining.ToString();
+        HintButton.ToolTip = $"Reveal a hint for the current song ({_engine.HintsRemaining} remaining)";
         HintButton.IsEnabled = _engine.CanUseHint;
         HintButton.Visibility = _config.HintCount > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -456,7 +471,37 @@ public partial class QuizView : UserControl, IDisposable
 
     private void OnVolumeChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
+        _isMuted = e.NewValue <= 0;
+        if (!_isMuted)
+            _lastAudibleVolume = (float)e.NewValue;
         _playback.Volume = (float)e.NewValue;
+        UpdateMuteButton();
+    }
+
+    private void OnMuteClick(object sender, RoutedEventArgs e)
+    {
+        if (_isMuted)
+        {
+            _isMuted = false;
+            if (VolumeSlider.Value <= 0)
+                VolumeSlider.Value = _lastAudibleVolume > 0 ? _lastAudibleVolume : 1f;
+            _playback.Volume = (float)VolumeSlider.Value;
+        }
+        else
+        {
+            _lastAudibleVolume = (float)VolumeSlider.Value;
+            _isMuted = true;
+            _playback.Volume = 0;
+        }
+
+        UpdateMuteButton();
+    }
+
+    private void UpdateMuteButton()
+    {
+        MuteButton.Content = _isMuted ? "\uE74F" : "\uE767";
+        MuteButton.ToolTip = _isMuted ? "Unmute audio" : "Mute audio";
+        AutomationProperties.SetName(MuteButton, _isMuted ? "Unmute audio" : "Mute audio");
     }
 
     private void ConfigureSongGrid()
