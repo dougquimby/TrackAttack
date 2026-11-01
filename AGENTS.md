@@ -66,7 +66,7 @@ TrackAttack/App.xaml
 ## Engine and playback behavior to preserve
 
 - Quiz modes are title, artist, and both. Guess Both awards 1.5 points for title and 0.5 for artist; partial credit is retained. Power penalties are stored per song and capped by `MaxPowerPenaltyPerSong` and earned points so a song never contributes negative points.
-- Timer modes are whole-quiz countdown and per-song reset. Clip start can be fixed or random; the random start assigned to a song remains the same on retries.
+- Timer modes are whole-quiz countdown and per-song reset. Per-song expiry passes the current song and resets its timer; it does not end the quiz. Per-song resets invalidate queued ticks from the previous song so stale timer callbacks cannot drain the new song's time. Clip start can be fixed or random; the random start assigned to a song remains the same on retries.
 - Playback modes are loop, play once and stop, and play once then auto-advance. The playback service raises `ClipEnded`; the engine marshals timer and clip callbacks to its captured synchronization context and prevents them from advancing state while paused.
 - Quiz pause pauses the engine countdown and playback together and excludes paused time from quiz duration. Clip-only pause affects playback without pausing quiz time.
 - `IPlaybackService.Volume` is normalized per-stream gain; NAudio playback must not change Windows master volume. `SeekClip` seeks relative to the designated clip start, clamps to clip duration, and re-arms clip-end handling. Progress UI shows clip-relative and full-song progress; use the service's clip/song position and duration properties rather than seeking the source track directly.

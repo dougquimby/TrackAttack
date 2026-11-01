@@ -102,9 +102,9 @@
                     </StackPanel>
                 </Grid>
                 <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBlock x:Name="SongTimeText" Foreground="#65738A" HorizontalAlignment="Left"/>
-                    <TextBlock x:Name="ClipTimeText" Grid.Column="1" Foreground="#65738A" HorizontalAlignment="Right"/>
+                    <TextBlock x:Name="ClipTimeText" Foreground="#65738A" HorizontalAlignment="Right"/>
                 </Grid>
             </StackPanel>
         </Border>

@@ -42,6 +42,7 @@ public partial class QuizSetupView : UserControl
         _spotifyEnabled = spotifyEnabled;
         _initializing = true;
         InitializeComponent();
+        UpdateClipStartInput();
         SourceSelectorPanel.Visibility = spotifyEnabled ? Visibility.Visible : Visibility.Collapsed;
         if (spotifyEnabled && !Directory.Exists(AppSettings.Load().MusicDirectory))
             SourceCombo.SelectedIndex = 1;
@@ -65,6 +66,7 @@ public partial class QuizSetupView : UserControl
         SkipCorrectCheck.IsChecked = settings.SkipOnCorrectGuess;
         ExcludeRecentCheck.IsChecked = settings.ExcludeRecentQuizSongs;
         RecentQuizCountText.Text = settings.RecentQuizzesToExclude.ToString();
+        UpdateRecentCountInput();
         _showSongCounts = settings.ShowSongCountsInLists;
         PresetCombo.ItemsSource = settings.LocalQuizPresets.OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase).ToArray();
         _initializing = false;
@@ -85,6 +87,12 @@ public partial class QuizSetupView : UserControl
         SpotifySourcePanel.Visibility = spotify ? Visibility.Visible : Visibility.Collapsed;
         GenreFilterPanel.Visibility = spotify ? Visibility.Collapsed : Visibility.Visible;
     }
+
+    private void OnRandomClipCheckChanged(object sender, RoutedEventArgs e)
+        => UpdateClipStartInput();
+
+    private void UpdateClipStartInput()
+        => ClipStartPanel.IsEnabled = RandomClipCheck.IsChecked != true;
 
     public async Task RefreshSpotifyFeatureSwitchAsync(bool enabled)
     {
@@ -377,8 +385,12 @@ public partial class QuizSetupView : UserControl
 
     private async void OnRecentOptionsChanged(object sender, RoutedEventArgs e)
     {
+        UpdateRecentCountInput();
         await OnRecentOptionsChangedAsync();
     }
+
+    private void UpdateRecentCountInput()
+        => RecentCountPanel.IsEnabled = ExcludeRecentCheck.IsChecked == true;
 
     private async Task OnRecentOptionsChangedAsync()
     {
@@ -484,10 +496,11 @@ public partial class QuizSetupView : UserControl
             MessageBox.Show("No songs match the selected filters.", "No songs", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        var clipStart = 0;
         if (!TryInt(SongCountText.Text, 20, 1, 1000, out var requestedCount)
             || !TryInt(SecondsText.Text, 30, 5, 600, out var seconds)
             || !TryInt(ClipDurationText.Text, 15, 3, 120, out var clipDuration)
-            || !TryInt(ClipStartText.Text, 30, 0, 3600, out var clipStart)
+            || (RandomClipCheck.IsChecked != true && !TryInt(ClipStartText.Text, 30, 0, 3600, out clipStart))
             || !TryInt(MinLengthText.Text, 0, 0, 86400, out var minLength)
             || !TryInt(MaxLengthText.Text, 0, 0, 86400, out var maxLength)
             || (minLength > 0 && maxLength > 0 && minLength > maxLength))
@@ -753,6 +766,7 @@ public partial class QuizSetupView : UserControl
         UniqueArtistsCheck.IsChecked = preset.UniqueArtistsOnly;
         ExcludeRecentCheck.IsChecked = preset.ExcludeRecentQuizSongs;
         RecentQuizCountText.Text = preset.RecentQuizzesToExclude.ToString();
+        UpdateRecentCountInput();
         var genres = preset.Genres.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var decades = preset.Decades.ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var item in _genres) item.IsChecked = genres.Contains(item.Value);

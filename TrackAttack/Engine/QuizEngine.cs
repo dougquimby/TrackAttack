@@ -175,8 +175,7 @@ public class QuizEngine : IDisposable
                 _pendingResult = null;
                 _guessBothTitleDone = false;
                 _guessBothArtistDone = false;
-                if (_config.TimerMode == TimerMode.PerSong)
-                    _secondsRemaining = (int)_config.TimePerSong.TotalSeconds;
+                ResetPerSongTimer();
                 if (_config.SkipOnCorrectGuess)
                 {
                     // Remove the completed song from rotation so we advance past it
@@ -212,8 +211,7 @@ public class QuizEngine : IDisposable
         });
         SongCorrect?.Invoke(this, new SongCorrectEventArgs(song, CorrectCount, TotalSongs));
 
-        if (_config.TimerMode == TimerMode.PerSong)
-            _secondsRemaining = (int)_config.TimePerSong.TotalSeconds;
+        ResetPerSongTimer();
 
         if (_config.SkipOnCorrectGuess)
         {
@@ -244,8 +242,7 @@ public class QuizEngine : IDisposable
         if (!IsRunning || _isPaused || _songsInSession.Count == 0) return;
 
         SongPassed?.Invoke(this, EventArgs.Empty);
-        if (_config.TimerMode == TimerMode.PerSong)
-            _secondsRemaining = (int)_config.TimePerSong.TotalSeconds;
+        ResetPerSongTimer();
 
         if (_currentIndex >= _songsInSession.Count)
         {
@@ -281,8 +278,7 @@ public class QuizEngine : IDisposable
             _guessBothTitleDone = _pendingResult?.IsCorrect ?? false;
             _guessBothArtistDone = _pendingResult?.ArtistCorrect ?? false;
             _songCompleted = false;
-            if (_config.TimerMode == TimerMode.PerSong)
-                _secondsRemaining = (int)_config.TimePerSong.TotalSeconds;
+            ResetPerSongTimer();
 
             var num = _songNumbers.TryGetValue(target.SourcePath, out int n) ? n : 0;
             SongChanged?.Invoke(this, new SongChangedEventArgs(CurrentSong, num));
@@ -333,6 +329,16 @@ public class QuizEngine : IDisposable
         _playback.PlayClip(CurrentSong, startTime, GetClipDuration(CurrentSong), _config.ClipPlaybackMode);
     }
 
+    private void ResetPerSongTimer()
+    {
+        if (_config.TimerMode != TimerMode.PerSong)
+            return;
+
+        Interlocked.Increment(ref _timerGeneration);
+        _secondsRemaining = (int)_config.TimePerSong.TotalSeconds;
+        TimerTick?.Invoke(this, _secondsRemaining);
+    }
+
     private TimeSpan GetOrAssignStartTime(Song song)
     {
         if (_assignedStartTimes.TryGetValue(song.SourcePath, out var existing))
@@ -380,7 +386,13 @@ public class QuizEngine : IDisposable
                 return;
             _secondsRemaining--;
             TimerTick?.Invoke(this, _secondsRemaining);
-            if (_secondsRemaining <= 0) End();
+            if (_secondsRemaining <= 0)
+            {
+                if (_config.TimerMode == TimerMode.PerSong)
+                    PassCurrentSong();
+                else
+                    End();
+            }
         }, null);
     }
 

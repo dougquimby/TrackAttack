@@ -109,7 +109,7 @@
                                   Checked="OnUniqueArtistsChanged" Unchecked="OnUniqueArtistsChanged"/>
                         <CheckBox x:Name="ExcludeRecentCheck" Content="Exclude songs from recent quizzes" Margin="0,6,0,0"
                                   Checked="OnRecentOptionsChanged" Unchecked="OnRecentOptionsChanged"/>
-                        <WrapPanel Margin="0,4,0,0">
+                        <WrapPanel x:Name="RecentCountPanel" Margin="0,4,0,0">
                             <TextBlock Text="Recent quizzes to exclude" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBox x:Name="RecentQuizCountText" Width="55" Text="5" TextChanged="OnRecentCountChanged"/>
                         </WrapPanel>
@@ -126,7 +126,10 @@
                             <StackPanel Margin="0,0,18,8"><TextBlock Text="Songs"/><TextBox x:Name="SongCountText" Text="20" Width="80"/></StackPanel>
                             <StackPanel Margin="0,0,18,8"><TextBlock Text="Seconds per song"/><TextBox x:Name="SecondsText" Text="30" Width="110"/></StackPanel>
                             <StackPanel Margin="0,0,18,8"><TextBlock Text="Clip duration (sec)"/><TextBox x:Name="ClipDurationText" Text="15" Width="120"/></StackPanel>
-                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Fixed clip start (sec)"/><TextBox x:Name="ClipStartText" Text="30" Width="130"/></StackPanel>
+                            <StackPanel x:Name="ClipStartPanel" Margin="0,0,18,8">
+                                <TextBlock Text="Fixed clip start (sec)"/>
+                                <TextBox x:Name="ClipStartText" Text="30" Width="130"/>
+                            </StackPanel>
                         </WrapPanel>
                         <WrapPanel Margin="0,2,0,8">
                             <StackPanel Margin="0,0,16,0"><TextBlock Text="Timer mode"/><ComboBox x:Name="TimerModeCombo" Width="180">
@@ -145,7 +148,8 @@
                                 <ComboBoxItem Content="Loop"/><ComboBoxItem Content="Play once"/><ComboBoxItem Content="Play once, auto-advance"/>
                             </ComboBox></StackPanel>
                         </WrapPanel>
-                        <CheckBox x:Name="RandomClipCheck" Content="Choose a random clip start point" IsChecked="True"/>
+                        <CheckBox x:Name="RandomClipCheck" Content="Choose a random clip start point" IsChecked="True"
+                                  Checked="OnRandomClipCheckChanged" Unchecked="OnRandomClipCheckChanged"/>
                         <CheckBox x:Name="FuzzyArtistCheck" Content="Allow fuzzy artist matching" IsChecked="True"/>
                         <CheckBox x:Name="FuzzyTitleCheck" Content="Allow fuzzy song-title matching" IsChecked="True"/>
                         <CheckBox x:Name="IgnorePunctuationCheck" Content="Ignore punctuation when matching" IsChecked="True"/>
