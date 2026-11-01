@@ -21,6 +21,22 @@
                     <CheckBox x:Name="IgnorePunctuationCheck" Content="Ignore punctuation when matching" Margin="0,4"/>
                     <CheckBox x:Name="SkipCorrectCheck" Content="Advance immediately after a correct guess" Margin="0,4"/>
                     <CheckBox x:Name="ShowCountsCheck" Content="Show track counts in genre and decade filters" Margin="0,4"/>
+                    <Separator Margin="0,16,0,12"/>
+                    <TextBlock Text="Optional quiz sources" FontSize="18" FontWeight="SemiBold"/>
+                    <CheckBox x:Name="EnableSpotifyCheck" Content="Enable Spotify playlist quizzes"
+                              Margin="0,8,0,6" Checked="OnSpotifyFeatureChanged" Unchecked="OnSpotifyFeatureChanged"/>
+                    <StackPanel x:Name="SpotifySettingsPanel" Visibility="Collapsed" Margin="0,0,0,10">
+                        <TextBlock Text="Spotify Client ID" FontWeight="SemiBold" Margin="0,4"/>
+                        <TextBox x:Name="SpotifyClientIdText" Height="30" VerticalContentAlignment="Center"/>
+                        <TextBlock Text="Register this redirect URI in your Spotify developer app: http://127.0.0.1:5543/callback"
+                                   Foreground="#65738A" TextWrapping="Wrap" Margin="0,5,0,8"/>
+                        <WrapPanel>
+                            <Button Content="Connect Spotify…" Padding="12,6" Click="OnConnectSpotifyClick"/>
+                            <Button Content="Disconnect" Padding="12,6" Margin="6,0,0,0" Click="OnDisconnectSpotifyClick"/>
+                            <TextBlock x:Name="SpotifyConnectionStatus" VerticalAlignment="Center" Margin="10,0"
+                                       Foreground="#65738A"/>
+                        </WrapPanel>
+                    </StackPanel>
                     <TextBlock Text="Default metadata lookup provider" FontWeight="SemiBold" Margin="0,18,0,5"/>
                     <ComboBox x:Name="ProviderCombo" Width="220" HorizontalAlignment="Left"/>
                     <TextBlock x:Name="PathsText" Foreground="#65738A" TextWrapping="Wrap" Margin="0,18,0,8"/>

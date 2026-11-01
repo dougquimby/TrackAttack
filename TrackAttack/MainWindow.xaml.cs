@@ -28,9 +28,15 @@ public partial class MainWindow : Window
 
     private void UpdateLibraryStatus()
     {
-        var directory = AppSettings.Load().MusicDirectory;
+        var settings = AppSettings.Load();
+        var directory = settings.MusicDirectory;
         LibraryStatus.Text = string.IsNullOrWhiteSpace(directory) ? "No music library selected" : directory;
         LibraryStatus.ToolTip = LibraryStatus.Text;
+        foreach (var setup in _viewHistory.Select(item => item.View)
+                     .Append(_currentView)
+                     .OfType<QuizSetupView>()
+                     .Distinct())
+            _ = setup.RefreshSpotifyFeatureSwitchAsync(settings.EnableSpotifyIntegration);
     }
 
     private void Navigate(UserControl view, string title, bool pushHistory = true)
@@ -72,7 +78,8 @@ public partial class MainWindow : Window
         if (!GuardActiveQuiz())
             return;
         var settings = AppSettings.Load();
-        if (string.IsNullOrWhiteSpace(settings.MusicDirectory) || !Directory.Exists(settings.MusicDirectory))
+        if (!settings.EnableSpotifyIntegration
+            && (string.IsNullOrWhiteSpace(settings.MusicDirectory) || !Directory.Exists(settings.MusicDirectory)))
         {
             MessageBox.Show(this, "Choose a music folder in Settings before starting a quiz.",
                 "Music folder required", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -80,7 +87,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var setup = new QuizSetupView(_musicSource, _history);
+        var setup = new QuizSetupView(_musicSource, _history, settings.EnableSpotifyIntegration);
         setup.QuizRequested += OnQuizRequested;
         setup.SongsRequested += songs => Navigate(new SongsView(songs), "Songs matching filters");
         Navigate(setup, "New Quiz");
@@ -88,7 +95,23 @@ public partial class MainWindow : Window
 
     private void OnQuizRequested(QuizConfig config, IReadOnlyList<Song> songs, IReadOnlyList<Song> reserve)
     {
-        _activeQuiz = new QuizView(config, songs, reserve, _history);
+        IPlaybackService playback;
+        if (string.Equals(config.SourceType, "Spotify", StringComparison.OrdinalIgnoreCase))
+        {
+            if (SpotifyService.Client is not { } spotifyClient)
+            {
+                MessageBox.Show(this, "Connect to Spotify in Settings before starting a Spotify quiz.",
+                    "Spotify not connected", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            playback = new SpotifyPlaybackService(spotifyClient, config.SpotifyPlaylistId);
+        }
+        else
+        {
+            playback = new NAudioPlaybackService();
+        }
+
+        _activeQuiz = new QuizView(config, songs, reserve, _history, playback);
         _activeQuiz.QuizFinished += session =>
         {
             _activeQuiz = null;

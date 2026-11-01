@@ -30,26 +30,60 @@
                             Click="OnDeletePresetClick"/>
                 </Grid>
             </Border>
-            <Border Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16">
-                <StackPanel>
-                    <TextBlock Text="Music library" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <DockPanel>
-                        <Button x:Name="BrowseLibraryButton" Content="Browse…" Click="OnBrowseClick" DockPanel.Dock="Right" Margin="8,0,0,0"/>
-                        <TextBox x:Name="FolderText" Height="30" VerticalContentAlignment="Center"/>
-                    </DockPanel>
-                    <DockPanel Margin="0,8,0,0">
-                        <Button x:Name="ScanButton" Content="Scan / Refresh" Click="OnScanClick" DockPanel.Dock="Left"/>
-                        <TextBlock x:Name="ScanStatus" VerticalAlignment="Center" Margin="10,0"
-                                   Foreground="#65738A" Text="Choose a folder and scan your tracks."/>
-                    </DockPanel>
-                </StackPanel>
-            </Border>
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="SourceSelectorPanel" Grid.Column="0" Background="White" BorderBrush="#E0E5EC"
+                        BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,12,0"
+                        VerticalAlignment="Stretch" Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Quiz source" FontSize="17" FontWeight="SemiBold" Margin="4,0,4,6"/>
+                        <ComboBox x:Name="SourceCombo" Width="200" Height="30" SelectedIndex="0"
+                                  SelectionChanged="OnSourceTypeChanged">
+                            <ComboBoxItem Content="Local library"/>
+                            <ComboBoxItem Content="Spotify playlist"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Border>
+                <Border x:Name="LocalSourcePanel" Grid.Column="1" Background="White" BorderBrush="#E0E5EC"
+                        BorderThickness="1" CornerRadius="6" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="Music library" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <DockPanel>
+                            <Button x:Name="BrowseLibraryButton" Content="Browse…" Click="OnBrowseClick" DockPanel.Dock="Right" Margin="8,0,0,0"/>
+                            <TextBox x:Name="FolderText" Height="30" VerticalContentAlignment="Center"/>
+                        </DockPanel>
+                        <DockPanel Margin="0,8,0,0">
+                            <Button x:Name="ScanButton" Content="Scan / Refresh" Click="OnScanClick" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="ScanStatus" VerticalAlignment="Center" Margin="10,0"
+                                       Foreground="#65738A" Text="Choose a folder and scan your tracks."/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+                <Border x:Name="SpotifySourcePanel" Grid.Column="1" Background="White" BorderBrush="#E0E5EC"
+                        BorderThickness="1" CornerRadius="6" Padding="16" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Spotify playlist" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <DockPanel>
+                            <Button x:Name="RefreshSpotifyPlaylistsButton" Content="Refresh playlists"
+                                    Click="OnRefreshSpotifyPlaylistsClick" DockPanel.Dock="Right" Margin="8,0,0,0"/>
+                            <ComboBox x:Name="SpotifyPlaylistCombo" Height="30" DisplayMemberPath="Name"
+                                      SelectionChanged="OnSpotifyPlaylistChanged"/>
+                        </DockPanel>
+                        <TextBlock x:Name="SpotifyStatus" VerticalAlignment="Center" Margin="0,8,0,0"
+                                   Foreground="#65738A" Text="Save playlists to your Spotify account, then refresh this list."/>
+                    </StackPanel>
+                </Border>
+            </Grid>
 
             <Grid Margin="0,14,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/><ColumnDefinition/></Grid.ColumnDefinitions>
                 <Border Grid.Column="0" Background="White" BorderBrush="#E0E5EC" BorderThickness="1" CornerRadius="6" Padding="16">
                     <StackPanel>
                         <TextBlock Text="Track filters" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <StackPanel x:Name="GenreFilterPanel">
                         <Grid Margin="0,4">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Text="Genres (none selected includes all)" Foreground="#65738A" VerticalAlignment="Center"/>
@@ -60,6 +94,7 @@
                             <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Display}" IsChecked="{Binding IsChecked, Mode=TwoWay}"
                                 Checked="OnFilterCheckedChanged" Unchecked="OnFilterCheckedChanged"/></DataTemplate></ListBox.ItemTemplate>
                         </ListBox>
+                        </StackPanel>
                         <Grid Margin="0,10,0,4">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Text="Decades (none selected includes all)" Foreground="#65738A" VerticalAlignment="Center"/>

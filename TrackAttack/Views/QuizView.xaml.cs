@@ -17,7 +17,7 @@ public partial class QuizView : UserControl, IDisposable
 {
     private readonly QuizConfig _config;
     private readonly IQuizHistoryRepository _history;
-    private readonly IPlaybackService _playback = new NAudioPlaybackService();
+    private readonly IPlaybackService _playback;
     private readonly QuizEngine _engine;
     private readonly ObservableCollection<QuizRow> _rows = [];
     private readonly List<QuizGridRow> _gridRows = [];
@@ -31,15 +31,27 @@ public partial class QuizView : UserControl, IDisposable
     private long _lastSongDurationSecond = -1;
     private bool _finished;
     private bool _disposed;
+    private string? _playbackFailureMessage;
 
     public event Action<QuizSession>? QuizFinished;
 
-    public QuizView(QuizConfig config, IReadOnlyList<Song> songs, IReadOnlyList<Song> reserve, IQuizHistoryRepository history)
+    public QuizView(
+        QuizConfig config,
+        IReadOnlyList<Song> songs,
+        IReadOnlyList<Song> reserve,
+        IQuizHistoryRepository history,
+        IPlaybackService? playback = null)
     {
         _config = config;
         _history = history;
+        _playback = playback ?? new NAudioPlaybackService();
         _engine = new QuizEngine(config, songs, reserve, _playback);
         InitializeComponent();
+        if (_playback is SpotifyPlaybackService spotifyPlayback)
+        {
+            spotifyPlayback.PlaybackFailed += OnPlaybackFailed;
+            spotifyPlayback.PlaybackStatusChanged += OnPlaybackStatusChanged;
+        }
         for (var index = 0; index < songs.Count; index++)
             _rows.Add(new QuizRow(songs[index], index + 1));
         ConfigureSongGrid();
@@ -82,6 +94,7 @@ public partial class QuizView : UserControl, IDisposable
             currentRow.Status = "Playing";
         AnswerText.Clear();
         FeedbackText.Text = string.Empty;
+        _playbackFailureMessage = null;
         HintsList.ItemsSource = _hintsBySong.TryGetValue(e.Song.SourcePath, out var hints) ? hints.ToArray() : null;
         UpdatePrompt();
         ClipProgressFill.Width = 0;
@@ -140,6 +153,36 @@ public partial class QuizView : UserControl, IDisposable
     {
         TimerText.Text = $"{remaining / 60:D2}:{remaining % 60:D2}";
         UpdateScore();
+    }
+
+    private void OnPlaybackFailed(object? sender, PlaybackFailureEventArgs e)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_disposed)
+                return;
+            _playbackFailureMessage = e.Message;
+            FeedbackText.Text = e.Message;
+            PlaybackStatusText.Text = "Playback failed. Click Replay to retry, or select another song.";
+            PlaybackStatusText.Visibility = Visibility.Visible;
+        });
+    }
+
+    private void OnPlaybackStatusChanged(object? sender, PlaybackStatusEventArgs e)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_disposed)
+                return;
+            if (_playbackFailureMessage is not null
+                && string.Equals(FeedbackText.Text, _playbackFailureMessage, StringComparison.Ordinal))
+            {
+                FeedbackText.Text = string.Empty;
+                _playbackFailureMessage = null;
+            }
+            PlaybackStatusText.Text = e.Message;
+            PlaybackStatusText.Visibility = Visibility.Visible;
+        });
     }
 
     private void OnMulliganUsed(object? sender, MulliganUsedEventArgs e)
@@ -501,6 +544,11 @@ public partial class QuizView : UserControl, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        if (_playback is SpotifyPlaybackService spotifyPlayback)
+        {
+            spotifyPlayback.PlaybackFailed -= OnPlaybackFailed;
+            spotifyPlayback.PlaybackStatusChanged -= OnPlaybackStatusChanged;
+        }
         CompositionTarget.Rendering -= OnProgressRendering;
         _progressTimer.Stop();
         _engine.Dispose();

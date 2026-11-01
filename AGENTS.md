@@ -4,7 +4,7 @@ Use this repository map before exploring. Treat the code as authoritative when b
 
 ## Scope
 
-- TrackAttack is the WPF port of MusicQuiz. Keep changes focused on its supported local-file quiz flow. Do not spend time on Spotify or add Spotify support unless explicitly requested.
+- TrackAttack is the WPF port of MusicQuiz. Local-file quizzes are the default; optional Spotify playlist quizzes are disabled by default and controlled by `EnableSpotifyIntegration`. Keep Spotify work behind that switch and only change it when requested.
 - Prefer presentation-independent quiz rules and services. Keep WPF controls and lifecycle concerns in `Views/`; avoid adding WPF dependencies to `Engine/`, `Models/`, or reusable `Services/`.
 - The port shares user data paths with MusicQuiz (`%APPDATA%\MusicQuiz`). Preserve compatibility with existing settings and quiz-history data unless a migration is intentional.
 
@@ -15,7 +15,7 @@ Use this repository map before exploring. Treat the code as authoritative when b
 - Build: `dotnet build TrackAttack/TrackAttack.csproj`
 - Run: `dotnet run --project TrackAttack/TrackAttack.csproj`
 - No test project currently exists. Build code changes and report that automated tests are unavailable.
-- Main dependencies: MetaBrainz.MusicBrainz and TheAudioDB catalog suggestions, Microsoft.Data.Sqlite, NAudio, SQLitePCLRaw, and TagLibSharp.
+- Main dependencies: MetaBrainz.MusicBrainz and TheAudioDB catalog suggestions, Microsoft.Data.Sqlite, NAudio, SQLitePCLRaw, TagLibSharp, and the optional Spotify Web API packages.
 
 ## Application map
 
@@ -24,7 +24,7 @@ TrackAttack/App.xaml
   └─ MainWindow                         composition root / embedded navigation
        ├─ HomeView
        ├─ QuizSetupView ── QuizView ── QuizEngine
-       │                    ├─ IPlaybackService / NAudioPlaybackService
+       │                    ├─ IPlaybackService / NAudioPlaybackService or SpotifyPlaybackService
        │                    └─ ResultsView
        ├─ MetadataView ── LocalMetadataManager
        ├─ SettingsView
@@ -32,7 +32,7 @@ TrackAttack/App.xaml
        └─ SongsView
 ```
 
-- `MainWindow.xaml.cs` creates the shared local music source and history repository, owns the current `UserControl` and navigation stack, and guards navigation when a quiz is active. Quiz completion replaces the quiz with `ResultsView`; abandoning a quiz calls `Abandon()` and disposes it.
+- `MainWindow.xaml.cs` creates the shared local music source and history repository, owns the current `UserControl` and navigation stack, and guards navigation when a quiz is active. Quiz completion replaces the quiz with `ResultsView`; abandoning a quiz calls `Abandon()` and disposes it. It selects Spotify playback only for a Spotify quiz config.
 - Each screen is a WPF `UserControl` with XAML in `Views/*View.xaml` and behavior in its `.xaml.cs` code-behind. Follow these existing patterns; there is no separate ViewModel layer currently.
 - `QuizSetupView` raises `QuizRequested` with its config, selected songs, and mulligan reserve. `QuizView` owns the quiz engine and playback service, maps engine events to UI, and disposes resources on unload.
 - `Engine/QuizEngine.cs` is the quiz state machine. Keep scoring, rotation, timer, and power rules there rather than in view code.
@@ -46,6 +46,14 @@ TrackAttack/App.xaml
 - Recent-quiz exclusion is optional and off by default. When enabled, it excludes songs from the configured number of recent local quizzes in the current library; history matches new rows by file path and can fall back to title and artist for older rows.
 - Named local quiz presets are saved in `AppSettings.LocalQuizPresets`. They store the source folder, filters, quiz/timer/clip settings, matching options, powers and penalties, and recent-quiz options. Selecting one restores its settings and rescans when its folder differs. The song-count display preference is also persisted in settings.
 - Trace a new quiz option end-to-end: `QuizSetupView` control and preset handling → `QuizConfig` → engine or service behavior → result/history persistence and display.
+
+## Optional Spotify quizzes
+
+- Spotify integration is off by default. `SettingsView` persists the `EnableSpotifyIntegration` switch; when disabled, Spotify controls are hidden and new quizzes require the local library. Changing the switch in Settings updates an already-open quiz setup view when returning to it.
+- When enabled, `QuizSetupView` reuses shared quiz options, powers, and presets. Spotify playlists saved to the connected user's account are the selection source; genre filtering is hidden, while decade and duration filters and optional unique-artist/recent-quiz exclusion remain available. Track years come from Spotify album release dates.
+- `SpotifyService` uses browser PKCE authorization. Configure a Spotify developer app and register `http://127.0.0.1:5543/callback`; credentials are stored with the existing settings in `%APPDATA%\MusicQuiz\settings.json`. A playlist must be available in the connected account's playlist library.
+- `SpotifyMusicSource` pages playlist tracks and maps track URIs for stable history identity. Preview URLs play locally through NAudio when available; tracks without previews use Spotify Connect playback, with the selected output device shown in the quiz. For Connect playback, use the selected playlist as `context_uri` and the selected track URI as the request offset, pass the selected device ID (which activates that device), and verify Spotify reports the requested track playing before starting quiz progress. Serialize Connect start commands and ignore stale song requests so rapid grid selection cannot leave an older request as the final track. A playback failure must leave the quiz usable: show retry guidance, allow Replay or another song selection, and do not pause the engine without a playback recovery path. Connect audio comes from that Spotify device, not the app's local audio stream. Spotify Web API playback control requires Premium and an available playback device. Runtime API/device behavior requires a connected Spotify account and is not covered by the project build.
+- Keep playlist APIs and OAuth in `Services/`, source-specific controls gated in `Views/`, and quiz/source metadata in `QuizConfig` and `Song`. Do not change the local-file path when modifying optional Spotify behavior.
 
 ## Metadata repair and lookup
 
@@ -64,7 +72,7 @@ TrackAttack/App.xaml
 - `IPlaybackService.Volume` is normalized per-stream gain; NAudio playback must not change Windows master volume. `SeekClip` seeks relative to the designated clip start, clamps to clip duration, and re-arms clip-end handling. Progress UI shows clip-relative and full-song progress; use the service's clip/song position and duration properties rather than seeking the source track directly.
 - Correct guesses normally advance immediately; with `SkipOnCorrectGuess` disabled, the clip finishes its cycle first. Pass advances, and the song grid can jump to an unfinished song. Tab passes during a running quiz.
 - Mulligan replaces the current slot using the preselected reserve. Extender doubles a song's clip duration and remains in effect if the song returns in rotation. Hint uses randomly reveal enabled, applicable first-letter, scrambled title/artist, genre, or exact-year clues; a clue type is shown at most once per song and revealed clues are retained.
-- Ending a quiz fills in unrecorded songs as incorrect and raises `QuizEnded`. Keep scoring and rotation out of view code. Dispose timers, playback, and engine resources along the existing `QuizView` lifecycle.
+- Ending a quiz fills in unrecorded songs as incorrect, orders all results by their original quiz slot (including mulligan replacements), and raises `QuizEnded`. Keep scoring and rotation out of view code. Dispose timers, playback, and engine resources along the existing `QuizView` lifecycle.
 
 ## Persistence
 

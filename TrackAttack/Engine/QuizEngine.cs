@@ -274,7 +274,6 @@ public class QuizEngine : IDisposable
             _currentIndex = targetIdx;
             CurrentSong = _songsInSession[_currentIndex];
 
-            _playback.Stop();
             // Preserve any credit already earned for the target song. Partial
             // Guess Both results must restore their completed field so the user
             // only has to guess the remaining answer after returning to the row.
@@ -312,9 +311,9 @@ public class QuizEngine : IDisposable
             // new song starts with a clean slate.
             _pendingResult = null;
         }
-        _playback.Stop();
         if (_songsInSession.Count == 0)
         {
+            _playback.Stop();
             End();
             return;
         }
@@ -453,7 +452,6 @@ public class QuizEngine : IDisposable
 
         // Play the replacement immediately
         CurrentSong = newSong;
-        _playback.Stop();
         _songNumbers.TryGetValue(newSong.SourcePath, out int num);
         _playback.PlayClip(newSong, GetOrAssignStartTime(newSong), GetClipDuration(newSong), _config.ClipPlaybackMode);
 
@@ -621,10 +619,15 @@ public class QuizEngine : IDisposable
         // Clear the session list since the quiz is over
         _songsInSession.Clear();
 
+        var orderedResults = _results
+            .OrderBy(result => _songNumbers.TryGetValue(result.Song.SourcePath, out var number)
+                ? number
+                : int.MaxValue)
+            .ToArray();
         var endedAt = DateTime.UtcNow;
         var pausedDuration = _totalPausedDuration
             + (_isPaused ? endedAt - _pausedAt : TimeSpan.Zero);
-        QuizEnded?.Invoke(this, new QuizEndedEventArgs(_results, endedAt - _startTime - pausedDuration));
+        QuizEnded?.Invoke(this, new QuizEndedEventArgs(orderedResults, endedAt - _startTime - pausedDuration));
     }
 
     public void Dispose()

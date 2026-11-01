@@ -21,6 +21,7 @@ public class QuizConfig
     public QuizMode QuizMode { get; set; } = QuizMode.GuessSongTitle;
     public string QuizTitle { get; set; } = "Track Attack";
     public string SourceType { get; set; } = "Local";
+    public string SpotifyPlaylistId { get; set; } = string.Empty;
     public bool FuzzyArtistMatching { get; set; } = true;
     public bool FuzzySongTitleMatching { get; set; } = true;
     public bool IgnorePunctuation { get; set; } = true;

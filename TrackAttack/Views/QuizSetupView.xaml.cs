@@ -6,6 +6,7 @@ using TrackAttack.Data;
 using TrackAttack.Models;
 using TrackAttack.Services;
 using TrackAttack.Settings;
+using SpotifyAPI.Web;
 
 namespace TrackAttack.Views;
 
@@ -14,6 +15,7 @@ public partial class QuizSetupView : UserControl
     private static readonly HintType[] HintTypes = Enum.GetValues<HintType>();
     private readonly IMusicSource _musicSource;
     private readonly IQuizHistoryRepository _history;
+    private bool _spotifyEnabled;
     private readonly ObservableCollection<FilterChoice> _genres = [];
     private readonly ObservableCollection<FilterChoice> _decades = [];
     private readonly HashSet<string> _recentQuizSongPaths = new(StringComparer.OrdinalIgnoreCase);
@@ -23,16 +25,27 @@ public partial class QuizSetupView : UserControl
     private bool _initializing;
     private bool _recentHistoryLoaded = true;
     private bool _showSongCounts = true;
+    private bool _loadingSpotifyPlaylists;
+    private SpotifyMusicSource? _spotifySource;
+    private FullPlaylist? _selectedSpotifyPlaylist;
+    private List<FullPlaylist> _spotifyPlaylists = [];
+
+    private bool IsSpotifySource => _spotifyEnabled && SourceCombo.SelectedIndex == 1;
 
     public event Action<QuizConfig, IReadOnlyList<Song>, IReadOnlyList<Song>>? QuizRequested;
     public event Action<IReadOnlyList<Song>>? SongsRequested;
 
-    public QuizSetupView(IMusicSource musicSource, IQuizHistoryRepository history)
+    public QuizSetupView(IMusicSource musicSource, IQuizHistoryRepository history, bool spotifyEnabled = false)
     {
         _musicSource = musicSource;
         _history = history;
+        _spotifyEnabled = spotifyEnabled;
         _initializing = true;
         InitializeComponent();
+        SourceSelectorPanel.Visibility = spotifyEnabled ? Visibility.Visible : Visibility.Collapsed;
+        if (spotifyEnabled && !Directory.Exists(AppSettings.Load().MusicDirectory))
+            SourceCombo.SelectedIndex = 1;
+        UpdateSourcePanels();
         GenreList.ItemsSource = _genres;
         DecadeList.ItemsSource = _decades;
         QuizModeCombo.SelectedIndex = 2;
@@ -58,9 +71,180 @@ public partial class QuizSetupView : UserControl
 
         Loaded += async (_, _) =>
         {
-            if (Directory.Exists(FolderText.Text))
+            if (IsSpotifySource)
+                await LoadSpotifyPlaylistsAsync();
+            else if (Directory.Exists(FolderText.Text))
                 await ScanAsync(FolderText.Text);
         };
+    }
+
+    private void UpdateSourcePanels()
+    {
+        var spotify = IsSpotifySource;
+        LocalSourcePanel.Visibility = spotify ? Visibility.Collapsed : Visibility.Visible;
+        SpotifySourcePanel.Visibility = spotify ? Visibility.Visible : Visibility.Collapsed;
+        GenreFilterPanel.Visibility = spotify ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public async Task RefreshSpotifyFeatureSwitchAsync(bool enabled)
+    {
+        if (_spotifyEnabled == enabled)
+            return;
+
+        _spotifyEnabled = enabled;
+        SourceSelectorPanel.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        if (enabled || SourceCombo.SelectedIndex != 1)
+            return;
+
+        _initializing = true;
+        SourceCombo.SelectedIndex = 0;
+        _initializing = false;
+        UpdateSourcePanels();
+        _selectedSpotifyPlaylist = null;
+        _spotifyPlaylists.Clear();
+        SpotifyPlaylistCombo.ItemsSource = null;
+        _scannedSongs.Clear();
+        _recentQuizSongPaths.Clear();
+        _recentQuizSongIdentities.Clear();
+        if (Directory.Exists(FolderText.Text.Trim()))
+            await ScanAsync(FolderText.Text.Trim());
+        else
+            UpdateMatchCount();
+    }
+
+    private async void OnSourceTypeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing)
+            return;
+
+        UpdateSourcePanels();
+        _scannedSongs.Clear();
+        _selectedSpotifyPlaylist = null;
+        _recentQuizSongPaths.Clear();
+        _recentQuizSongIdentities.Clear();
+        if (IsSpotifySource)
+            await LoadSpotifyPlaylistsAsync();
+        else if (Directory.Exists(FolderText.Text.Trim()))
+            await ScanAsync(FolderText.Text.Trim());
+        else
+            UpdateMatchCount();
+    }
+
+    private async Task<bool> EnsureSpotifyConnectedAsync()
+    {
+        if (SpotifyService.Client is not null)
+            return true;
+        try
+        {
+            if (await SpotifyService.TryReconnectAsync())
+                return true;
+            SpotifyStatus.Text = "Connect Spotify in Settings to load playlists.";
+            MessageBox.Show("Connect your Spotify account in Settings before selecting a playlist.",
+                "Spotify connection required", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            SpotifyStatus.Text = "Spotify reconnection failed.";
+            MessageBox.Show($"Could not reconnect to Spotify:\n{exception.Message}",
+                "Spotify connection failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        return false;
+    }
+
+    private async void OnRefreshSpotifyPlaylistsClick(object sender, RoutedEventArgs e)
+    {
+        _spotifySource?.ClearCache();
+        await LoadSpotifyPlaylistsAsync();
+    }
+
+    private async Task LoadSpotifyPlaylistsAsync()
+    {
+        if (_loadingSpotifyPlaylists || !IsSpotifySource)
+            return;
+        _loadingSpotifyPlaylists = true;
+        SetBusy(true);
+        SpotifyStatus.Text = "Loading Spotify playlists…";
+        try
+        {
+            if (!await EnsureSpotifyConnectedAsync())
+            {
+                _spotifySource = null;
+                _spotifyPlaylists.Clear();
+                SpotifyPlaylistCombo.ItemsSource = null;
+                _selectedSpotifyPlaylist = null;
+                _scannedSongs.Clear();
+                UpdateMatchCount();
+                return;
+            }
+            _spotifySource = new SpotifyMusicSource(SpotifyService.Client!);
+            var previousId = _selectedSpotifyPlaylist?.Id;
+            _spotifyPlaylists = (await _spotifySource.GetUserPlaylistsAsync()).ToList();
+            SpotifyPlaylistCombo.ItemsSource = _spotifyPlaylists;
+            _selectedSpotifyPlaylist = null;
+            if (!string.IsNullOrWhiteSpace(previousId))
+                SpotifyPlaylistCombo.SelectedItem = _spotifyPlaylists.FirstOrDefault(p => p.Id == previousId);
+            SpotifyStatus.Text = _spotifyPlaylists.Count == 0
+                ? "No playlists were found for this account."
+                : $"{_spotifyPlaylists.Count:N0} playlists available. Select one to load its tracks.";
+            if (SpotifyPlaylistCombo.SelectedItem is FullPlaylist playlist)
+                await LoadSpotifyPlaylistAsync(playlist);
+            else
+                UpdateMatchCount();
+        }
+        catch (Exception exception)
+        {
+            SpotifyStatus.Text = "Could not load playlists.";
+            MessageBox.Show($"Could not load Spotify playlists:\n{exception.Message}",
+                "Spotify playlist load failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _loadingSpotifyPlaylists = false;
+            SetBusy(false);
+        }
+    }
+
+    private async void OnSpotifyPlaylistChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingSpotifyPlaylists || SpotifyPlaylistCombo.SelectedItem is not FullPlaylist playlist)
+            return;
+        await LoadSpotifyPlaylistAsync(playlist);
+    }
+
+    private async Task LoadSpotifyPlaylistAsync(FullPlaylist playlist)
+    {
+        if (_spotifySource is null)
+            return;
+        if (string.IsNullOrWhiteSpace(playlist.Id))
+        {
+            MessageBox.Show("The selected Spotify playlist does not have a usable playlist ID.",
+                "Playlist unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        SetBusy(true);
+        _selectedSpotifyPlaylist = playlist;
+        SpotifyStatus.Text = $"Loading tracks from “{playlist.Name}”…";
+        try
+        {
+            _scannedSongs = (await _spotifySource.GetPlaylistSongsAsync(playlist.Id)).ToList();
+            PopulateFilters();
+            if (ExcludeRecentCheck.IsChecked == true)
+                await RefreshRecentSongsAsync();
+            var previewCount = _scannedSongs.Count(song => !string.IsNullOrWhiteSpace(song.PreviewUrl));
+            SpotifyStatus.Text = $"{_scannedSongs.Count:N0} tracks from “{playlist.Name}”; {previewCount:N0} have preview clips. Other tracks require Spotify Premium playback.";
+            UpdateMatchCount();
+        }
+        catch (Exception exception)
+        {
+            _scannedSongs.Clear();
+            SpotifyStatus.Text = "Could not load playlist tracks.";
+            MessageBox.Show($"Could not load tracks from “{playlist.Name}”:\n{exception.Message}",
+                "Spotify playlist load failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
     }
 
     private void OnBrowseClick(object sender, RoutedEventArgs e)
@@ -112,12 +296,15 @@ public partial class QuizSetupView : UserControl
         var oldDecades = _decades.Where(item => item.IsChecked).Select(item => item.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
         _genres.Clear();
         _decades.Clear();
-        foreach (var (value, count) in _scannedSongs
-                     .GroupBy(song => string.IsNullOrWhiteSpace(song.Genre) ? LocalFileMusicSource.UnknownMetadataOption : song.Genre.Trim(),
-                         StringComparer.OrdinalIgnoreCase)
-                     .Select(group => (group.Key, group.Count()))
-                     .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
-            _genres.Add(new FilterChoice(value, count, _showSongCounts) { IsChecked = oldGenres.Contains(value) });
+        if (!IsSpotifySource)
+        {
+            foreach (var (value, count) in _scannedSongs
+                         .GroupBy(song => string.IsNullOrWhiteSpace(song.Genre) ? LocalFileMusicSource.UnknownMetadataOption : song.Genre.Trim(),
+                             StringComparer.OrdinalIgnoreCase)
+                         .Select(group => (group.Key, group.Count()))
+                         .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
+                _genres.Add(new FilterChoice(value, count, _showSongCounts) { IsChecked = oldGenres.Contains(value) });
+        }
         foreach (var (value, count) in _scannedSongs
                      .GroupBy(song => song.Year > 0 ? $"{song.Year / 10 * 10}s" : LocalFileMusicSource.UnknownMetadataOption,
                          StringComparer.OrdinalIgnoreCase)
@@ -128,7 +315,9 @@ public partial class QuizSetupView : UserControl
 
     private List<Song> GetMatchingSongs()
     {
-        var selectedGenres = _genres.Where(item => item.IsChecked).Select(item => item.Value).ToArray();
+        var selectedGenres = IsSpotifySource
+            ? []
+            : _genres.Where(item => item.IsChecked).Select(item => item.Value).ToArray();
         var selectedDecades = _decades.Where(item => item.IsChecked).Select(item => item.Value).ToArray();
         IEnumerable<Song> songs = _scannedSongs;
         if (selectedGenres.Length > 0)
@@ -223,12 +412,25 @@ public partial class QuizSetupView : UserControl
         var count = Math.Max(1, ParseInt(RecentQuizCountText.Text));
         try
         {
-            var recent = await _history.GetRecentQuizSongsAsync(count, "Local", FolderText.Text.Trim());
+            var sourceType = IsSpotifySource ? "Spotify" : "Local";
+            var sourceDirectory = IsSpotifySource
+                ? _selectedSpotifyPlaylist?.Id ?? string.Empty
+                : FolderText.Text.Trim();
+            if (string.IsNullOrWhiteSpace(sourceDirectory))
+            {
+                _recentHistoryLoaded = true;
+                return;
+            }
+            var recent = await _history.GetRecentQuizSongsAsync(count, sourceType, sourceDirectory);
             foreach (var song in recent)
             {
                 if (!string.IsNullOrWhiteSpace(song.SourcePath))
                     _recentQuizSongPaths.Add(song.SourcePath);
-                else if (!string.IsNullOrWhiteSpace(song.Title) && !string.IsNullOrWhiteSpace(song.Artist))
+                var legacySpotifyPath = IsSpotifySource
+                    && !song.SourcePath.StartsWith("spotify:track:", StringComparison.OrdinalIgnoreCase);
+                if ((legacySpotifyPath || string.IsNullOrWhiteSpace(song.SourcePath))
+                    && !string.IsNullOrWhiteSpace(song.Title)
+                    && !string.IsNullOrWhiteSpace(song.Artist))
                     _recentQuizSongIdentities.Add(GetSongIdentity(song));
             }
             _recentHistoryLoaded = true;
@@ -268,6 +470,14 @@ public partial class QuizSetupView : UserControl
 
     private void StartQuiz()
     {
+        var selectedSpotifyPlaylist = _selectedSpotifyPlaylist;
+        var spotifyPlaylistId = selectedSpotifyPlaylist?.Id;
+        if (IsSpotifySource && string.IsNullOrWhiteSpace(spotifyPlaylistId))
+        {
+            MessageBox.Show("Select a Spotify playlist before starting the quiz.",
+                "Playlist required", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         var candidates = GetMatchingSongs();
         if (candidates.Count == 0)
         {
@@ -303,7 +513,8 @@ public partial class QuizSetupView : UserControl
         var reserveCount = Math.Min(ParseInt(MulliganCountText.Text), shuffled.Length - count);
         var reserve = shuffled.Skip(count).Take(reserveCount).ToArray();
         var settings = AppSettings.Load();
-        settings.MusicDirectory = FolderText.Text.Trim();
+        if (!IsSpotifySource)
+            settings.MusicDirectory = FolderText.Text.Trim();
         settings.DefaultSecondsPerSong = seconds;
         settings.DefaultClipDurationSeconds = clipDuration;
         settings.FuzzyArtistMatching = FuzzyArtistCheck.IsChecked == true;
@@ -322,8 +533,14 @@ public partial class QuizSetupView : UserControl
         var selectedDecades = _decades.Where(item => item.IsChecked).Select(item => item.Value).ToList();
         var config = new QuizConfig
         {
-            SourceDirectory = FolderText.Text.Trim(),
-            FilterGenre = selectedGenres.Count == 0 ? null : string.Join(", ", selectedGenres),
+            SourceType = IsSpotifySource ? "Spotify" : "Local",
+            SourceDirectory = IsSpotifySource
+                ? spotifyPlaylistId!
+                : FolderText.Text.Trim(),
+            SpotifyPlaylistId = IsSpotifySource ? spotifyPlaylistId! : string.Empty,
+            FilterGenre = !IsSpotifySource && selectedGenres.Count > 0
+                ? string.Join(", ", selectedGenres)
+                : null,
             FilterDecade = selectedDecades.Count == 0 ? null : string.Join(", ", selectedDecades),
             MinSongDuration = minLength > 0 ? TimeSpan.FromSeconds(minLength) : null,
             MaxSongDuration = maxLength > 0 ? TimeSpan.FromSeconds(maxLength) : null,
@@ -345,7 +562,9 @@ public partial class QuizSetupView : UserControl
                 1 => GridColumns.One, 2 => GridColumns.Two, 3 => GridColumns.Three, 4 => GridColumns.Four, _ => GridColumns.Auto
             },
             QuizMode = QuizModeCombo.SelectedIndex switch { 1 => QuizMode.GuessArtist, 2 => QuizMode.GuessBoth, _ => QuizMode.GuessSongTitle },
-            QuizTitle = QuizNameGenerator.Generate(selected),
+            QuizTitle = IsSpotifySource
+                ? $"{selectedSpotifyPlaylist!.Name} Quiz"
+                : QuizNameGenerator.Generate(selected),
             FuzzyArtistMatching = FuzzyArtistCheck.IsChecked == true,
             FuzzySongTitleMatching = FuzzyTitleCheck.IsChecked == true,
             IgnorePunctuation = IgnorePunctuationCheck.IsChecked == true,
@@ -383,7 +602,15 @@ public partial class QuizSetupView : UserControl
         TryInt(MaxLengthText.Text, 0, 0, 86400, out var maxLength);
         var config = new QuizConfig
         {
-            SourceDirectory = FolderText.Text.Trim(),
+            SourceType = IsSpotifySource ? "Spotify" : "Local",
+            SourceDirectory = IsSpotifySource ? _selectedSpotifyPlaylist?.Id ?? string.Empty : FolderText.Text.Trim(),
+            SpotifyPlaylistId = IsSpotifySource ? _selectedSpotifyPlaylist?.Id ?? string.Empty : string.Empty,
+            FilterGenre = !IsSpotifySource && _genres.Any(item => item.IsChecked)
+                ? string.Join(", ", _genres.Where(item => item.IsChecked).Select(item => item.Value))
+                : null,
+            FilterDecade = _decades.Any(item => item.IsChecked)
+                ? string.Join(", ", _decades.Where(item => item.IsChecked).Select(item => item.Value))
+                : null,
             SongCount = songCount,
             TimePerSong = TimeSpan.FromSeconds(seconds),
             TotalTime = TimeSpan.FromSeconds(seconds * songCount),
@@ -414,21 +641,27 @@ public partial class QuizSetupView : UserControl
         {
             Name = name,
             Config = config,
-            Genres = _genres.Where(item => item.IsChecked).Select(item => item.Value).ToList(),
+            Genres = IsSpotifySource ? [] : _genres.Where(item => item.IsChecked).Select(item => item.Value).ToList(),
             Decades = _decades.Where(item => item.IsChecked).Select(item => item.Value).ToList(),
             UniqueArtistsOnly = UniqueArtistsCheck.IsChecked == true,
             FuzzySongTitleMatching = FuzzyTitleCheck.IsChecked == true,
             ExcludeRecentQuizSongs = ExcludeRecentCheck.IsChecked == true,
-            RecentQuizzesToExclude = Math.Max(1, ParseInt(RecentQuizCountText.Text))
+            RecentQuizzesToExclude = Math.Max(1, ParseInt(RecentQuizCountText.Text)),
+            SpotifyPlaylistId = IsSpotifySource ? _selectedSpotifyPlaylist?.Id ?? string.Empty : string.Empty,
+            SpotifyPlaylistName = IsSpotifySource ? _selectedSpotifyPlaylist?.Name ?? string.Empty : string.Empty
         });
         try
         {
             settings.Save();
+            var wasInitializing = _initializing;
+            _initializing = true;
             PresetCombo.ItemsSource = settings.LocalQuizPresets.OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase).ToArray();
             PresetCombo.SelectedItem = PresetCombo.Items.Cast<LocalQuizPreset>().First(preset => preset.Name == name);
+            _initializing = wasInitializing;
         }
         catch (Exception ex)
         {
+            _initializing = false;
             MessageBox.Show($"Could not save this preset:\n{ex.Message}", "Preset save failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -437,17 +670,58 @@ public partial class QuizSetupView : UserControl
     {
         if (_initializing || PresetCombo.SelectedItem is not LocalQuizPreset preset)
             return;
-        _initializing = true;
-        try
+
+        if (string.Equals(preset.Config.SourceType, "Spotify", StringComparison.OrdinalIgnoreCase))
         {
+            if (!_spotifyEnabled)
+            {
+                MessageBox.Show("Enable Spotify integration in Settings before using this saved setup.",
+                    "Spotify is disabled", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            _initializing = true;
+            SourceCombo.SelectedIndex = 1;
+            UpdateSourcePanels();
+            _selectedSpotifyPlaylist = null;
+            _initializing = false;
+            await LoadSpotifyPlaylistsAsync();
+
+            var playlistId = string.IsNullOrWhiteSpace(preset.SpotifyPlaylistId)
+                ? preset.Config.SpotifyPlaylistId
+                : preset.SpotifyPlaylistId;
+            var playlist = _spotifyPlaylists.FirstOrDefault(item => item.Id == playlistId);
+            if (playlist is null)
+            {
+                MessageBox.Show("The playlist saved in this setup is not available in the connected Spotify account.",
+                    "Playlist unavailable", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            _loadingSpotifyPlaylists = true;
+            SpotifyPlaylistCombo.SelectedItem = playlist;
+            _loadingSpotifyPlaylists = false;
+            await LoadSpotifyPlaylistAsync(playlist);
+            ApplyPreset(preset);
+        }
+        else
+        {
+            var wasSpotify = IsSpotifySource;
+            _initializing = true;
+            SourceCombo.SelectedIndex = 0;
+            UpdateSourcePanels();
             var folderChanged = !string.Equals(FolderText.Text, preset.Config.SourceDirectory, StringComparison.OrdinalIgnoreCase);
             FolderText.Text = preset.Config.SourceDirectory;
-            if ((folderChanged || _scannedSongs.Count == 0)
+            _initializing = false;
+            if ((wasSpotify || folderChanged || _scannedSongs.Count == 0)
                 && !await ScanAsync(preset.Config.SourceDirectory))
                 return;
             ApplyPreset(preset);
         }
-        finally { _initializing = false; }
+
+        if (ExcludeRecentCheck.IsChecked == true)
+            await RefreshRecentSongsAsync();
+        UpdateMatchCount();
     }
 
     private void ApplyPreset(LocalQuizPreset preset)
@@ -525,9 +799,12 @@ public partial class QuizSetupView : UserControl
     private void SetBusy(bool busy)
     {
         _busy = busy;
+        SourceCombo.IsEnabled = !busy;
         BrowseLibraryButton.IsEnabled = !busy;
         FolderText.IsEnabled = !busy;
         ScanButton.IsEnabled = !busy;
+        SpotifyPlaylistCombo.IsEnabled = !busy;
+        RefreshSpotifyPlaylistsButton.IsEnabled = !busy;
         PresetCombo.IsEnabled = !busy;
         GenreList.IsEnabled = !busy;
         DecadeList.IsEnabled = !busy;

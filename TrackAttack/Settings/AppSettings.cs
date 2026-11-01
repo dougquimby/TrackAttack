@@ -16,6 +16,10 @@ public class AppSettings
     public bool ShowSongCountsInLists { get; set; } = true;
     public bool ExcludeRecentQuizSongs { get; set; }
     public int RecentQuizzesToExclude { get; set; } = 5;
+    public bool EnableSpotifyIntegration { get; set; }
+    public string SpotifyClientId { get; set; } = string.Empty;
+    public string SpotifyRefreshToken { get; set; } = string.Empty;
+    public string SpotifyDisplayName { get; set; } = string.Empty;
     public MetadataSuggestionProviderKind MetadataSuggestionProvider { get; set; } = MetadataSuggestionProviderKind.MusicBrainz;
     public List<LocalQuizPreset> LocalQuizPresets { get; set; } = [];
     public bool WindowMaximized { get; set; }

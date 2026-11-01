@@ -10,6 +10,8 @@ public sealed class LocalQuizPreset
     public bool FuzzySongTitleMatching { get; set; }
     public bool ExcludeRecentQuizSongs { get; set; }
     public int RecentQuizzesToExclude { get; set; } = 5;
+    public string SpotifyPlaylistId { get; set; } = string.Empty;
+    public string SpotifyPlaylistName { get; set; } = string.Empty;
 
     public override string ToString() => Name;
 }

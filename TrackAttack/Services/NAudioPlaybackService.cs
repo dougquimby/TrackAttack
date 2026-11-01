@@ -269,6 +269,10 @@ public class NAudioPlaybackService : IPlaybackService
 
     private static WaveStream OpenAudioFile(string path)
     {
+        if (Uri.TryCreate(path, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            return new MediaFoundationReader(uri.AbsoluteUri);
+
         var ext = Path.GetExtension(path).ToLowerInvariant();
         return ext == ".flac"
             ? new MediaFoundationReader(path)

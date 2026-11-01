@@ -112,7 +112,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                         Year = rr.IsDBNull(4) ? 0 : rr.GetInt32(4),
                         Genre = rr.IsDBNull(5) ? string.Empty : rr.GetString(5),
                         SourcePath = rr.IsDBNull(10) ? string.Empty : rr.GetString(10),
-                        SourceType = "Local"
+                        SourceType = session.Config.SourceType
                     },
                     IsCorrect = rr.GetInt32(6) == 1,
                     UserGuess = rr.IsDBNull(7) ? null : rr.GetString(7),
@@ -175,7 +175,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                     Year = rr.IsDBNull(3) ? 0 : rr.GetInt32(3),
                     Genre = rr.IsDBNull(4) ? string.Empty : rr.GetString(4),
                     SourcePath = rr.IsDBNull(9) ? string.Empty : rr.GetString(9),
-                    SourceType = "Local"
+                    SourceType = session.Config.SourceType
                 },
                 IsCorrect = rr.GetInt32(5) == 1,
                 UserGuess = rr.IsDBNull(6) ? null : rr.GetString(6),
