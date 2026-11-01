@@ -1,11 +1,15 @@
 using System.Collections.ObjectModel;
+using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using MetaBrainz.Common;
 using TrackAttack.Data;
 using TrackAttack.Engine;
 using TrackAttack.Models;
@@ -15,14 +19,20 @@ namespace TrackAttack.Views;
 
 public partial class QuizView : UserControl, IDisposable
 {
+    private sealed record QuizHintDisplay(string DisplayText, BitmapImage? Artwork);
+
     private readonly QuizConfig _config;
     private readonly IQuizHistoryRepository _history;
     private readonly IPlaybackService _playback;
     private readonly QuizEngine _engine;
+    private readonly SpotifyAlbumCoverArtHintProvider _spotifyCoverArtHintProvider = new();
+    private readonly MusicBrainzCoverArtHintProvider _coverArtHintProvider = new();
+    private readonly TheAudioDbMetadataSuggestionProvider _audioDbCoverArtProvider = new();
+    private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly ObservableCollection<QuizRow> _rows = [];
     private readonly List<QuizGridRow> _gridRows = [];
     private readonly Dictionary<string, (int Row, int Group)> _songSlots = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, List<string>> _hintsBySong = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<QuizHintDisplay>> _hintsBySong = new(StringComparer.OrdinalIgnoreCase);
     private readonly DispatcherTimer _progressTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private Song? _displayedSong;
     private long _lastClipPositionSecond = -1;
@@ -31,9 +41,13 @@ public partial class QuizView : UserControl, IDisposable
     private long _lastSongDurationSecond = -1;
     private float _lastAudibleVolume = 1f;
     private bool _isMuted;
+    private bool _hintRequestInProgress;
     private bool _finished;
     private bool _disposed;
     private string? _playbackFailureMessage;
+    private string? _coverArtLookupStatus;
+    private string? _preparedCoverArtSongPath;
+    private BitmapImage? _preparedCoverArtImage;
 
     public event Action<QuizSession>? QuizFinished;
 
@@ -224,11 +238,30 @@ public partial class QuizView : UserControl, IDisposable
         {
             if (!_hintsBySong.TryGetValue(song.SourcePath, out var hints))
                 _hintsBySong[song.SourcePath] = hints = [];
-            hints.Add($"{e.Label}: {e.Hint}");
+            var artwork = e.CoverArt is null ? null : TakePreparedCoverArt(song.SourcePath, e.CoverArt);
+            var hintText = string.IsNullOrWhiteSpace(e.Hint) ? e.Label : $"{e.Label}: {e.Hint}";
+            hints.Add(new QuizHintDisplay(hintText, artwork));
             HintsList.ItemsSource = hints.ToArray();
         }
+        FeedbackText.Text = string.Join(
+            " ",
+            new[] { e.FallbackMessage, _coverArtLookupStatus }.Where(message => !string.IsNullOrWhiteSpace(message)));
+        _coverArtLookupStatus = null;
         UpdatePowers();
         UpdateScore();
+    }
+
+    private static BitmapImage CreateCoverArtImage(byte[] imageData)
+    {
+        using var stream = new MemoryStream(imageData);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.DecodePixelWidth = 256;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 
     private async void OnQuizEnded(object? sender, QuizEndedEventArgs e)
@@ -365,7 +398,7 @@ public partial class QuizView : UserControl, IDisposable
         ExtenderButton.Visibility = _config.ExtenderCount > 0 ? Visibility.Visible : Visibility.Collapsed;
         HintCountText.Text = _engine.HintsRemaining.ToString();
         HintButton.ToolTip = $"Reveal a hint for the current song ({_engine.HintsRemaining} remaining)";
-        HintButton.IsEnabled = _engine.CanUseHint;
+        HintButton.IsEnabled = _engine.CanUseHint && !_hintRequestInProgress;
         HintButton.Visibility = _config.HintCount > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -462,7 +495,135 @@ public partial class QuizView : UserControl, IDisposable
     private void OnPassClick(object sender, RoutedEventArgs e) => _engine.PassCurrentSong();
     private void OnMulliganClick(object sender, RoutedEventArgs e) => _engine.UseMulligan();
     private void OnExtenderClick(object sender, RoutedEventArgs e) => _engine.UseExtender();
-    private void OnHintClick(object sender, RoutedEventArgs e) => _engine.UseHint();
+    private async void OnHintClick(object sender, RoutedEventArgs e)
+    {
+        if (_hintRequestInProgress || _engine.CurrentSong is not { } requestedSong)
+            return;
+
+        _hintRequestInProgress = true;
+        _coverArtLookupStatus = null;
+        FeedbackText.Text = "Preparing hint…";
+        UpdatePowers();
+        try
+        {
+            var hintUsed = await _engine.UseHintAsync(
+                FetchValidCoverArtAsync,
+                _lifetimeCts.Token);
+            if (!hintUsed && _engine.CurrentSong?.SourcePath == requestedSong.SourcePath)
+                FeedbackText.Text = string.IsNullOrWhiteSpace(_coverArtLookupStatus)
+                    ? "No cover art or other unused hint is available for this song."
+                    : $"{_coverArtLookupStatus} No other unused hint is available for this song.";
+        }
+        catch (OperationCanceledException) when (_disposed)
+        {
+        }
+        catch (HttpError exception)
+        {
+            if (_engine.CurrentSong?.SourcePath == requestedSong.SourcePath)
+                FeedbackText.Text = $"Album cover lookup failed: {exception.Message}";
+        }
+        catch (HttpRequestException exception)
+        {
+            if (_engine.CurrentSong?.SourcePath == requestedSong.SourcePath)
+                FeedbackText.Text = $"Album cover lookup failed: {exception.Message}";
+        }
+        catch (TaskCanceledException exception)
+        {
+            if (_engine.CurrentSong?.SourcePath == requestedSong.SourcePath)
+                FeedbackText.Text = $"Album cover lookup timed out: {exception.Message}";
+        }
+        finally
+        {
+            _hintRequestInProgress = false;
+            if (!_disposed)
+                UpdatePowers();
+        }
+    }
+
+    private async Task<byte[]?> FetchValidCoverArtAsync(Song song, CancellationToken cancellationToken)
+    {
+        var providers = new (string Name, Func<Task<byte[]?>> Fetch)[]
+        {
+            ("Spotify", () => _spotifyCoverArtHintProvider.GetFrontCoverAsync(song, cancellationToken)),
+            ("MusicBrainz", () => _coverArtHintProvider.GetFrontCoverAsync(song, cancellationToken)),
+            ("TheAudioDB", () => _audioDbCoverArtProvider.GetAlbumCoverArtAsync(song, cancellationToken))
+        };
+
+        var failures = new List<string>();
+        foreach (var provider in providers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var imageData = await provider.Fetch().ConfigureAwait(true);
+                if (imageData is null)
+                {
+                    failures.Add(provider.Name);
+                    continue;
+                }
+
+                try
+                {
+                    var image = CreateCoverArtImage(imageData);
+                    if (_engine.CurrentSong?.SourcePath == song.SourcePath)
+                    {
+                        _preparedCoverArtSongPath = song.SourcePath;
+                        _preparedCoverArtImage = image;
+                    }
+                    if (failures.Count > 0)
+                        _coverArtLookupStatus = $"{provider.Name} artwork was used; {string.Join(", ", failures)} unavailable.";
+                    return imageData;
+                }
+                catch (Exception exception) when (IsImageDecodeException(exception))
+                {
+                    failures.Add(provider.Name);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception) when (
+                exception is HttpError
+                    or HttpRequestException
+                    or IOException
+                    or System.Text.Json.JsonException)
+            {
+                failures.Add(provider.Name);
+            }
+        }
+
+        if (failures.Count > 0)
+            _coverArtLookupStatus = $"Album artwork unavailable from {string.Join(", ", failures)}.";
+        return null;
+    }
+
+    private BitmapImage? TakePreparedCoverArt(string songPath, byte[] imageData)
+    {
+        if (_preparedCoverArtSongPath == songPath)
+        {
+            _preparedCoverArtSongPath = null;
+            var image = _preparedCoverArtImage;
+            _preparedCoverArtImage = null;
+            return image;
+        }
+
+        try
+        {
+            return CreateCoverArtImage(imageData);
+        }
+        catch (Exception exception) when (IsImageDecodeException(exception))
+        {
+            return null;
+        }
+    }
+
+    private static bool IsImageDecodeException(Exception exception)
+        => exception is NotSupportedException
+            or IOException
+            or ArgumentException
+            or COMException
+            or System.IO.FileFormatException;
     private void OnEndClick(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show("End this quiz now?", "End quiz", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
@@ -589,6 +750,8 @@ public partial class QuizView : UserControl, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _lifetimeCts.Cancel();
+        _lifetimeCts.Dispose();
         if (_playback is SpotifyPlaybackService spotifyPlayback)
         {
             spotifyPlayback.PlaybackFailed -= OnPlaybackFailed;

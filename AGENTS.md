@@ -4,7 +4,7 @@ Use this repository map before exploring. Treat the code as authoritative when b
 
 ## Scope
 
-- TrackAttack is the WPF port of MusicQuiz. Local-file quizzes are the default; optional Spotify playlist quizzes are disabled by default and controlled by `EnableSpotifyIntegration`. Keep Spotify work behind that switch and only change it when requested.
+- TrackAttack is the WPF port of MusicQuiz. Local-file quizzes are the default; Spotify playlist quizzes are also a supported source, disabled by default and controlled by `EnableSpotifyIntegration`. Preserve the feature switch and keep source-specific behavior appropriately gated, while considering both sources for shared quiz features.
 - Prefer presentation-independent quiz rules and services. Keep WPF controls and lifecycle concerns in `Views/`; avoid adding WPF dependencies to `Engine/`, `Models/`, or reusable `Services/`.
 - The port shares user data paths with MusicQuiz (`%APPDATA%\MusicQuiz`). Preserve compatibility with existing settings and quiz-history data unless a migration is intentional.
 
@@ -15,7 +15,7 @@ Use this repository map before exploring. Treat the code as authoritative when b
 - Build: `dotnet build TrackAttack/TrackAttack.csproj`
 - Run: `dotnet run --project TrackAttack/TrackAttack.csproj`
 - No test project currently exists. Build code changes and report that automated tests are unavailable.
-- Main dependencies: MetaBrainz.MusicBrainz and TheAudioDB catalog suggestions, Microsoft.Data.Sqlite, NAudio, SQLitePCLRaw, TagLibSharp, and the optional Spotify Web API packages.
+- Main dependencies: MetaBrainz.MusicBrainz and MetaBrainz.MusicBrainz.CoverArt, TheAudioDB catalog suggestions, Microsoft.Data.Sqlite, NAudio, SQLitePCLRaw, TagLibSharp, and the optional Spotify Web API packages.
 
 ## Application map
 
@@ -45,7 +45,7 @@ TrackAttack/App.xaml
 - The supported source is local MP3 and FLAC files. `LocalFileMusicSource.ScanDirectory` scans recursively and reads tags with TagLibSharp; when title or artist is missing, it falls back to a filename shaped like `Artist - Title`. Unreadable files are skipped in quiz scans.
 - `QuizSetupView` scans the configured folder, builds genre and decade filters, supports the `! Unknown` option for blank genre or nonpositive year, applies inclusive duration filters and optional unique-artist selection, and shuffles eligible songs. It selects the requested song count and retains extras as the mulligan reserve. `SongsView` shows songs matching the current filters.
 - Recent-quiz exclusion is optional and off by default. When enabled, it excludes songs from the configured number of recent local quizzes in the current library; history matches new rows by file path and can fall back to title and artist for older rows.
-- Named local quiz presets are saved in `AppSettings.LocalQuizPresets`. They store the source folder, filters, quiz/timer/clip settings, matching options, powers and penalties, and recent-quiz options. Selecting one restores its settings and rescans when its folder differs. The song-count display preference is also persisted in settings.
+- Named quiz presets are saved in `AppSettings.LocalQuizPresets`. They store the source folder, filters, quiz/timer/clip settings, matching options, powers and penalties, and recent-quiz options. Selecting one restores its settings and rescans when its folder differs; its name is prefilled so saving updates it without retyping, while changing the name saves under a different name. The song-count display preference is also persisted in settings.
 - Trace a new quiz option end-to-end: `QuizSetupView` control and preset handling → `QuizConfig` → engine or service behavior → result/history persistence and display.
 
 ## Optional Spotify quizzes
@@ -72,7 +72,7 @@ TrackAttack/App.xaml
 - Quiz pause pauses the engine countdown and playback together and excludes paused time from quiz duration. Clip-only pause affects playback without pausing quiz time.
 - `IPlaybackService.Volume` is normalized per-stream gain; NAudio playback must not change Windows master volume. `SeekClip` seeks relative to the designated clip start, clamps to clip duration, and re-arms clip-end handling. Progress UI shows clip-relative and full-song progress; use the service's clip/song position and duration properties rather than seeking the source track directly.
 - Correct guesses normally advance immediately; with `SkipOnCorrectGuess` disabled, the clip finishes its cycle first. Pass advances, and the song grid can jump to an unfinished song. Tab passes during a running quiz.
-- Mulligan replaces the current slot using the preselected reserve. Extender doubles a song's clip duration and remains in effect if the song returns in rotation. Hint uses randomly reveal enabled, applicable first-letter, scrambled title/artist, genre, or exact-year clues; a clue type is shown at most once per song and revealed clues are retained.
+- Mulligan replaces the current slot using the preselected reserve. Extender doubles a song's clip duration and remains in effect if the song returns in rotation. Hints randomly reveal enabled, applicable first-letter, scrambled title/artist, genre, exact-year, or album-cover clues; a clue type is shown at most once per song and revealed clues are retained. Album names are shown with cover art only when guessing the song title, not when artist is part of the answer. Album art tries valid Spotify artwork, then a tagged MusicBrainz release ID or high-confidence release search, then TheAudioDB album artwork; each candidate is decoded before use, and unavailable or unsupported images fall back to another available hint.
 - Ending a quiz fills in unrecorded songs as incorrect, orders all results by their original quiz slot (including mulligan replacements), and raises `QuizEnded`. Keep scoring and rotation out of view code. Dispose timers, playback, and engine resources along the existing `QuizView` lifecycle.
 
 ## Persistence

@@ -50,8 +50,9 @@
                               DisplayMemberPath="Name" SelectionChanged="OnPresetSelected"/>
                     <TextBox x:Name="PresetNameText" Grid.Column="2" MinWidth="140" Height="32"
                              VerticalContentAlignment="Center" Margin="0,0,8,0"
-                             ToolTip="Enter a name to save the current setup"/>
-                    <Button Grid.Column="3" Content="Save preset" Height="32" Padding="10,4" Margin="0,0,6,0"
+                             ToolTip="Keep the selected name to update that setup, or change it to save as a new setup"
+                             TextChanged="OnPresetNameChanged"/>
+                    <Button x:Name="SavePresetButton" Grid.Column="3" Content="Save preset" Height="32" Padding="10,4" Margin="0,0,6,0"
                             Click="OnSavePresetClick"/>
                     <Button Grid.Column="4" Content="Delete preset" Height="32" Padding="10,4"
                             Click="OnDeletePresetClick"/>

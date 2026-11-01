@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="MetaBrainz.MusicBrainz" Version="8.0.1" />
+    <PackageReference Include="MetaBrainz.MusicBrainz.CoverArt" Version="7.1.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <PackageReference Include="NAudio" Version="3.3.0" />
     <PackageReference Include="SpotifyAPI.Web" Version="7.4.2" />

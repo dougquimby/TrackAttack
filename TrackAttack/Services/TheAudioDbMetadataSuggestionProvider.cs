@@ -90,6 +90,38 @@ public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionPr
             .ToArray();
     }
 
+    public async Task<byte[]?> GetAlbumCoverArtAsync(
+        Song song,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(song);
+        if (string.IsNullOrWhiteSpace(song.Artist) || string.IsNullOrWhiteSpace(song.Album))
+            return null;
+
+        var albumUri = BuildUri(
+            "searchalbum.php",
+            ("s", song.Artist.Trim()),
+            ("a", song.Album.Trim()));
+        using var albumResults = await GetJsonAsync(albumUri, cancellationToken, progress: null).ConfigureAwait(false);
+        var thumbnailUrl = ReadAlbum(albumResults)?.CoverArtUrl;
+        if (!Uri.TryCreate(thumbnailUrl, UriKind.Absolute, out var thumbnailUri)
+            || thumbnailUri.Scheme != Uri.UriSchemeHttps)
+            return null;
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, thumbnailUri);
+        request.Headers.UserAgent.ParseAdd("MusicQuiz/1.0");
+        using var response = await HttpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return null;
+        response.EnsureSuccessStatusCode();
+
+        var imageData = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        return imageData.Length > 0 ? imageData : null;
+    }
+
     private static string BuildMatchDetails(MetadataSuggestionSearchRequest request, TimeSpan? duration)
     {
         var details = "TheAudioDB free search returns a limited set of track matches.";
@@ -144,7 +176,10 @@ public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionPr
             : new AlbumResult(
                 ReadString(album, "strAlbum"),
                 ReadString(album, "strGenre"),
-                ReadInt32(album, "intYearReleased"));
+                ReadInt32(album, "intYearReleased"),
+                ReadString(album, "strAlbumThumbHQ") is { Length: > 0 } highQualityThumbnail
+                    ? highQualityThumbnail
+                    : ReadString(album, "strAlbumThumb"));
     }
 
     private static string ReadString(JsonElement element, string propertyName)
@@ -261,5 +296,5 @@ public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionPr
         string Genre,
         int DurationMilliseconds);
 
-    private sealed record AlbumResult(string Title, string Genre, int Year);
+    private sealed record AlbumResult(string Title, string Genre, int Year, string CoverArtUrl);
 }

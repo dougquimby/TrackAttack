@@ -683,6 +683,7 @@ public partial class QuizSetupView : UserControl
             PresetCombo.ItemsSource = settings.LocalQuizPresets.OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase).ToArray();
             PresetCombo.SelectedItem = PresetCombo.Items.Cast<LocalQuizPreset>().First(preset => preset.Name == name);
             _initializing = wasInitializing;
+            UpdatePresetSaveButton();
         }
         catch (Exception ex)
         {
@@ -693,8 +694,17 @@ public partial class QuizSetupView : UserControl
 
     private async void OnPresetSelected(object sender, SelectionChangedEventArgs e)
     {
-        if (_initializing || PresetCombo.SelectedItem is not LocalQuizPreset preset)
+        if (_initializing)
             return;
+
+        if (PresetCombo.SelectedItem is not LocalQuizPreset preset)
+        {
+            PresetNameText.Clear();
+            UpdatePresetSaveButton();
+            return;
+        }
+
+        PresetNameText.Text = preset.Name;
 
         if (string.Equals(preset.Config.SourceType, "Spotify", StringComparison.OrdinalIgnoreCase))
         {
@@ -747,6 +757,16 @@ public partial class QuizSetupView : UserControl
         if (ExcludeRecentCheck.IsChecked == true)
             await RefreshRecentSongsAsync();
         UpdateMatchCount();
+    }
+
+    private void OnPresetNameChanged(object sender, TextChangedEventArgs e)
+        => UpdatePresetSaveButton();
+
+    private void UpdatePresetSaveButton()
+    {
+        var updatesSelectedPreset = PresetCombo.SelectedItem is LocalQuizPreset preset
+            && string.Equals(PresetNameText.Text.Trim(), preset.Name, StringComparison.OrdinalIgnoreCase);
+        SavePresetButton.Content = updatesSelectedPreset ? "Update preset" : "Save as new";
     }
 
     private void ApplyPreset(LocalQuizPreset preset)
@@ -819,6 +839,7 @@ public partial class QuizSetupView : UserControl
         HintType.ArtistInitial => "Artist first letter",
         HintType.ScrambledTitle => "Scrambled title",
         HintType.ScrambledArtist => "Scrambled artist",
+        HintType.AlbumCoverArt => "Album cover art",
         _ => type.ToString()
     };
 

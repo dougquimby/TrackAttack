@@ -62,6 +62,7 @@ public sealed class SpotifyMusicSource
             Album = track.Album?.Name ?? string.Empty,
             Year = year,
             SourcePath = uri ?? string.Empty,
+            AlbumCoverArtUrl = track.Album?.Images?.FirstOrDefault()?.Url,
             PreviewUrl = track.PreviewUrl,
             Duration = TimeSpan.FromMilliseconds(track.DurationMs),
             SourceType = "Spotify"

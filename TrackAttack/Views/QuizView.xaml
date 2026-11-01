@@ -181,7 +181,7 @@
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <TextBlock Text="HINTS" FontSize="11" FontWeight="Bold" Foreground="#65738A" Margin="0,3,8,0"/>
-                <ScrollViewer Grid.Column="1" MaxHeight="76" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Grid.Column="1" MaxHeight="150" VerticalScrollBarVisibility="Auto">
                     <ItemsControl x:Name="HintsList">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -189,7 +189,22 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Background="#EEF3FA" CornerRadius="4" Padding="9,5" Margin="0,0,7,5">
-                                    <TextBlock Text="{Binding}" Foreground="#34445C" TextWrapping="Wrap"/>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayText}" Foreground="#34445C" TextWrapping="Wrap"/>
+                                        <Image Source="{Binding Artwork}" Width="128" Height="128"
+                                               Stretch="UniformToFill" Margin="0,6,0,0">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Artwork}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                    </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

@@ -129,6 +129,9 @@ public class LocalFileMusicSource : IMusicSource
                 Genre = tagFile.Tag.FirstGenre?.Trim() ?? string.Empty,
                 Year = (int)tagFile.Tag.Year,
                 SourcePath = filePath,
+                MusicBrainzReleaseId = Guid.TryParse(tagFile.Tag.MusicBrainzReleaseId, out var releaseId)
+                    ? releaseId
+                    : null,
                 Duration = tagFile.Properties.Duration,
                 SourceType = "Local"
             };

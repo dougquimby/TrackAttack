@@ -38,6 +38,7 @@ public class QuizEngine : IDisposable
     private int _hintsRemaining;
     private readonly Dictionary<string, double> _powerPenaltiesBySong = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<HintType>> _usedHintsBySong = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, HashSet<HintType>> _unavailableHintsBySong = new(StringComparer.OrdinalIgnoreCase);
     // Songs that have been extended by the Extender power this quiz. They keep
     // their longer clip duration even when they come back around in rotation
     // (the playback service's extension state is reset on every PlayClip, so the
@@ -489,13 +490,41 @@ public class QuizEngine : IDisposable
         ExtenderUsed?.Invoke(this, _extendersRemaining);
     }
 
-    public void UseHint()
+    public async Task<bool> UseHintAsync(
+        Func<Song, CancellationToken, Task<byte[]?>> fetchAlbumCover,
+        CancellationToken cancellationToken = default)
     {
         if (!CanUseHint || CurrentSong == null)
-            return;
+            return false;
 
-        var unusedHints = GetUnusedHints(CurrentSong);
+        var song = CurrentSong;
+        var unusedHints = GetUnusedHints(song);
         var selectedHint = unusedHints[Random.Shared.Next(unusedHints.Count)];
+        byte[]? coverArt = null;
+        string? fallbackMessage = null;
+        if (selectedHint.Type == HintType.AlbumCoverArt)
+        {
+            coverArt = await fetchAlbumCover(song, cancellationToken).ConfigureAwait(true);
+            if (CurrentSong?.SourcePath != song.SourcePath || !CanUseHint)
+                return false;
+
+            if (coverArt is null)
+            {
+                if (!_unavailableHintsBySong.TryGetValue(song.SourcePath, out var unavailableHints))
+                    _unavailableHintsBySong[song.SourcePath] = unavailableHints = [];
+                unavailableHints.Add(HintType.AlbumCoverArt);
+                unusedHints.RemoveAll(hint => hint.Type == HintType.AlbumCoverArt);
+                if (unusedHints.Count == 0)
+                    return false;
+
+                selectedHint = unusedHints[Random.Shared.Next(unusedHints.Count)];
+                fallbackMessage = "Album cover art was unavailable, so another hint was used.";
+            }
+        }
+
+        if (CurrentSong?.SourcePath != song.SourcePath || !CanUseHint)
+            return false;
+
         if (!_usedHintsBySong.TryGetValue(CurrentSong.SourcePath, out var usedHints))
         {
             usedHints = [];
@@ -504,7 +533,9 @@ public class QuizEngine : IDisposable
         usedHints.Add(selectedHint.Type);
         _hintsRemaining--;
         AddPowerPenalty(CurrentSong, _config.HintPenalty);
-        HintUsed?.Invoke(this, new HintUsedEventArgs(selectedHint.Label, selectedHint.Value, _hintsRemaining));
+        HintUsed?.Invoke(this, new HintUsedEventArgs(
+            selectedHint.Label, selectedHint.Value, _hintsRemaining, coverArt, fallbackMessage));
+        return true;
     }
 
     private double GetPowerPenalty(Song song)
@@ -528,6 +559,8 @@ public class QuizEngine : IDisposable
         var enabledHintTypes = _config.EnabledHintTypes ?? Enum.GetValues<HintType>().ToList();
         if (!_usedHintsBySong.TryGetValue(song.SourcePath, out var usedHints))
             usedHints = [];
+        if (!_unavailableHintsBySong.TryGetValue(song.SourcePath, out var unavailableHints))
+            unavailableHints = [];
 
         if (!_guessBothTitleDone && TryGetFirstLetter(song.Title, out var titleInitial))
             hints.Add((HintType.TitleInitial, "Title initial", titleInitial.ToString()));
@@ -541,7 +574,14 @@ public class QuizEngine : IDisposable
             hints.Add((HintType.Genre, "Genre", song.Genre));
         if (song.Year > 0)
             hints.Add((HintType.Year, "Year", song.Year.ToString()));
-        return hints.Where(hint => enabledHintTypes.Contains(hint.Type) && !usedHints.Contains(hint.Type)).ToList();
+        if (!string.IsNullOrWhiteSpace(song.Album) || song.MusicBrainzReleaseId.HasValue)
+            hints.Add((
+                HintType.AlbumCoverArt,
+                "Album cover",
+                _config.QuizMode == QuizMode.GuessSongTitle ? song.Album : string.Empty));
+        return hints.Where(hint => enabledHintTypes.Contains(hint.Type)
+            && !usedHints.Contains(hint.Type)
+            && !unavailableHints.Contains(hint.Type)).ToList();
     }
 
     private static bool TryGetFirstLetter(string value, out char firstLetter)
@@ -666,4 +706,9 @@ public record SongChangedEventArgs(Song Song, int SongNumber);
 public record SongCorrectEventArgs(Song Song, int CorrectCount, int TotalSongs);
 public record QuizEndedEventArgs(IReadOnlyList<SongResult> Results, TimeSpan Duration);
 public record MulliganUsedEventArgs(Song OldSong, Song NewSong, int SongNumber, int RemainingMulligans);
-public record HintUsedEventArgs(string Label, string Hint, int RemainingHints);
+public record HintUsedEventArgs(
+    string Label,
+    string Hint,
+    int RemainingHints,
+    byte[]? CoverArt = null,
+    string? FallbackMessage = null);

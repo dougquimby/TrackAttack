@@ -8,6 +8,8 @@ public class Song
     public string Genre { get; set; } = string.Empty;
     public int Year { get; set; }
     public string SourcePath { get; set; } = string.Empty;
+    public Guid? MusicBrainzReleaseId { get; set; }
+    public string? AlbumCoverArtUrl { get; set; }
     public string? PreviewUrl { get; set; }
     public TimeSpan Duration { get; set; }
     public string SourceType { get; set; } = "Local";

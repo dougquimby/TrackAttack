@@ -135,6 +135,7 @@ public partial class HistoryView : UserControl
                 HintType.ScrambledArtist => "scrambled artist",
                 HintType.Genre => "genre",
                 HintType.Year => "year",
+                HintType.AlbumCoverArt => "album cover art",
                 _ => hint.ToString()
             }));
         var scoreDeduction = session.Results.Sum(result =>
