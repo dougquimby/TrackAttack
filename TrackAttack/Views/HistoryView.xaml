@@ -2,7 +2,11 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
         <DockPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center"
                         Margin="0,0,0,16">
@@ -12,16 +16,52 @@
                           SelectionChanged="OnProfileFilterChanged"/>
             </StackPanel>
         </DockPanel>
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
-                      CanContentScroll="False">
-            <Grid MinWidth="1100">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="4*"/></Grid.ColumnDefinitions>
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="12"
+                       Foreground="#65738A" FontWeight="Bold" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"/>
+            <Button x:Name="ToggleSpoilersButton" Grid.Column="1" Content="◉"
+                    ToolTip="Blur song titles and artists" AutomationProperties.Name="Toggle song title and artist spoilers"
+                    Width="34" Height="30" Padding="0" Margin="4,0,0,0"
+                    IsEnabled="False" Click="OnToggleSpoilersClick"/>
+            <Button x:Name="ReplayQuizButton" Grid.Column="2" Content="⟳"
+                    ToolTip="Replay this quiz with the same settings and tracks"
+                    AutomationProperties.Name="Replay selected quiz"
+                    FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
+                    IsEnabled="False" Click="OnReplayQuizClick"/>
+            <Button x:Name="DeleteQuizButton" Grid.Column="3" Content="×"
+                    ToolTip="Delete this quiz from history"
+                    AutomationProperties.Name="Delete selected quiz from history"
+                    FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
+                    IsEnabled="False" Click="OnDeleteQuizClick"/>
+            <Button x:Name="ClearHistoryButton" Grid.Column="4" Content="Clear history…"
+                    ToolTip="Permanently delete all quiz history"
+                    AutomationProperties.Name="Clear all quiz history"
+                    Height="30" Padding="8,4" Margin="6,0,0,0"
+                    Background="#B4232F" Foreground="White" BorderBrush="#941D27"
+                    Click="OnClearHistoryClick"/>
+        </Grid>
+        <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="4*"/>
+                </Grid.ColumnDefinitions>
                 <Grid Grid.Column="0">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <TextBlock Text="COMPLETED QUIZZES" FontSize="12" FontWeight="Bold"
                                Foreground="#65738A" Height="30" VerticalAlignment="Center"
                                Margin="0,0,0,10"/>
                     <DataGrid x:Name="HistoryGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
                               SelectionMode="Single" SelectionChanged="OnSelectionChanged">
                         <DataGrid.Columns>
                         <DataGridTemplateColumn Header="" Width="36" CanUserResize="False">
@@ -50,12 +90,12 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="Date" Binding="{Binding DateLabel}" Width="*"/>
-                        <DataGridTextColumn Header="Quiz" Binding="{Binding Title}" Width="*"/>
+                        <DataGridTextColumn Header="Date" Binding="{Binding DateLabel}" Width="135"/>
+                        <DataGridTextColumn Header="Quiz" Binding="{Binding Title}" Width="180"/>
                         <DataGridTextColumn x:Name="ProfileColumn" Header="Profile" Binding="{Binding ProfileName}" Width="90"/>
-                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="100"/>
+                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="85"/>
                         <DataGridTextColumn Header="%" Binding="{Binding Percentage}" Width="60"/>
-                        <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80"/>
+                        <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="85"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
@@ -65,39 +105,12 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="12"
-                                   Foreground="#65738A" FontWeight="Bold" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"/>
-                        <Button x:Name="ToggleSpoilersButton" Grid.Column="1" Content="◉"
-                                ToolTip="Blur song titles and artists" AutomationProperties.Name="Toggle song title and artist spoilers"
-                                Width="34" Height="30" Padding="0" Margin="4,0,0,0"
-                                IsEnabled="False" Click="OnToggleSpoilersClick"/>
-                        <Button x:Name="ReplayQuizButton" Grid.Column="2" Content="⟳"
-                                ToolTip="Replay this quiz with the same settings and tracks"
-                                AutomationProperties.Name="Replay selected quiz"
-                                FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
-                                IsEnabled="False" Click="OnReplayQuizClick"/>
-                        <Button x:Name="DeleteQuizButton" Grid.Column="3" Content="×"
-                                ToolTip="Delete this quiz from history"
-                                AutomationProperties.Name="Delete selected quiz from history"
-                                FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
-                                IsEnabled="False" Click="OnDeleteQuizClick"/>
-                        <Button x:Name="ClearHistoryButton" Grid.Column="4" Content="Clear history…"
-                                ToolTip="Permanently delete all quiz history"
-                                AutomationProperties.Name="Clear all quiz history"
-                                Height="30" Padding="8,4" Margin="6,0,0,0"
-                                Background="#B4232F" Foreground="White" BorderBrush="#941D27"
-                                Click="OnClearHistoryClick"/>
-                    </Grid>
-                    <DataGrid x:Name="DetailGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True">
+                    <TextBlock Grid.Row="0" Text="QUIZ ANSWERS" FontSize="12" FontWeight="Bold"
+                               Foreground="#65738A" Height="30" VerticalAlignment="Center"
+                               Margin="0,0,0,10"/>
+                    <DataGrid x:Name="DetailGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">
                             <Style.Triggers>
@@ -118,7 +131,7 @@
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="40"/>
-                        <DataGridTemplateColumn Header="Title" Width="*">
+                        <DataGridTemplateColumn Header="Title" Width="150">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis">
@@ -139,7 +152,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Artist" Width="*">
+                        <DataGridTemplateColumn Header="Artist" Width="150">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Artist}" TextTrimming="CharacterEllipsis">
@@ -160,7 +173,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Title guess" Width="*">
+                        <DataGridTemplateColumn Header="Title guess" Width="150">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Guess}" TextTrimming="CharacterEllipsis">
@@ -179,7 +192,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Artist guess" Width="*">
+                        <DataGridTemplateColumn Header="Artist guess" Width="150">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding ArtistGuess}" TextTrimming="CharacterEllipsis">
@@ -198,7 +211,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="60"/>
+                        <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="70"/>
                     </DataGrid.Columns>
                     </DataGrid>
                     <TabControl Grid.Row="2" Margin="0,10,0,0" MaxHeight="260">
@@ -236,6 +249,5 @@
                     </TabControl>
                 </Grid>
             </Grid>
-        </ScrollViewer>
-    </Grid>
+        </Grid>
 </UserControl>
