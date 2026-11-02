@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using DrawingRectangle = System.Drawing.Rectangle;
 using TrackAttack.Data;
 using TrackAttack.Models;
 using TrackAttack.Services;
@@ -10,29 +12,100 @@ namespace TrackAttack;
 
 public partial class MainWindow : Window
 {
+    private static readonly SolidColorBrush ActiveNavigationBrush = new(Color.FromRgb(23, 105, 170));
+    private static readonly SolidColorBrush InactiveNavigationBrush = new(Color.FromRgb(37, 50, 72));
     private readonly IMusicSource _musicSource = new LocalFileMusicSource();
     private readonly IQuizHistoryRepository _history = new SQLiteQuizHistoryRepository();
     private readonly Stack<(UserControl View, string Title)> _viewHistory = new();
     private UserControl? _currentView;
     private QuizView? _activeQuiz;
     private bool _navigationCollapsed;
+    private bool _wasMaximized;
 
     public MainWindow()
     {
         InitializeComponent();
         DatabaseInitializer.Initialize();
+        RestoreWindowPlacement();
         SetNavigationCollapsed(AppSettings.Load().NavigationCollapsed);
         ShowHome(pushHistory: false);
-        UpdateLibraryStatus();
+        RefreshQuizSetupSources();
+        StateChanged += OnWindowStateChanged;
+        Closing += (_, _) => SaveWindowPlacement();
         Closed += (_, _) => _activeQuiz?.Dispose();
     }
 
-    private void UpdateLibraryStatus()
+    private void RestoreWindowPlacement()
     {
         var settings = AppSettings.Load();
-        var directory = settings.MusicDirectory;
-        LibraryStatus.Text = string.IsNullOrWhiteSpace(directory) ? "No music library selected" : directory;
-        LibraryStatus.ToolTip = LibraryStatus.Text;
+        var bounds = settings.WindowBounds;
+        _wasMaximized = settings.WindowMaximized;
+        if (settings.WindowRestored
+            && bounds.Width >= MinWidth
+            && bounds.Height >= MinHeight
+            && IsWindowBoundsVisible(bounds))
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = bounds.Left;
+            Top = bounds.Top;
+            Width = bounds.Width;
+            Height = bounds.Height;
+        }
+
+        if (settings.WindowMaximized)
+            WindowState = WindowState.Maximized;
+    }
+
+    private void OnWindowStateChanged(object? sender, EventArgs e)
+    {
+        if (WindowState != WindowState.Minimized)
+            _wasMaximized = WindowState == WindowState.Maximized;
+    }
+
+    private static bool IsWindowBoundsVisible(DrawingRectangle bounds)
+    {
+        var screenLeft = SystemParameters.VirtualScreenLeft;
+        var screenTop = SystemParameters.VirtualScreenTop;
+        var screenRight = screenLeft + SystemParameters.VirtualScreenWidth;
+        var screenBottom = screenTop + SystemParameters.VirtualScreenHeight;
+        return bounds.Left < screenRight
+            && bounds.Right > screenLeft
+            && bounds.Top < screenBottom
+            && bounds.Bottom > screenTop;
+    }
+
+    private void SaveWindowPlacement()
+    {
+        try
+        {
+            var settings = AppSettings.Load();
+            settings.WindowMaximized = WindowState == WindowState.Minimized
+                ? _wasMaximized
+                : WindowState == WindowState.Maximized;
+
+            var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+            if (bounds.Width > 0 && bounds.Height > 0)
+            {
+                settings.WindowBounds = new DrawingRectangle(
+                    (int)Math.Round(bounds.Left),
+                    (int)Math.Round(bounds.Top),
+                    (int)Math.Round(bounds.Width),
+                    (int)Math.Round(bounds.Height));
+                settings.WindowRestored = true;
+            }
+
+            settings.Save();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"Window placement could not be saved:\n{exception.Message}",
+                "Settings save failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void RefreshQuizSetupSources()
+    {
+        var settings = AppSettings.Load();
         foreach (var setup in _viewHistory.Select(item => item.View)
                      .Append(_currentView)
                      .OfType<QuizSetupView>()
@@ -48,6 +121,23 @@ public partial class MainWindow : Window
         PageHost.Content = view;
         PageHeading.Text = title;
         BackButton.Visibility = _viewHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateNavigationSelection();
+    }
+
+    private void UpdateNavigationSelection()
+    {
+        SetNavigationButtonActive(HomeNavigationButton, _currentView is HomeView);
+        SetNavigationButtonActive(NewQuizNavigationButton,
+            _currentView is QuizSetupView or SongsView or QuizView or ResultsView);
+        SetNavigationButtonActive(MetadataNavigationButton, _currentView is MetadataView);
+        SetNavigationButtonActive(HistoryNavigationButton, _currentView is HistoryView);
+        SetNavigationButtonActive(SettingsNavigationButton, _currentView is SettingsView);
+    }
+
+    private static void SetNavigationButtonActive(Button button, bool isActive)
+    {
+        button.Background = isActive ? ActiveNavigationBrush : InactiveNavigationBrush;
+        button.BorderThickness = isActive ? new Thickness(1) : new Thickness(0);
     }
 
     private void ShowHome(bool pushHistory = true)
@@ -144,7 +234,7 @@ public partial class MainWindow : Window
     private void ShowSettings()
     {
         var view = new SettingsView(_history);
-        view.SettingsSaved += UpdateLibraryStatus;
+        view.SettingsSaved += RefreshQuizSetupSources;
         Navigate(view, "Settings");
     }
 
@@ -172,7 +262,8 @@ public partial class MainWindow : Window
         PageHost.Content = view;
         PageHeading.Text = title;
         BackButton.Visibility = _viewHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        UpdateLibraryStatus();
+        UpdateNavigationSelection();
+        RefreshQuizSetupSources();
     }
 
     private void OnToggleNavigationClick(object sender, RoutedEventArgs e)

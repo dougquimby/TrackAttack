@@ -23,12 +23,23 @@ public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionPr
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Artist))
             throw new ArgumentException("TheAudioDB lookup requires both a song title and an artist.", nameof(request));
 
-        var trackUri = BuildUri(
-            "searchtrack.php",
-            ("s", request.Artist.Trim()),
-            ("t", request.Title.Trim()));
-        using var trackResults = await GetJsonAsync(trackUri, cancellationToken, progress).ConfigureAwait(false);
-        var tracks = ReadTracks(trackResults);
+        var tracks = Array.Empty<TrackResult>();
+        foreach (var artistVariant in MetadataArtistSearchVariants.Create(request.Artist))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (tracks.Length > 0)
+                break;
+
+            if (!string.Equals(artistVariant, request.Artist.Trim(), StringComparison.OrdinalIgnoreCase))
+                progress?.Report($"No TheAudioDB match for artist '{request.Artist}'. Trying '{artistVariant}'.");
+            var trackUri = BuildUri(
+                "searchtrack.php",
+                ("s", artistVariant),
+                ("t", request.Title.Trim()));
+            using var trackResults = await GetJsonAsync(trackUri, cancellationToken, progress).ConfigureAwait(false);
+            tracks = ReadTracks(trackResults);
+        }
+
         if (tracks.Length == 0)
             return [];
 

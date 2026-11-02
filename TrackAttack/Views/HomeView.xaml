@@ -84,7 +84,7 @@
                                    Margin="0,3,0,0"/>
                     </StackPanel>
                 </Button>
-                <Button Style="{StaticResource HomeActionCard}" Click="OnSettingsClick">
+                <Button Style="{StaticResource HomeActionCard}" Margin="0,0,0,12" Click="OnSettingsClick">
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="⚙  PREFERENCES" Foreground="#1677C8"
                                    FontSize="10" FontWeight="Bold"/>
@@ -97,7 +97,7 @@
             </UniformGrid>
 
             <Border Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
-                    CornerRadius="8" Padding="20" Margin="0,10,12,16">
+                    CornerRadius="8" Padding="20" Margin="0,10,0,16">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>

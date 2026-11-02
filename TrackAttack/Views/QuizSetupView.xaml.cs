@@ -70,6 +70,7 @@ public partial class QuizSetupView : UserControl
         _showSongCounts = settings.ShowSongCountsInLists;
         PresetCombo.ItemsSource = settings.LocalQuizPresets.OrderBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase).ToArray();
         _initializing = false;
+        SetDefaultQuizPointsForMode();
 
         Loaded += async (_, _) =>
         {
@@ -102,6 +103,76 @@ public partial class QuizSetupView : UserControl
 
     private void OnRandomClipCheckChanged(object sender, RoutedEventArgs e)
         => UpdateClipStartInput();
+
+    private void OnQuizModeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing)
+            return;
+        SetDefaultQuizPointsForMode();
+    }
+
+    private QuizMode GetSelectedQuizMode()
+        => QuizModeCombo.SelectedIndex switch
+        {
+            1 => QuizMode.GuessArtist,
+            2 => QuizMode.GuessBoth,
+            _ => QuizMode.GuessSongTitle
+        };
+
+    private void SetDefaultQuizPointsForMode()
+    {
+        switch (GetSelectedQuizMode())
+        {
+            case QuizMode.GuessArtist:
+                ArtistPointsText.Text = "2";
+                break;
+            case QuizMode.GuessBoth:
+                SongTitlePointsText.Text = "1.5";
+                ArtistPointsText.Text = "0.5";
+                break;
+            default:
+                SongTitlePointsText.Text = "2";
+                break;
+        }
+
+        SongTitlePointsPanel.Visibility = GetSelectedQuizMode() == QuizMode.GuessArtist
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        ArtistPointsPanel.Visibility = GetSelectedQuizMode() == QuizMode.GuessSongTitle
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    private bool TryGetQuizPointValues(out QuizMode mode, out double? songTitlePoints, out double? artistPoints)
+    {
+        mode = GetSelectedQuizMode();
+        songTitlePoints = null;
+        artistPoints = null;
+
+        if (mode != QuizMode.GuessArtist)
+        {
+            if (!TryPointValue(SongTitlePointsText.Text, out var titleValue))
+            {
+                MessageBox.Show("Song title points must be zero or a positive finite number.",
+                    "Invalid point value", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+            songTitlePoints = titleValue;
+        }
+
+        if (mode != QuizMode.GuessSongTitle)
+        {
+            if (!TryPointValue(ArtistPointsText.Text, out var artistValue))
+            {
+                MessageBox.Show("Artist points must be zero or a positive finite number.",
+                    "Invalid point value", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+            artistPoints = artistValue;
+        }
+
+        return true;
+    }
 
     private void UpdateClipStartInput()
         => ClipStartPanel.IsEnabled = RandomClipCheck.IsChecked != true;
@@ -530,6 +601,8 @@ public partial class QuizSetupView : UserControl
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        if (!TryGetQuizPointValues(out var quizMode, out var songTitlePoints, out var artistPoints))
+            return;
 
         var count = Math.Min(requestedCount, candidates.Count);
         var shuffled = candidates.ToArray();
@@ -586,7 +659,9 @@ public partial class QuizSetupView : UserControl
             {
                 1 => GridColumns.One, 2 => GridColumns.Two, 3 => GridColumns.Three, 4 => GridColumns.Four, _ => GridColumns.Auto
             },
-            QuizMode = QuizModeCombo.SelectedIndex switch { 1 => QuizMode.GuessArtist, 2 => QuizMode.GuessBoth, _ => QuizMode.GuessSongTitle },
+            QuizMode = quizMode,
+            SongTitlePoints = songTitlePoints,
+            ArtistPoints = artistPoints,
             QuizTitle = IsSpotifySource
                 ? $"{selectedSpotifyPlaylist!.Name} Quiz"
                 : QuizNameGenerator.Generate(selected),
@@ -599,6 +674,7 @@ public partial class QuizSetupView : UserControl
             HintCount = ParseInt(HintCountText.Text),
             EnabledHintTypes = HintTypesPanel.Children.OfType<CheckBox>().Where(check => check.IsChecked == true)
                 .Select((check, index) => HintTypes[index]).ToList(),
+            ScrambleHintsPerWord = ScrambleHintsPerWordCheck.IsChecked == true,
             MulliganPenalty = mulliganPenalty,
             ExtenderPenalty = extenderPenalty,
             HintPenalty = hintPenalty,
@@ -618,6 +694,9 @@ public partial class QuizSetupView : UserControl
             MessageBox.Show("Enter a name for this setup.", "Preset name required", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        if (!TryGetQuizPointValues(out var quizMode, out var songTitlePoints, out var artistPoints))
+            return;
+
         var settings = AppSettings.Load();
         settings.LocalQuizPresets.RemoveAll(preset => string.Equals(preset.Name, name, StringComparison.OrdinalIgnoreCase));
         TryInt(SecondsText.Text, 30, 5, 600, out var seconds);
@@ -646,7 +725,9 @@ public partial class QuizSetupView : UserControl
             MinSongDuration = minLength > 0 ? TimeSpan.FromSeconds(minLength) : null,
             MaxSongDuration = maxLength > 0 ? TimeSpan.FromSeconds(maxLength) : null,
             ClipPlaybackMode = PlaybackCombo.SelectedIndex switch { 1 => ClipPlaybackMode.PlayOnceStop, 2 => ClipPlaybackMode.PlayOnceAutoAdvance, _ => ClipPlaybackMode.Loop },
-            QuizMode = QuizModeCombo.SelectedIndex switch { 1 => QuizMode.GuessArtist, 2 => QuizMode.GuessBoth, _ => QuizMode.GuessSongTitle },
+            QuizMode = quizMode,
+            SongTitlePoints = songTitlePoints,
+            ArtistPoints = artistPoints,
             GridColumns = GridColumnsCombo.SelectedIndex switch { 1 => GridColumns.One, 2 => GridColumns.Two, 3 => GridColumns.Three, 4 => GridColumns.Four, _ => GridColumns.Auto },
             FuzzyArtistMatching = FuzzyArtistCheck.IsChecked == true,
             FuzzySongTitleMatching = FuzzyTitleCheck.IsChecked == true,
@@ -657,6 +738,7 @@ public partial class QuizSetupView : UserControl
             HintCount = ParseInt(HintCountText.Text),
             EnabledHintTypes = HintTypesPanel.Children.OfType<CheckBox>().Where(check => check.IsChecked == true)
                 .Select((check, index) => HintTypes[index]).ToList(),
+            ScrambleHintsPerWord = ScrambleHintsPerWordCheck.IsChecked == true,
             MulliganPenalty = ParseDouble(MulliganPenaltyText.Text),
             ExtenderPenalty = ParseDouble(ExtenderPenaltyText.Text),
             HintPenalty = ParseDouble(HintPenaltyText.Text),
@@ -783,6 +865,14 @@ public partial class QuizSetupView : UserControl
         GridColumnsCombo.SelectedIndex = config.GridColumns switch { GridColumns.One => 1, GridColumns.Two => 2, GridColumns.Three => 3, GridColumns.Four => 4, _ => 0 };
         PlaybackCombo.SelectedIndex = config.ClipPlaybackMode switch { ClipPlaybackMode.PlayOnceStop => 1, ClipPlaybackMode.PlayOnceAutoAdvance => 2, _ => 0 };
         QuizModeCombo.SelectedIndex = config.QuizMode switch { QuizMode.GuessArtist => 1, QuizMode.GuessBoth => 2, _ => 0 };
+        SongTitlePointsText.Text = (config.SongTitlePoints ?? (config.QuizMode == QuizMode.GuessBoth ? 1.5 : 2.0)).ToString();
+        ArtistPointsText.Text = (config.ArtistPoints ?? (config.QuizMode == QuizMode.GuessBoth ? 0.5 : 2.0)).ToString();
+        SongTitlePointsPanel.Visibility = config.QuizMode == QuizMode.GuessArtist
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        ArtistPointsPanel.Visibility = config.QuizMode == QuizMode.GuessSongTitle
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         RandomClipCheck.IsChecked = config.ClipStartMode == ClipStartMode.Random;
         FuzzyArtistCheck.IsChecked = config.FuzzyArtistMatching;
         FuzzyTitleCheck.IsChecked = preset.FuzzySongTitleMatching;
@@ -806,6 +896,7 @@ public partial class QuizSetupView : UserControl
         var enabledHints = config.EnabledHintTypes ?? HintTypes.ToList();
         for (var index = 0; index < HintTypesPanel.Children.Count; index++)
             ((CheckBox)HintTypesPanel.Children[index]).IsChecked = enabledHints.Contains(HintTypes[index]);
+        ScrambleHintsPerWordCheck.IsChecked = config.ScrambleHintsPerWord;
         _initializing = false;
         UpdateMatchCount();
     }
@@ -830,6 +921,8 @@ public partial class QuizSetupView : UserControl
 
     private static bool TryInt(string text, int fallback, int min, int max, out int value)
         => int.TryParse(text, out value) && value >= min && value <= max;
+    private static bool TryPointValue(string text, out double value)
+        => double.TryParse(text, out value) && double.IsFinite(value) && value >= 0;
     private static int ParseInt(string text) => int.TryParse(text, out var value) ? Math.Max(0, value) : 0;
     private static bool TryDouble(string text, out double value) => double.TryParse(text, out value) && value >= 0;
     private static double ParseDouble(string text) => double.TryParse(text, out var value) ? Math.Max(0, value) : 0;

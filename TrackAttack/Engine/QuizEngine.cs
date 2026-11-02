@@ -59,7 +59,7 @@ public class QuizEngine : IDisposable
     public int TotalSongs { get; }
     public int CorrectCount => _results.Count(r => r.IsCorrect);
     public double TotalPoints => _results.Sum(result => QuizSession.CalculatePoints(result, _config));
-    public double MaxPoints => _config.QuizMode == QuizMode.GuessBoth ? TotalSongs * 2.0 : TotalSongs;
+    public double MaxPoints => QuizSession.CalculateMaxPointsPerSong(_config) * TotalSongs;
     public int RemainingSeconds => _secondsRemaining;
     public bool IsRunning { get; private set; }
     public bool IsPaused => _isPaused;
@@ -566,9 +566,9 @@ public class QuizEngine : IDisposable
             hints.Add((HintType.TitleInitial, "Title initial", titleInitial.ToString()));
         if (!_guessBothArtistDone && TryGetFirstLetter(song.Artist, out var artistInitial))
             hints.Add((HintType.ArtistInitial, "Artist initial", artistInitial.ToString()));
-        if (!_guessBothTitleDone && TryScramble(song.Title, out var scrambledTitle))
+        if (!_guessBothTitleDone && TryScramble(song.Title, _config.ScrambleHintsPerWord, out var scrambledTitle))
             hints.Add((HintType.ScrambledTitle, "Scrambled title", scrambledTitle));
-        if (!_guessBothArtistDone && TryScramble(song.Artist, out var scrambledArtist))
+        if (!_guessBothArtistDone && TryScramble(song.Artist, _config.ScrambleHintsPerWord, out var scrambledArtist))
             hints.Add((HintType.ScrambledArtist, "Scrambled artist", scrambledArtist));
         if (!string.IsNullOrWhiteSpace(song.Genre))
             hints.Add((HintType.Genre, "Genre", song.Genre));
@@ -590,7 +590,35 @@ public class QuizEngine : IDisposable
         return firstLetter != default;
     }
 
-    private static bool TryScramble(string value, out string scrambled)
+    private static bool TryScramble(string value, bool perWord, out string scrambled)
+    {
+        if (!perWord)
+            return TryScrambleWholeString(value, out scrambled);
+
+        return TryScramblePerWord(value, out scrambled);
+    }
+
+    private static bool TryScrambleWholeString(string value, out string scrambled)
+    {
+        var characters = value.ToCharArray();
+        var positions = Enumerable.Range(0, characters.Length)
+            .Where(position => char.IsLetterOrDigit(characters[position]))
+            .ToArray();
+        var letters = positions.Select(position => characters[position]).ToArray();
+        if (!TryShuffleLetters(letters))
+        {
+            scrambled = string.Empty;
+            return false;
+        }
+
+        for (var index = 0; index < positions.Length; index++)
+            characters[positions[index]] = letters[index];
+
+        scrambled = new string(characters);
+        return true;
+    }
+
+    private static bool TryScramblePerWord(string value, out string scrambled)
     {
         var characters = value.ToCharArray();
         var hasScrambledWord = false;
@@ -620,22 +648,11 @@ public class QuizEngine : IDisposable
                 .Where(position => char.IsLetterOrDigit(characters[position]))
                 .ToArray();
             var letters = wordPositions.Select(position => characters[position]).ToArray();
-            if (letters.Length >= 3 && letters.Distinct().Count() > 1)
+            if (TryShuffleLetters(letters))
             {
-                var originalLetters = letters.ToArray();
-                for (var i = letters.Length - 1; i > 0; i--)
-                {
-                    var j = Random.Shared.Next(i + 1);
-                    (letters[i], letters[j]) = (letters[j], letters[i]);
-                }
-
-                if (letters.SequenceEqual(originalLetters))
-                    letters = letters.Skip(1).Append(letters[0]).ToArray();
-
                 for (var i = 0; i < wordPositions.Length; i++)
                     characters[wordPositions[i]] = letters[i];
-
-                hasScrambledWord |= !letters.SequenceEqual(originalLetters);
+                hasScrambledWord = true;
             }
 
             wordStart = -1;
@@ -649,6 +666,27 @@ public class QuizEngine : IDisposable
 
         scrambled = new string(characters);
         return true;
+    }
+
+    private static bool TryShuffleLetters(char[] letters)
+    {
+        if (letters.Length < 3 || letters.Distinct().Count() < 2)
+            return false;
+
+        var originalLetters = letters.ToArray();
+        for (var index = letters.Length - 1; index > 0; index--)
+        {
+            var swapIndex = Random.Shared.Next(index + 1);
+            (letters[index], letters[swapIndex]) = (letters[swapIndex], letters[index]);
+        }
+
+        if (letters.SequenceEqual(originalLetters))
+        {
+            var differentLetterIndex = Array.FindIndex(letters, 1, letter => letter != letters[0]);
+            (letters[0], letters[differentLetterIndex]) = (letters[differentLetterIndex], letters[0]);
+        }
+
+        return !letters.SequenceEqual(originalLetters);
     }
 
     public void End()

@@ -42,7 +42,7 @@
                         </StackPanel>
                     </Button>
                     <Button x:Name="NewQuizNavigationButton" Style="{StaticResource NavigationButton}"
-                            Background="#1769AA" FontWeight="SemiBold" ToolTip="New Quiz"
+                            FontWeight="SemiBold" ToolTip="New Quiz"
                             AutomationProperties.Name="New Quiz" Click="OnNewQuizClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="+" FontSize="22" Width="28" TextAlignment="Center"/>
@@ -79,17 +79,27 @@
                 ToolTip="Collapse navigation" Click="OnToggleNavigationClick"/>
         <Grid Grid.Column="2">
             <Grid.RowDefinitions>
-                <RowDefinition Height="58"/>
+                <RowDefinition Height="70"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <Border Grid.Row="0" Background="White" BorderBrush="#E0E5EC" BorderThickness="0,0,0,1">
+            <Border Grid.Row="0" BorderBrush="#1677C8" BorderThickness="0,0,0,3">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#1B2638" Offset="0"/>
+                        <GradientStop Color="#24354D" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
                 <DockPanel Margin="22,0">
                     <Button x:Name="BackButton" Content="‹ Back" Click="OnBackClick" Visibility="Collapsed"
-                            Padding="12,5" Margin="0,0,14,0" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="PageHeading" Text="Home" FontSize="17" FontWeight="SemiBold"
-                               VerticalAlignment="Center" Foreground="#253248"/>
-                    <TextBlock x:Name="LibraryStatus" DockPanel.Dock="Right" VerticalAlignment="Center"
-                               Foreground="#65738A" TextTrimming="CharacterEllipsis" MaxWidth="520"/>
+                            DockPanel.Dock="Right"
+                            MinWidth="76" Height="34" Padding="12,5" Margin="0,0,20,0"
+                            VerticalAlignment="Center" Background="#2D405A" Foreground="#EAF4FD"
+                            BorderBrush="#4B6584" BorderThickness="1" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="4" Height="30" CornerRadius="2" Background="#4FA8FF" Margin="0,0,14,0"/>
+                        <TextBlock x:Name="PageHeading" Text="Home" FontSize="21" FontWeight="Bold"
+                                   VerticalAlignment="Center" Foreground="White"/>
+                    </StackPanel>
                 </DockPanel>
             </Border>
             <ContentControl x:Name="PageHost" Grid.Row="1" Margin="24"/>

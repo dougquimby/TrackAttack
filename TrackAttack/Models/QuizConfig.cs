@@ -19,6 +19,8 @@ public class QuizConfig
     public ClipPlaybackMode ClipPlaybackMode { get; set; } = ClipPlaybackMode.PlayOnceAutoAdvance;
     public GridColumns GridColumns { get; set; } = GridColumns.Auto;
     public QuizMode QuizMode { get; set; } = QuizMode.GuessSongTitle;
+    public double? SongTitlePoints { get; set; }
+    public double? ArtistPoints { get; set; }
     public string QuizTitle { get; set; } = "Track Attack";
     public string SourceType { get; set; } = "Local";
     public string SpotifyPlaylistId { get; set; } = string.Empty;
@@ -33,6 +35,7 @@ public class QuizConfig
     public int ExtenderCount { get; set; } = 0;
     public int HintCount { get; set; } = 0;
     public List<HintType> EnabledHintTypes { get; set; } = Enum.GetValues<HintType>().ToList();
+    public bool ScrambleHintsPerWord { get; set; } = true;
     public double MulliganPenalty { get; set; }
     public double ExtenderPenalty { get; set; }
     public double HintPenalty { get; set; }

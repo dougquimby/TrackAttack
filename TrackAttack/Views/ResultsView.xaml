@@ -11,7 +11,6 @@
         <DockPanel>
             <Button Content="Play Again" DockPanel.Dock="Right" Style="{StaticResource ActionButton}"
                     MinWidth="130" Click="OnPlayAgainClick"/>
-            <TextBlock x:Name="TitleText" Text="Quiz complete" Style="{StaticResource PageTitle}"/>
         </DockPanel>
         <Border Grid.Row="1" Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
                 CornerRadius="8" Padding="18" Margin="0,0,0,10">

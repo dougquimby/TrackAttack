@@ -67,7 +67,6 @@ public partial class ResultsView : UserControl
     public ResultsView(QuizSession session, IQuizHistoryRepository history)
     {
         InitializeComponent();
-        TitleText.Text = session.Config.QuizTitle;
         ScoreText.Text = HomeView.UsesPoints(session.Config)
             ? $"{session.TotalPoints:F1} / {session.MaxPoints:F1} pts"
             : $"{session.Score} / {session.Results.Count}";

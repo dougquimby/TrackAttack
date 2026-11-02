@@ -20,7 +20,6 @@ public sealed class MusicBrainzMetadataSuggestionProvider : IMetadataSuggestionP
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var searchText = BuildSearchText(request);
         var version = typeof(MusicBrainzMetadataSuggestionProvider).Assembly.GetName().Version?.ToString() ?? "1.0";
         using var query = new Query("TrackAttack", version, ContactUri);
         if (Query.DelayBetweenRequests < 1)
@@ -28,12 +27,40 @@ public sealed class MusicBrainzMetadataSuggestionProvider : IMetadataSuggestionP
 
         var searchResults = await SendWithServerBusyRetryAsync(
             token => query.FindRecordingsAsync(
-                searchText,
+                BuildSearchText(request, request.Artist),
                 limit: ResultLimit,
                 simple: false,
                 cancellationToken: token),
             cancellationToken,
             progress);
+        foreach (var artistVariant in MetadataArtistSearchVariants.Create(request.Artist).Skip(1))
+        {
+            if (searchResults.Results.Count > 0)
+                break;
+
+            progress?.Report($"No MusicBrainz match for artist '{request.Artist}'. Trying '{artistVariant}'.");
+            searchResults = await SendWithServerBusyRetryAsync(
+                token => query.FindRecordingsAsync(
+                    BuildSearchText(request, artistVariant),
+                    limit: ResultLimit,
+                    simple: false,
+                    cancellationToken: token),
+                cancellationToken,
+                progress);
+        }
+
+        if (searchResults.Results.Count == 0 && !string.IsNullOrWhiteSpace(request.Artist))
+        {
+            progress?.Report("No MusicBrainz match with the artist filter. Trying the track title and album.");
+            searchResults = await SendWithServerBusyRetryAsync(
+                token => query.FindRecordingsAsync(
+                    BuildSearchText(request, null),
+                    limit: ResultLimit,
+                    simple: false,
+                    cancellationToken: token),
+                cancellationToken,
+                progress);
+        }
 
         var suggestions = new List<MetadataSuggestion>(searchResults.Results.Count);
         foreach (var result in searchResults.Results)
@@ -105,13 +132,13 @@ public sealed class MusicBrainzMetadataSuggestionProvider : IMetadataSuggestionP
         return null;
     }
 
-    private static string BuildSearchText(MetadataSuggestionSearchRequest request)
+    private static string BuildSearchText(MetadataSuggestionSearchRequest request, string? artist)
     {
         var clauses = new List<string>();
         if (!string.IsNullOrWhiteSpace(request.Title))
             clauses.Add($"recording:\"{EscapePhrase(request.Title.Trim())}\"");
-        if (!string.IsNullOrWhiteSpace(request.Artist))
-            clauses.Add($"artist:\"{EscapePhrase(request.Artist.Trim())}\"");
+        if (!string.IsNullOrWhiteSpace(artist))
+            clauses.Add($"artist:\"{EscapePhrase(artist.Trim())}\"");
         if (!string.IsNullOrWhiteSpace(request.Album))
             clauses.Add($"release:\"{EscapePhrase(request.Album.Trim())}\"");
 

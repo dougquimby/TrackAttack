@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,6 +17,7 @@ public partial class MetadataView : UserControl
     private CancellationTokenSource? _activeLookup;
     private MetadataEditEntry? _candidateTarget;
     private bool _initializingProvider = true;
+    private bool _gridRefreshPending;
 
     public MetadataView()
     {
@@ -27,6 +29,19 @@ public partial class MetadataView : UserControl
         _initializingProvider = false;
         ProviderCombo.SelectionChanged += OnProviderChanged;
         Unloaded += (_, _) => _activeLookup?.Cancel();
+    }
+
+    private void OnHelpClick(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show(
+            "1. Scan your music folder, then select one or more tracks.\n\n" +
+            "2. Choose MusicBrainz or TheAudioDB and click Lookup selected. Artist searches retry common punctuation and spacing variants (for example, Blink 182 and Blink-182).\n\n" +
+            "3. For one selected track, choose a candidate and leave checked only the fields you want to stage. The field checkboxes start checked. For multiple tracks, confident top matches are staged automatically; enable the bulk album option to look up once per original album and stage year/genre to matching tracks.\n\n" +
+            "4. To apply a single candidate's checked genre/year to other tracks from the same original album and artist, check the album propagation option above the candidate grid.\n\n" +
+            "Staging never writes files. Review the metadata grid, then choose Apply changes. A recovery snapshot is created first, and Undo last apply restores it.",
+            "Metadata fixer help",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private void OnBrowseClick(object sender, RoutedEventArgs e)
@@ -106,6 +121,7 @@ public partial class MetadataView : UserControl
         SetBusy(true);
         var provider = CreateProvider();
         var staged = 0;
+        var readyForReview = 0;
         var unresolved = 0;
         try
         {
@@ -119,10 +135,28 @@ public partial class MetadataView : UserControl
                 var candidates = await provider.SearchAsync(new MetadataSuggestionSearchRequest(
                     entry.Title, entry.Artist, entry.Album, entry.AudioDuration), cancellation.Token,
                     new Progress<string>(message => StatusText.Text = message));
-                CandidatesGrid.ItemsSource = candidates;
+                var candidateSelections = candidates.Select(candidate => new MetadataSuggestionSelection(candidate)).ToArray();
+                CandidatesGrid.ItemsSource = candidateSelections;
+                CandidatesGrid.SelectedItem = candidateSelections.FirstOrDefault();
                 _candidateTarget = entry;
+                CandidateTargetText.Text = candidates.Count == 0
+                    ? $"No candidates for {entry.Title} — {entry.Artist}"
+                    : $"For: {entry.Title} — {entry.Artist}";
                 var candidate = candidates.FirstOrDefault();
                 var durationDifference = candidate?.Duration is { } duration ? (duration - entry.AudioDuration).Duration() : (TimeSpan?)null;
+
+                if (selected.Length == 1 && AlbumLookupCheck.IsChecked != true)
+                {
+                    entry.SuggestionReviewStatus = candidate is null
+                        ? "No catalog match; review manually."
+                        : $"{candidates.Count} candidate(s) found; select fields and stage a match.";
+                    if (candidate is null)
+                        unresolved++;
+                    else
+                        readyForReview++;
+                    continue;
+                }
+
                 if (candidate is null || candidate.MatchScore < minimumMatchScore
                     || durationDifference is null || durationDifference.Value.TotalSeconds > MaximumDurationDifferenceSeconds)
                 {
@@ -142,7 +176,7 @@ public partial class MetadataView : UserControl
                 staged++;
                 RefreshGrid();
             }
-            StatusText.Text = $"Lookup complete: {staged} suggestion(s) staged for review; {unresolved} need manual review. No files written.";
+            StatusText.Text = $"Lookup complete: {staged} suggestion(s) staged; {readyForReview} candidate set(s) ready for field review; {unresolved} need manual review. No files written.";
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -164,18 +198,40 @@ public partial class MetadataView : UserControl
 
     private void OnCancelClick(object sender, RoutedEventArgs e) => _activeLookup?.Cancel();
 
+    private void OnCandidateFieldCheckClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox { DataContext: MetadataSuggestionSelection selection })
+            CandidatesGrid.SelectedItem = selection;
+    }
+
     private void OnStageCandidateClick(object sender, RoutedEventArgs e)
     {
-        if (_candidateTarget is null || CandidatesGrid.SelectedItem is not MetadataSuggestion suggestion)
+        if (_candidateTarget is null || CandidatesGrid.SelectedItem is not MetadataSuggestionSelection selection)
         {
             MessageBox.Show("Select a track and a catalog candidate first.", "Candidate required",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        StageSuggestion(_candidateTarget, suggestion, replaceExisting: true);
+
+        if (!selection.StageTitle && !selection.StageArtist && !selection.StageAlbum
+            && !selection.StageGenre && !selection.StageYear)
+        {
+            MessageBox.Show("Check at least one candidate field to stage.", "No fields selected",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var suggestion = selection.Suggestion;
+        StageSuggestion(_candidateTarget, suggestion, replaceExisting: true, selection);
+        if (PropagateAlbumFieldsCheck.IsChecked == true
+            && (selection.StageGenre || selection.StageYear))
+            StageAlbumSuggestion(_candidateTarget, suggestion, selection.StageGenre, selection.StageYear);
         _candidateTarget.HasStagedCatalogCandidate = true;
         _candidateTarget.SuggestionMatchScore = suggestion.MatchScore;
-        _candidateTarget.SuggestionReviewStatus = $"{suggestion.Provider} candidate staged; review before applying.";
+        _candidateTarget.SuggestionReviewStatus = PropagateAlbumFieldsCheck.IsChecked == true
+            && (selection.StageGenre || selection.StageYear)
+                ? $"{suggestion.Provider} candidate and selected album fields staged; review before applying."
+                : $"{suggestion.Provider} candidate fields staged; review before applying.";
         RefreshGrid();
     }
 
@@ -240,9 +296,19 @@ public partial class MetadataView : UserControl
         finally { SetBusy(false); }
     }
 
-    private void OnCellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+    private void OnRowEditEnding(object sender, DataGridRowEditEndingEventArgs e)
     {
-        Dispatcher.BeginInvoke(RefreshGrid);
+        _gridRefreshPending = true;
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ContextIdle,
+            new Action(() =>
+            {
+                if (!_gridRefreshPending)
+                    return;
+
+                _gridRefreshPending = false;
+                RefreshGrid();
+            }));
     }
 
     private void OnFilterChanged(object sender, RoutedEventArgs e)
@@ -259,6 +325,13 @@ public partial class MetadataView : UserControl
 
     private void RefreshGrid()
     {
+        if (MetadataGrid.Items is IEditableCollectionView { IsAddingNew: true }
+            or IEditableCollectionView { IsEditingItem: true })
+        {
+            _gridRefreshPending = true;
+            return;
+        }
+
         MetadataGrid.Items.Refresh();
         ApplyFilter();
         UpdateSummary();
@@ -285,7 +358,11 @@ public partial class MetadataView : UserControl
                 ? $"file:{entry.FilePath}" : $"{entry.OriginalAlbum.Trim()}\0{entry.OriginalArtist.Trim()}",
             StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToArray();
 
-    private void StageAlbumSuggestion(MetadataEditEntry source, MetadataSuggestion suggestion)
+    private void StageAlbumSuggestion(
+        MetadataEditEntry source,
+        MetadataSuggestion suggestion,
+        bool includeGenre = true,
+        bool includeYear = true)
     {
         var related = !string.IsNullOrWhiteSpace(source.OriginalAlbum) && !string.IsNullOrWhiteSpace(source.OriginalArtist)
             ? _entries.Where(entry => entry.IsEditable
@@ -294,25 +371,36 @@ public partial class MetadataView : UserControl
             : [source];
         foreach (var entry in related)
         {
-            if (!string.IsNullOrWhiteSpace(suggestion.Genre)) entry.Genre = suggestion.Genre;
-            if (MetadataEditEntry.IsValidYear(suggestion.Year) && !string.IsNullOrWhiteSpace(suggestion.Year)) entry.Year = suggestion.Year;
+            if (includeGenre && !string.IsNullOrWhiteSpace(suggestion.Genre))
+                entry.Genre = suggestion.Genre;
+            if (includeYear && MetadataEditEntry.IsValidYear(suggestion.Year) && !string.IsNullOrWhiteSpace(suggestion.Year))
+                entry.Year = suggestion.Year;
             entry.SuggestionMatchScore = suggestion.MatchScore;
             entry.HasStagedCatalogCandidate = true;
             entry.SuggestionReviewStatus = $"Album year/genre from {Path.GetFileName(source.FilePath)} staged; review before applying.";
         }
     }
 
-    private static void StageSuggestion(MetadataEditEntry entry, MetadataSuggestion suggestion, bool replaceExisting)
+    private static void StageSuggestion(
+        MetadataEditEntry entry,
+        MetadataSuggestion suggestion,
+        bool replaceExisting,
+        MetadataSuggestionSelection? selection = null)
     {
-        if (!string.IsNullOrWhiteSpace(suggestion.Title) && (replaceExisting || string.IsNullOrWhiteSpace(entry.Title)))
+        if ((selection?.StageTitle ?? true) && !string.IsNullOrWhiteSpace(suggestion.Title)
+            && (replaceExisting || string.IsNullOrWhiteSpace(entry.Title)))
             entry.Title = suggestion.Title;
-        if (!string.IsNullOrWhiteSpace(suggestion.Artist) && (replaceExisting || string.IsNullOrWhiteSpace(entry.Artist)))
+        if ((selection?.StageArtist ?? true) && !string.IsNullOrWhiteSpace(suggestion.Artist)
+            && (replaceExisting || string.IsNullOrWhiteSpace(entry.Artist)))
             entry.Artist = suggestion.Artist;
-        if (!string.IsNullOrWhiteSpace(suggestion.Album) && (replaceExisting || string.IsNullOrWhiteSpace(entry.Album)))
+        if ((selection?.StageAlbum ?? true) && !string.IsNullOrWhiteSpace(suggestion.Album)
+            && (replaceExisting || string.IsNullOrWhiteSpace(entry.Album)))
             entry.Album = suggestion.Album;
-        if (!string.IsNullOrWhiteSpace(suggestion.Genre) && (replaceExisting || string.IsNullOrWhiteSpace(entry.Genre)))
+        if ((selection?.StageGenre ?? true) && !string.IsNullOrWhiteSpace(suggestion.Genre)
+            && (replaceExisting || string.IsNullOrWhiteSpace(entry.Genre)))
             entry.Genre = suggestion.Genre;
-        if (!string.IsNullOrWhiteSpace(suggestion.Year) && MetadataEditEntry.IsValidYear(suggestion.Year)
+        if ((selection?.StageYear ?? true) && !string.IsNullOrWhiteSpace(suggestion.Year)
+            && MetadataEditEntry.IsValidYear(suggestion.Year)
             && (replaceExisting || string.IsNullOrWhiteSpace(entry.Year))) entry.Year = suggestion.Year;
     }
 
@@ -330,6 +418,7 @@ public partial class MetadataView : UserControl
         CancelLookupButton.IsEnabled = busy && _activeLookup is not null;
         ProviderCombo.IsEnabled = !busy;
         AlbumLookupCheck.IsEnabled = !busy;
+        PropagateAlbumFieldsCheck.IsEnabled = !busy;
         MinimumMatchScoreText.IsEnabled = !busy;
         MetadataGrid.IsEnabled = !busy;
         CandidatesGrid.IsEnabled = !busy;

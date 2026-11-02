@@ -20,11 +20,10 @@
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
-            <RowDefinition Height="170"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+            <RowDefinition Height="190"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Text="Review and correct local track metadata" Style="{StaticResource PageTitle}"/>
-        <Grid Grid.Row="1" Margin="0,0,0,10">
+        <Grid Grid.Row="0" Margin="0,0,0,10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="34"/>
                 <RowDefinition Height="Auto"/>
@@ -37,6 +36,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBox x:Name="FolderText" Margin="0,0,6,0" VerticalContentAlignment="Center"/>
             <Button x:Name="BrowseButton" Grid.Column="1" Content="Browse…" Style="{StaticResource MetadataToolbarButton}" Click="OnBrowseClick"/>
@@ -44,8 +44,12 @@
             <ComboBox x:Name="ProviderCombo" Grid.Column="3" Width="145" Style="{StaticResource MetadataToolbarComboBox}"/>
             <Button x:Name="LookupButton" Grid.Column="4" Content="Lookup selected" Style="{StaticResource MetadataToolbarButton}" Click="OnLookupSelectedClick"/>
             <Button x:Name="CancelLookupButton" Grid.Column="5" Content="Cancel lookup" Style="{StaticResource MetadataToolbarButton}" Click="OnCancelClick" IsEnabled="False"/>
+            <Button Grid.Column="6" Content="?" Width="34" Height="34" Margin="0,0,0,0" Padding="0"
+                    FontFamily="Segoe UI" FontSize="16" FontWeight="Bold" ToolTip="How metadata review works"
+                    AutomationProperties.Name="Metadata fixer help" Click="OnHelpClick"/>
             <CheckBox x:Name="AlbumLookupCheck" Grid.Row="1" Grid.ColumnSpan="4"
-                      Content="One lookup per album (stage year/genre on matching album tracks)"
+                      Content="Bulk lookup: one request per album; stage year/genre to matching tracks"
+                      ToolTip="When multiple tracks are selected, look up once for each original album and artist, then stage available year and genre values to matching tracks."
                       VerticalAlignment="Center" Margin="0,5,12,0"/>
             <CheckBox x:Name="NeedsReviewCheck" Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2"
                       Content="Needs review only" IsChecked="True" VerticalAlignment="Center" Margin="0,5,0,0"
@@ -59,8 +63,8 @@
                          ToolTip="Candidates below this score remain for manual review."/>
             </StackPanel>
         </Grid>
-        <DataGrid x:Name="MetadataGrid" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False"
-                  SelectionMode="Extended" SelectionUnit="FullRow" CellEditEnding="OnCellEditEnding">
+        <DataGrid x:Name="MetadataGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False"
+                  SelectionMode="Extended" SelectionUnit="FullRow" RowEditEnding="OnRowEditEnding">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Title" Binding="{Binding Title, UpdateSourceTrigger=PropertyChanged}" Width="1.5*"/>
                 <DataGridTextColumn Header="Artist" Binding="{Binding Artist, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
@@ -71,23 +75,86 @@
                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" IsReadOnly="True" Width="2*"/>
             </DataGrid.Columns>
         </DataGrid>
-        <Grid Grid.Row="3" Margin="0,10,0,6">
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <TextBlock Text="CATALOG CANDIDATES  ·  Select a result to stage it for review; staging never writes files."
-                       FontSize="12" FontWeight="Bold" Foreground="#65738A" Margin="2,0,0,5"/>
-            <DataGrid x:Name="CandidatesGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single">
+        <Grid Grid.Row="2" Margin="0,10,0,6">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <DockPanel LastChildFill="True">
+                <TextBlock x:Name="CandidateTargetText" DockPanel.Dock="Right" Foreground="#65738A"
+                           TextTrimming="CharacterEllipsis" Margin="8,0,2,5"/>
+                <TextBlock Text="CATALOG CANDIDATES  ·  Select a result and choose fields to stage; staging never writes files."
+                           FontSize="12" FontWeight="Bold" Foreground="#65738A" Margin="2,0,0,5"/>
+            </DockPanel>
+            <CheckBox x:Name="PropagateAlbumFieldsCheck" Grid.Row="1"
+                      Content="Also stage checked Genre/Year to tracks with the same original album and artist"
+                      ToolTip="This only stages changes for review. It does not write files; use Apply Changes when ready."
+                      VerticalAlignment="Center" Margin="2,0,0,5"/>
+            <DataGrid x:Name="CandidatesGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="False" SelectionMode="Single">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Score" Binding="{Binding MatchScore}" Width="60"/>
-                    <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
-                    <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="*"/>
-                    <DataGridTextColumn Header="Album" Binding="{Binding Album}" Width="*"/>
-                    <DataGridTextColumn Header="Genre" Binding="{Binding Genre}" Width="*"/>
-                    <DataGridTextColumn Header="Year" Binding="{Binding Year}" Width="60"/>
-                    <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="90"/>
+                    <DataGridTextColumn Header="Score" Binding="{Binding Suggestion.MatchScore}" IsReadOnly="True" Width="60"/>
+                    <DataGridTemplateColumn Header="Title" MinWidth="150">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <DockPanel LastChildFill="True">
+                                    <CheckBox IsChecked="{Binding StageTitle, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                              VerticalAlignment="Center" Margin="4,0,6,0"
+                                              ToolTip="Stage title"/>
+                                    <TextBlock Text="{Binding Suggestion.Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Artist" MinWidth="130">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <DockPanel LastChildFill="True">
+                                    <CheckBox IsChecked="{Binding StageArtist, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                              VerticalAlignment="Center" Margin="4,0,6,0"
+                                              ToolTip="Stage artist"/>
+                                    <TextBlock Text="{Binding Suggestion.Artist}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Album" MinWidth="140">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <DockPanel LastChildFill="True">
+                                    <CheckBox IsChecked="{Binding StageAlbum, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                              VerticalAlignment="Center" Margin="4,0,6,0"
+                                              ToolTip="Stage album"/>
+                                    <TextBlock Text="{Binding Suggestion.Album}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Genre" MinWidth="100">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <DockPanel LastChildFill="True">
+                                    <CheckBox IsChecked="{Binding StageGenre, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                              VerticalAlignment="Center" Margin="4,0,6,0"
+                                              ToolTip="Stage genre"/>
+                                    <TextBlock Text="{Binding Suggestion.Genre}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Year" MinWidth="75">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <DockPanel LastChildFill="True">
+                                    <CheckBox IsChecked="{Binding StageYear, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                              VerticalAlignment="Center" Margin="4,0,6,0"
+                                              ToolTip="Stage year"/>
+                                    <TextBlock Text="{Binding Suggestion.Year}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Duration" Binding="{Binding Suggestion.Duration}" IsReadOnly="True" Width="90"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Grid>
-        <Grid Grid.Row="4" Margin="0,6,0,0">
+        <Grid Grid.Row="3" Margin="0,6,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -95,14 +162,14 @@
             <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="#65738A"
                        Text="Scan a folder to review its metadata." TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button x:Name="StageCandidateButton" Content="Stage selected candidate"
+                <Button x:Name="StageCandidateButton" Content="Stage checked fields"
                         Style="{StaticResource MetadataToolbarButton}" Click="OnStageCandidateClick"/>
                 <Button x:Name="ApplyButton" Content="Apply changes…" Style="{StaticResource MetadataActionButton}" Click="OnApplyClick"/>
                 <Button x:Name="UndoButton" Content="Undo last apply" Style="{StaticResource MetadataToolbarButton}" Margin="0"
                         Click="OnUndoClick"/>
             </StackPanel>
         </Grid>
-        <TextBlock x:Name="SummaryText" Grid.Row="5" Margin="0,6,0,0" Foreground="#65738A"
+        <TextBlock x:Name="SummaryText" Grid.Row="4" Margin="0,6,0,0" Foreground="#65738A"
                    Text="0 audio file(s) scanned; 0 need review; 0 change(s) staged."/>
     </Grid>
 </UserControl>

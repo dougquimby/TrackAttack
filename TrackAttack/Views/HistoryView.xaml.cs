@@ -64,7 +64,15 @@ public partial class HistoryView : UserControl
             HistoryGrid.ItemsSource = null;
             DetailGrid.ItemsSource = null;
             DetailHeading.Text = "Select a quiz to review its answers";
-            SettingsSummaryText.Text = "Select a quiz to see its settings and power usage.";
+            SettingsSummaryPanel.Children.Clear();
+            SettingsSummaryPanel.Children.Add(new TextBlock
+            {
+                Text = "Select a quiz to see its settings and power usage.",
+                Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x34, 0x44, 0x5C)),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap
+            });
         }
         catch (Exception ex)
         {
@@ -94,10 +102,10 @@ public partial class HistoryView : UserControl
             result.IsCorrect && (row.Session.Config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
                 ? "Correct"
                 : result.IsCorrect || result.ArtistCorrect ? "Partial" : "Missed")).ToArray();
-        SettingsSummaryText.Text = BuildSettingsSummary(row.Session);
+        ShowSettingsSummary(row.Session);
     }
 
-    private static string BuildSettingsSummary(QuizSession session)
+    private void ShowSettingsSummary(QuizSession session)
     {
         var config = session.Config;
         var mode = config.QuizMode switch
@@ -140,33 +148,109 @@ public partial class HistoryView : UserControl
             }));
         var scoreDeduction = session.Results.Sum(result =>
         {
-            var pointsBeforePenalty = config.QuizMode == QuizMode.GuessBoth
-                ? (result.IsCorrect ? 1.5 : 0) + (result.ArtistCorrect ? 0.5 : 0)
-                : result.IsCorrect ? 1.0 : 0;
+            var pointsBeforePenalty = QuizSession.CalculateEarnedPoints(result, config);
             return Math.Max(0, pointsBeforePenalty - QuizSession.CalculatePoints(result, config));
         });
         var powerCosts = $"Mulligan {config.MulliganPenalty:F1} pts; Extender {config.ExtenderPenalty:F1} pts; Hint {config.HintPenalty:F1} pts";
-        var lines = new List<string>
-        {
-            $"Mode: {mode}  ·  Timer: {timer}  ·  Clip: {config.ClipDuration.TotalSeconds:0}s, {clipStart}, {playback}",
-            $"Matching: {matching}  ·  Advance on correct: {(config.SkipOnCorrectGuess ? "immediately" : "after clip")}",
-            $"Powers available / used: {powers}",
-            $"Penalty per use: {powerCosts}  ·  Cap: {config.MaxPowerPenaltyPerSong:F1} pts/song  ·  Score deducted: {scoreDeduction:F1} pts"
-        };
-        if (config.HintCount > 0)
-            lines.Add($"Available hint types: {(string.IsNullOrEmpty(hintTypes) ? "none" : hintTypes)}");
-
         var filters = new List<string>();
-        if (!string.IsNullOrWhiteSpace(config.FilterGenre))
-            filters.Add($"Genres: {config.FilterGenre}");
-        if (!string.IsNullOrWhiteSpace(config.FilterDecade))
-            filters.Add($"Decades: {config.FilterDecade}");
-        if (config.MinSongDuration is not null || config.MaxSongDuration is not null)
-            filters.Add($"Track length: {config.MinSongDuration?.TotalSeconds.ToString("0") ?? "any"}–{config.MaxSongDuration?.TotalSeconds.ToString("0") ?? "any"}s");
-        if (filters.Count > 0)
-            lines.Insert(0, $"Song pool: {string.Join("  ·  ", filters)}");
+        SettingsSummaryPanel.Children.Clear();
+        AddSettingsSection("QUIZ RULES",
+            ("Answer mode", mode),
+            ("Timer", timer),
+            ("Clip", $"{config.ClipDuration.TotalSeconds:0}s, {clipStart}, {playback}"),
+            ("Advance", config.SkipOnCorrectGuess ? "Immediately on correct answer" : "After clip finishes"));
+        AddSettingsSection("ANSWER MATCHING", ("Matching rules", matching));
+        AddSettingsSection("POWERS & SCORING",
+            ("Correct answer points", GetQuizPointSummary(config)),
+            ("Available / used", powers),
+            ("Cost per use", powerCosts),
+            ("Penalty cap", $"{config.MaxPowerPenaltyPerSong:F1} pts per song"),
+            ("Points deducted", $"{scoreDeduction:F1}"));
+        if (config.HintCount > 0)
+        {
+            var hintRows = new List<(string Label, string Value)>
+            {
+                ("Hint types", string.IsNullOrEmpty(hintTypes) ? "None" : hintTypes)
+            };
+            if ((config.EnabledHintTypes ?? []).Any(hint =>
+                    hint is HintType.ScrambledTitle or HintType.ScrambledArtist))
+                hintRows.Add(("Scrambling", config.ScrambleHintsPerWord
+                    ? "Each word independently"
+                    : "Across the entire title or artist"));
+            AddSettingsSection("AVAILABLE HINTS", hintRows.ToArray());
+        }
 
-        return string.Join(Environment.NewLine, lines);
+        if (!string.IsNullOrWhiteSpace(config.FilterGenre))
+            filters.Add(config.FilterGenre);
+        if (!string.IsNullOrWhiteSpace(config.FilterDecade))
+            filters.Add(config.FilterDecade);
+        var poolRows = new List<(string Label, string Value)>();
+        if (filters.Count > 0)
+            poolRows.Add(("Genres / decades", string.Join("\n", filters)));
+        if (config.MinSongDuration is not null || config.MaxSongDuration is not null)
+            poolRows.Add(("Track length", $"{config.MinSongDuration?.TotalSeconds.ToString("0") ?? "any"}–{config.MaxSongDuration?.TotalSeconds.ToString("0") ?? "any"} seconds"));
+        if (poolRows.Count == 0)
+            poolRows.Add(("Filters", "All tracks"));
+        AddSettingsSection("SONG POOL", poolRows.ToArray());
+    }
+
+    private static string GetQuizPointSummary(QuizConfig config)
+        => config.QuizMode switch
+        {
+            QuizMode.GuessArtist => $"{config.ArtistPoints ?? 1.0:F1} per correct artist",
+            QuizMode.GuessBoth => $"{config.SongTitlePoints ?? 1.5:F1} title, {config.ArtistPoints ?? 0.5:F1} artist",
+            _ => $"{config.SongTitlePoints ?? 1.0:F1} per correct title"
+        };
+
+    private void AddSettingsSection(string heading, params (string Label, string Value)[] rows)
+    {
+        var content = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
+        content.Children.Add(new TextBlock
+        {
+            Text = heading,
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0x65, 0x73, 0x8A)),
+            Margin = new Thickness(0, 0, 0, 5)
+        });
+
+        var rowsGrid = new Grid();
+        rowsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
+        rowsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (var index = 0; index < rows.Length; index++)
+        {
+            rowsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var label = new TextBlock
+            {
+                Text = rows[index].Label,
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x65, 0x73, 0x8A)),
+                Margin = new Thickness(0, 0, 8, 5),
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetRow(label, index);
+            rowsGrid.Children.Add(label);
+
+            var value = new TextBlock
+            {
+                Text = rows[index].Value,
+                FontSize = 12,
+                LineHeight = 18,
+                Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x34, 0x44, 0x5C)),
+                Margin = new Thickness(0, 0, 0, 5),
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetRow(value, index);
+            Grid.SetColumn(value, 1);
+            rowsGrid.Children.Add(value);
+        }
+
+        content.Children.Add(rowsGrid);
+        SettingsSummaryPanel.Children.Add(content);
     }
 
     private static string FormatPower(string name, int available, int? used)

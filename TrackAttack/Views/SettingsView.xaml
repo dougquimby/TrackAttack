@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
-            <TextBlock Text="Settings" Style="{StaticResource PageTitle}"/>
             <Border Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="22">
                 <StackPanel>
                     <TextBlock Text="MUSIC LIBRARY" FontSize="12" FontWeight="Bold" Foreground="#65738A"/>
