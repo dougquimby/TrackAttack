@@ -8,7 +8,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>TrackAttackLogo.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="TrackAttackLogo.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MetaBrainz.MusicBrainz" Version="8.0.1" />
