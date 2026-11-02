@@ -4,6 +4,7 @@ public class QuizSession
 {
     public int Id { get; set; }
     public DateTime Date { get; set; }
+    public string ProfileName { get; set; } = "Default";
     public QuizConfig Config { get; set; } = new();
     public List<SongResult> Results { get; set; } = [];
     public int? MulligansUsed { get; set; }

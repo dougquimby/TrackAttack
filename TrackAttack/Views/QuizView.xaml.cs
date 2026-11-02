@@ -14,6 +14,7 @@ using TrackAttack.Data;
 using TrackAttack.Engine;
 using TrackAttack.Models;
 using TrackAttack.Services;
+using TrackAttack.Settings;
 
 namespace TrackAttack.Views;
 
@@ -23,6 +24,7 @@ public partial class QuizView : UserControl, IDisposable
 
     private readonly QuizConfig _config;
     private readonly IQuizHistoryRepository _history;
+    private readonly string _profileName;
     private readonly IPlaybackService _playback;
     private readonly QuizEngine _engine;
     private readonly SpotifyAlbumCoverArtHintProvider _spotifyCoverArtHintProvider = new();
@@ -41,6 +43,8 @@ public partial class QuizView : UserControl, IDisposable
     private long _lastSongDurationSecond = -1;
     private float _lastAudibleVolume = 1f;
     private bool _isMuted;
+    private bool _isInitializingVolume = true;
+    private bool _volumeSaveFailed;
     private bool _hintRequestInProgress;
     private bool _finished;
     private bool _disposed;
@@ -56,13 +60,21 @@ public partial class QuizView : UserControl, IDisposable
         IReadOnlyList<Song> songs,
         IReadOnlyList<Song> reserve,
         IQuizHistoryRepository history,
-        IPlaybackService? playback = null)
+        IPlaybackService? playback = null,
+        string profileName = "Default")
     {
         _config = config;
         _history = history;
+        _profileName = profileName;
         _playback = playback ?? new NAudioPlaybackService();
         _engine = new QuizEngine(config, songs, reserve, _playback);
         InitializeComponent();
+        var volume = GetNormalizedAudioVolume(AppSettings.Load().AudioVolume);
+        VolumeSlider.Value = volume;
+        _playback.Volume = (float)volume;
+        _isMuted = volume <= 0;
+        _lastAudibleVolume = volume > 0 ? (float)volume : 1f;
+        _isInitializingVolume = false;
         UpdateMuteButton();
         if (_playback is SpotifyPlaybackService spotifyPlayback)
         {
@@ -273,6 +285,7 @@ public partial class QuizView : UserControl, IDisposable
         var session = new QuizSession
         {
             Date = DateTime.Now,
+            ProfileName = _profileName,
             Config = _config,
             Results = e.Results.ToList(),
             MulligansUsed = _engine.MulligansUsed,
@@ -632,31 +645,40 @@ public partial class QuizView : UserControl, IDisposable
 
     private void OnVolumeChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
+        if (_isInitializingVolume)
+            return;
+
         _isMuted = e.NewValue <= 0;
         if (!_isMuted)
             _lastAudibleVolume = (float)e.NewValue;
         _playback.Volume = (float)e.NewValue;
+        try
+        {
+            AppSettings.SaveAudioVolume(e.NewValue);
+            _volumeSaveFailed = false;
+        }
+        catch (Exception exception)
+        {
+            if (!_volumeSaveFailed)
+                MessageBox.Show($"Could not save audio volume:\n{exception.Message}",
+                    "Volume save failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _volumeSaveFailed = true;
+        }
         UpdateMuteButton();
     }
 
     private void OnMuteClick(object sender, RoutedEventArgs e)
     {
         if (_isMuted)
-        {
-            _isMuted = false;
-            if (VolumeSlider.Value <= 0)
-                VolumeSlider.Value = _lastAudibleVolume > 0 ? _lastAudibleVolume : 1f;
-            _playback.Volume = (float)VolumeSlider.Value;
-        }
+            VolumeSlider.Value = _lastAudibleVolume > 0 ? _lastAudibleVolume : 1f;
         else
-        {
-            _lastAudibleVolume = (float)VolumeSlider.Value;
-            _isMuted = true;
-            _playback.Volume = 0;
-        }
+            VolumeSlider.Value = 0;
 
         UpdateMuteButton();
     }
+
+    private static double GetNormalizedAudioVolume(double volume)
+        => double.IsFinite(volume) ? Math.Clamp(volume, 0.0, 1.0) : 1.0;
 
     private void UpdateMuteButton()
     {

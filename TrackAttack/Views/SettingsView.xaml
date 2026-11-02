@@ -5,6 +5,16 @@
         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
             <Border Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="22">
                 <StackPanel>
+                    <TextBlock Text="QUIZ PROFILES" FontSize="12" FontWeight="Bold" Foreground="#65738A"/>
+                    <ComboBox x:Name="ProfileCombo" Height="32" Margin="0,8,0,6"
+                              DisplayMemberPath="Name" SelectionChanged="OnProfileSelectionChanged"/>
+                    <DockPanel Margin="0,0,0,18">
+                        <TextBox x:Name="ProfileNameText" Height="32" Width="220"
+                                 VerticalContentAlignment="Center" Margin="0,0,8,0"/>
+                        <Button Content="Add" Padding="12,5" Margin="0,0,6,0" Click="OnAddProfileClick"/>
+                        <Button Content="Rename" Padding="12,5" Margin="0,0,6,0" Click="OnRenameProfileClick"/>
+                        <Button Content="Delete" Padding="12,5" Click="OnDeleteProfileClick"/>
+                    </DockPanel>
                     <TextBlock Text="MUSIC LIBRARY" FontSize="12" FontWeight="Bold" Foreground="#65738A"/>
                     <DockPanel Margin="0,10,0,20">
                         <Button Content="Browse…" Click="OnBrowseClick" DockPanel.Dock="Right" Margin="8,0"/>
@@ -16,6 +26,18 @@
                         <StackPanel Margin="0,0,18,8"><TextBlock Text="Seconds per song"/><TextBox x:Name="SecondsText" Width="120"/></StackPanel>
                         <StackPanel Margin="0,0,18,8"><TextBlock Text="Clip duration (sec)"/><TextBox x:Name="ClipDurationText" Width="120"/></StackPanel>
                     </WrapPanel>
+                    <StackPanel Margin="0,4,0,8">
+                        <TextBlock Text="Default audio volume"/>
+                        <DockPanel LastChildFill="False" Margin="0,2,0,0">
+                            <TextBlock x:Name="AudioVolumeValueText" DockPanel.Dock="Right"
+                                       Width="42" TextAlignment="Right" VerticalAlignment="Center"
+                                       Foreground="#65738A"/>
+                            <Slider x:Name="AudioVolumeSlider" Minimum="0" Maximum="1"
+                                    SmallChange="0.01" LargeChange="0.1" Value="1"
+                                    Width="240" IsMoveToPointEnabled="True"
+                                    ValueChanged="OnAudioVolumeChanged"/>
+                        </DockPanel>
+                    </StackPanel>
                     <CheckBox x:Name="FuzzyArtistCheck" Content="Allow fuzzy artist matching" Margin="0,4"/>
                     <CheckBox x:Name="FuzzyTitleCheck" Content="Allow fuzzy song-title matching" Margin="0,4"/>
                     <CheckBox x:Name="IgnorePunctuationCheck" Content="Ignore punctuation when matching" Margin="0,4"/>
@@ -49,6 +71,8 @@
                     </WrapPanel>
                 </StackPanel>
             </Border>
+            <TextBlock Text="Created by Doug Quimby · 2026" FontSize="10" Foreground="#9AA5B4"
+                       HorizontalAlignment="Center" Margin="0,10,0,4"/>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

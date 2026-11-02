@@ -61,6 +61,12 @@
                     <TextBlock Text="Manage your library and review your progress."
                                Foreground="#65738A" Margin="0,4,0,0"/>
                 </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <TextBlock Text="PLAYING AS" Foreground="#65738A" FontSize="10"
+                               FontWeight="Bold" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="ProfileCombo" Width="190" Height="30"
+                              SelectionChanged="OnProfileSelectionChanged"/>
+                </StackPanel>
             </Grid>
 
             <UniformGrid Columns="3" Rows="1" Margin="0,0,0,8">

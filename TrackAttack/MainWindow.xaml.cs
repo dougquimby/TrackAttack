@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private QuizView? _activeQuiz;
     private bool _navigationCollapsed;
     private bool _wasMaximized;
+    private bool _replayingHistoryQuiz;
 
     public MainWindow()
     {
@@ -120,6 +121,8 @@ public partial class MainWindow : Window
         _currentView = view;
         PageHost.Content = view;
         PageHeading.Text = title;
+        if (view is HomeView home)
+            home.RefreshProfiles();
         BackButton.Visibility = _viewHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateNavigationSelection();
     }
@@ -147,6 +150,7 @@ public partial class MainWindow : Window
         home.MetadataRequested += OnMetadataClickFromHome;
         home.HistoryRequested += OnHistoryClickFromHome;
         home.SettingsRequested += OnSettingsClickFromHome;
+        home.ProfileChanged += RefreshQuizSetupProfileSettings;
         Navigate(home, "Home", pushHistory);
     }
 
@@ -202,7 +206,7 @@ public partial class MainWindow : Window
             playback = new NAudioPlaybackService();
         }
 
-        _activeQuiz = new QuizView(config, songs, reserve, _history, playback);
+        _activeQuiz = new QuizView(config, songs, reserve, _history, playback, AppSettings.Load().ActiveProfileName);
         _activeQuiz.QuizFinished += session =>
         {
             _activeQuiz = null;
@@ -222,7 +226,179 @@ public partial class MainWindow : Window
     private void OnHistoryClick(object sender, RoutedEventArgs e)
     {
         if (GuardActiveQuiz())
-            Navigate(new HistoryView(_history), "Quiz History");
+        {
+            var historyView = new HistoryView(_history);
+            historyView.ReplayRequested += OnReplayQuizRequested;
+            Navigate(historyView, "Quiz History");
+        }
+    }
+
+    private async void OnReplayQuizRequested(QuizSession session)
+    {
+        if (_replayingHistoryQuiz || !GuardActiveQuiz())
+            return;
+
+        _replayingHistoryQuiz = true;
+        try
+        {
+            var config = session.Config.Clone();
+            var historySongs = session.Results
+                .Select(result => result.Song)
+                .ToArray();
+            if (historySongs.Length == 0)
+            {
+                MessageBox.Show(this, "This quiz has no saved tracks to replay.",
+                    "Replay unavailable", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            IReadOnlyList<Song> availableSongs;
+            if (string.Equals(config.SourceType, "Spotify", StringComparison.OrdinalIgnoreCase))
+            {
+                if (SpotifyService.Client is null && !await SpotifyService.TryReconnectAsync())
+                {
+                    MessageBox.Show(this, "Connect to Spotify in Settings before replaying this quiz.",
+                        "Spotify connection required", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var playlistId = string.IsNullOrWhiteSpace(config.SpotifyPlaylistId)
+                    ? config.SourceDirectory
+                    : config.SpotifyPlaylistId;
+                availableSongs = await new SpotifyMusicSource(SpotifyService.Client!)
+                    .GetPlaylistSongsAsync(playlistId);
+            }
+            else
+            {
+                availableSongs = await Task.Run(
+                    () => _musicSource.ScanDirectory(config.SourceDirectory).ToArray());
+            }
+
+            var resolvedSongs = new List<Song>(historySongs.Length);
+            var unresolvedSongs = new List<Song>();
+            foreach (var historySong in historySongs)
+            {
+                var sourceSong = !string.IsNullOrWhiteSpace(historySong.SourcePath)
+                    ? availableSongs.FirstOrDefault(song => string.Equals(
+                        song.SourcePath, historySong.SourcePath, StringComparison.OrdinalIgnoreCase))
+                    : availableSongs.FirstOrDefault(song =>
+                        string.Equals(song.Title, historySong.Title, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(song.Artist, historySong.Artist, StringComparison.OrdinalIgnoreCase));
+
+                if (sourceSong is null)
+                {
+                    unresolvedSongs.Add(historySong);
+                    continue;
+                }
+
+                resolvedSongs.Add(CreateReplaySong(historySong, sourceSong));
+            }
+
+            if (unresolvedSongs.Count > 0)
+            {
+                var missingTitles = string.Join(Environment.NewLine,
+                    unresolvedSongs.Take(5).Select(song => $"• {song.Artist} — {song.Title}"));
+                var remainingCount = unresolvedSongs.Count - Math.Min(unresolvedSongs.Count, 5);
+                var remaining = remainingCount > 0 ? $"{Environment.NewLine}…and {remainingCount} more." : string.Empty;
+                MessageBox.Show(this,
+                    $"Could not find {unresolvedSongs.Count} track(s) from this quiz in its original source. Replay was not started.{Environment.NewLine}{missingTitles}{remaining}",
+                    "Tracks unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var selectedPaths = resolvedSongs
+                .Select(song => song.SourcePath)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var reserve = GetReplayReserve(config, availableSongs, selectedPaths);
+            config.SongCount = resolvedSongs.Count;
+            config.MulliganCount = reserve.Length;
+            if (reserve.Length < session.Config.MulliganCount)
+            {
+                MessageBox.Show(this,
+                    $"Only {reserve.Length} eligible reserve track(s) are currently available; the replay will use that many mulligan(s).",
+                    "Replay reserve changed", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+
+            OnQuizRequested(config, resolvedSongs, reserve);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"Could not replay this quiz:{Environment.NewLine}{exception.Message}",
+                "Replay failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _replayingHistoryQuiz = false;
+        }
+    }
+
+    private static Song CreateReplaySong(Song historySong, Song sourceSong)
+        => new()
+        {
+            Title = historySong.Title,
+            Artist = historySong.Artist,
+            Album = historySong.Album,
+            Genre = historySong.Genre,
+            Year = historySong.Year,
+            SourcePath = sourceSong.SourcePath,
+            MusicBrainzReleaseId = sourceSong.MusicBrainzReleaseId,
+            AlbumCoverArtUrl = sourceSong.AlbumCoverArtUrl,
+            PreviewUrl = sourceSong.PreviewUrl,
+            Duration = sourceSong.Duration,
+            SourceType = sourceSong.SourceType
+        };
+
+    private static Song[] GetReplayReserve(
+        QuizConfig config, IReadOnlyList<Song> availableSongs, HashSet<string> selectedPaths)
+    {
+        if (config.MulliganCount <= 0)
+            return [];
+
+        var candidates = availableSongs
+            .Where(song => !selectedPaths.Contains(song.SourcePath))
+            .Where(song => MatchesReplayFilters(song, config))
+            .ToArray();
+        Random.Shared.Shuffle(candidates);
+        return candidates.Take(config.MulliganCount).ToArray();
+    }
+
+    private static bool MatchesReplayFilters(Song song, QuizConfig config)
+    {
+        if (config.MinSongDuration is { } minimum && song.Duration < minimum)
+            return false;
+        if (config.MaxSongDuration is { } maximum && song.Duration > maximum)
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(config.FilterGenre))
+        {
+            var genres = config.FilterGenre.Split(
+                [',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (!genres.Any(genre => string.Equals(genre, LocalFileMusicSource.UnknownMetadataOption,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? string.IsNullOrWhiteSpace(song.Genre)
+                    : string.Equals(genre, song.Genre, StringComparison.OrdinalIgnoreCase)))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.FilterDecade))
+        {
+            var decades = config.FilterDecade.Split(
+                [',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var includesUnknown = decades.Any(decade => string.Equals(
+                decade, LocalFileMusicSource.UnknownMetadataOption, StringComparison.OrdinalIgnoreCase));
+            var years = decades
+                .Where(decade => !string.Equals(decade, LocalFileMusicSource.UnknownMetadataOption,
+                    StringComparison.OrdinalIgnoreCase))
+                .Select(decade => int.TryParse(decade.TrimEnd('s'), out var year) ? year : (int?)null)
+                .Where(year => year.HasValue)
+                .Select(year => year!.Value)
+                .ToArray();
+            if (!(includesUnknown && song.Year <= 0)
+                && !years.Any(year => song.Year >= year && song.Year < year + 10))
+                return false;
+        }
+
+        return true;
     }
 
     private void OnSettingsClick(object sender, RoutedEventArgs e)
@@ -235,7 +411,17 @@ public partial class MainWindow : Window
     {
         var view = new SettingsView(_history);
         view.SettingsSaved += RefreshQuizSetupSources;
+        view.ProfileChanged += RefreshQuizSetupProfileSettings;
         Navigate(view, "Settings");
+    }
+
+    private void RefreshQuizSetupProfileSettings()
+    {
+        foreach (var setup in _viewHistory.Select(item => item.View)
+                     .Append(_currentView)
+                     .OfType<QuizSetupView>()
+                     .Distinct())
+            _ = setup.RefreshProfileSettingsAsync();
     }
 
     private bool GuardActiveQuiz()

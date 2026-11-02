@@ -4,18 +4,26 @@
     <Grid>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
         <DockPanel>
-            <Button x:Name="ClearHistoryButton" Content="Clear history…" DockPanel.Dock="Right" Height="36" Padding="12,5"
-                    Margin="0,0,4,16" Click="OnClearHistoryClick"/>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center"
+                        Margin="0,0,0,16">
+                <TextBlock Text="PROFILE" Foreground="#65738A" FontSize="10" FontWeight="Bold"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox x:Name="ProfileFilterCombo" Width="190" Height="30"
+                          SelectionChanged="OnProfileFilterChanged"/>
+            </StackPanel>
         </DockPanel>
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="4*"/></Grid.ColumnDefinitions>
-            <Grid Grid.Column="0">
-                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                <TextBlock Text="COMPLETED QUIZZES" FontSize="12" FontWeight="Bold"
-                           Foreground="#65738A" Margin="0,0,0,10"/>
-                <DataGrid x:Name="HistoryGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
-                          SelectionMode="Single" SelectionChanged="OnSelectionChanged">
-                    <DataGrid.Columns>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                      CanContentScroll="False">
+            <Grid MinWidth="1100">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="4*"/></Grid.ColumnDefinitions>
+                <Grid Grid.Column="0">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <TextBlock Text="COMPLETED QUIZZES" FontSize="12" FontWeight="Bold"
+                               Foreground="#65738A" Height="30" VerticalAlignment="Center"
+                               Margin="0,0,0,10"/>
+                    <DataGrid x:Name="HistoryGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
+                              SelectionMode="Single" SelectionChanged="OnSelectionChanged">
+                        <DataGrid.Columns>
                         <DataGridTemplateColumn Header="" Width="36" CanUserResize="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
@@ -44,21 +52,52 @@
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Date" Binding="{Binding DateLabel}" Width="*"/>
                         <DataGridTextColumn Header="Quiz" Binding="{Binding Title}" Width="*"/>
+                        <DataGridTextColumn x:Name="ProfileColumn" Header="Profile" Binding="{Binding ProfileName}" Width="90"/>
                         <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="100"/>
                         <DataGridTextColumn Header="%" Binding="{Binding Percentage}" Width="60"/>
                         <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="12"
-                           Foreground="#65738A" FontWeight="Bold" Margin="0,0,0,10" TextTrimming="CharacterEllipsis"/>
-                <DataGrid x:Name="DetailGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True">
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="12"
+                                   Foreground="#65738A" FontWeight="Bold" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <Button x:Name="ToggleSpoilersButton" Grid.Column="1" Content="◉"
+                                ToolTip="Blur song titles and artists" AutomationProperties.Name="Toggle song title and artist spoilers"
+                                Width="34" Height="30" Padding="0" Margin="4,0,0,0"
+                                IsEnabled="False" Click="OnToggleSpoilersClick"/>
+                        <Button x:Name="ReplayQuizButton" Grid.Column="2" Content="⟳"
+                                ToolTip="Replay this quiz with the same settings and tracks"
+                                AutomationProperties.Name="Replay selected quiz"
+                                FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
+                                IsEnabled="False" Click="OnReplayQuizClick"/>
+                        <Button x:Name="DeleteQuizButton" Grid.Column="3" Content="×"
+                                ToolTip="Delete this quiz from history"
+                                AutomationProperties.Name="Delete selected quiz from history"
+                                FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
+                                IsEnabled="False" Click="OnDeleteQuizClick"/>
+                        <Button x:Name="ClearHistoryButton" Grid.Column="4" Content="Clear history…"
+                                ToolTip="Permanently delete all quiz history"
+                                AutomationProperties.Name="Clear all quiz history"
+                                Height="30" Padding="8,4" Margin="6,0,0,0"
+                                Background="#B4232F" Foreground="White" BorderBrush="#941D27"
+                                Click="OnClearHistoryClick"/>
+                    </Grid>
+                    <DataGrid x:Name="DetailGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">
                             <Style.Triggers>
@@ -79,28 +118,124 @@
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="40"/>
-                        <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
-                        <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="*"/>
-                        <DataGridTextColumn Header="Title guess" Binding="{Binding Guess}" Width="*"/>
-                        <DataGridTextColumn Header="Artist guess" Binding="{Binding ArtistGuess}" Width="*"/>
+                        <DataGridTemplateColumn Header="Title" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsTitleSpoilerHidden}" Value="True">
+                                                        <Setter Property="Effect">
+                                                            <Setter.Value>
+                                                                <BlurEffect Radius="10"/>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Artist" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Artist}" TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsArtistSpoilerHidden}" Value="True">
+                                                        <Setter Property="Effect">
+                                                            <Setter.Value>
+                                                                <BlurEffect Radius="10"/>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Title guess" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Guess}" TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AreGuessesSpoilerHidden}" Value="True">
+                                                        <Setter Property="Effect">
+                                                            <Setter.Value><BlurEffect Radius="10"/></Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Artist guess" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding ArtistGuess}" TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AreGuessesSpoilerHidden}" Value="True">
+                                                        <Setter Property="Effect">
+                                                            <Setter.Value><BlurEffect Radius="10"/></Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="60"/>
                     </DataGrid.Columns>
-                </DataGrid>
-                <Border Grid.Row="2" Background="#F4F6FA" BorderBrush="#DCE4EF" BorderThickness="1"
-                        CornerRadius="8" Padding="12" Margin="0,10,0,0">
-                    <DockPanel LastChildFill="True">
-                        <TextBlock DockPanel.Dock="Top" Text="SETTINGS" FontSize="11"
-                                   FontWeight="Bold" Foreground="#65738A" Margin="0,0,0,8"/>
-                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
-                                      HorizontalScrollBarVisibility="Disabled">
-                            <StackPanel x:Name="SettingsSummaryPanel">
-                                <TextBlock Text="Select a quiz to see its settings and power usage."
-                                           Foreground="#34445C" FontSize="12" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </ScrollViewer>
-                    </DockPanel>
-                </Border>
+                    </DataGrid>
+                    <TabControl Grid.Row="2" Margin="0,10,0,0" MaxHeight="260">
+                        <TabItem Header="Quiz settings">
+                            <Border Background="#F4F6FA" BorderBrush="#DCE4EF" BorderThickness="1"
+                                    Padding="12">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel x:Name="SettingsSummaryPanel">
+                                        <TextBlock Text="Select a quiz to see its settings and power usage."
+                                                   Foreground="#34445C" FontSize="12" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </TabItem>
+                        <TabItem Header="Leaderboard">
+                            <Grid Background="#F4F6FA">
+                                <DataGrid x:Name="LeaderboardGrid" AutoGenerateColumns="False"
+                                          IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="40"/>
+                                        <DataGridTextColumn Header="Profile" Binding="{Binding ProfileName}" Width="*"/>
+                                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="100"/>
+                                        <DataGridTextColumn Header="%" Binding="{Binding Percentage}" Width="70"/>
+                                        <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="130"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock x:Name="LeaderboardEmptyText"
+                                           Text="Play this same quiz with another profile to compare results."
+                                           Foreground="#65738A" TextWrapping="Wrap" TextAlignment="Center"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Margin="20" IsHitTestVisible="False"/>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
             </Grid>
-        </Grid>
+        </ScrollViewer>
     </Grid>
 </UserControl>

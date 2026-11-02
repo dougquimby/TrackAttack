@@ -193,6 +193,10 @@ public sealed class SpotifyPlaybackService : IPlaybackService
             if (generation != _generation)
                 return;
 
+            await SetRemoteVolumeAsync(_volume);
+            if (generation != _generation)
+                return;
+
             _connectPlayStartUtc = DateTime.UtcNow;
             StartConnectTimer(duration);
             _connectMode = mode;

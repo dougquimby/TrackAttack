@@ -17,9 +17,9 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO QuizHistory (Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage,
-                                     DurationSeconds, ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed)
+                                     DurationSeconds, ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed, ProfileName)
             VALUES (@Date, @SourceType, @SourceDir, @Total, @Correct, @Pct, @Duration, @Config,
-                    @MulligansUsed, @ExtendersUsed, @HintsUsed);
+                    @MulligansUsed, @ExtendersUsed, @HintsUsed, @ProfileName);
             SELECT last_insert_rowid();
             """;
         cmd.Parameters.AddWithValue("@Date", session.Date.ToString("O"));
@@ -33,6 +33,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         cmd.Parameters.AddWithValue("@MulligansUsed", (object?)session.MulligansUsed ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@ExtendersUsed", (object?)session.ExtendersUsed ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@HintsUsed", (object?)session.HintsUsed ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ProfileName", string.IsNullOrWhiteSpace(session.ProfileName) ? "Default" : session.ProfileName);
 
         session.Id = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 
@@ -69,7 +70,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         using var cmd = connection.CreateCommand();
         cmd.CommandText = """
             SELECT Id, Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage, DurationSeconds,
-                   ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed
+                   ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed, ProfileName
             FROM QuizHistory ORDER BY Date DESC
             """;
 
@@ -87,7 +88,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                     Duration = TimeSpan.FromSeconds(reader.GetDouble(7)),
                     MulligansUsed = reader.IsDBNull(9) ? null : reader.GetInt32(9),
                     ExtendersUsed = reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                    HintsUsed = reader.IsDBNull(11) ? null : reader.GetInt32(11)
+                    HintsUsed = reader.IsDBNull(11) ? null : reader.GetInt32(11),
+                    ProfileName = reader.IsDBNull(12) ? "Default" : reader.GetString(12)
                 };
                 sessions.Add(session);
             }
@@ -143,7 +145,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         using var histCmd = connection.CreateCommand();
         histCmd.CommandText = """
             SELECT Id, Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage, DurationSeconds,
-                   ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed
+                   ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed, ProfileName
             FROM QuizHistory WHERE Id = @Id
             """;
         histCmd.Parameters.AddWithValue("@Id", id);
@@ -161,7 +163,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                     Duration = TimeSpan.FromSeconds(reader.GetDouble(7)),
                     MulligansUsed = reader.IsDBNull(9) ? null : reader.GetInt32(9),
                     ExtendersUsed = reader.IsDBNull(10) ? null : reader.GetInt32(10),
-                    HintsUsed = reader.IsDBNull(11) ? null : reader.GetInt32(11)
+                    HintsUsed = reader.IsDBNull(11) ? null : reader.GetInt32(11),
+                    ProfileName = reader.IsDBNull(12) ? "Default" : reader.GetString(12)
                 };
             }
         }
@@ -202,7 +205,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
     }
 
     public async Task<IReadOnlyList<Song>> GetRecentQuizSongsAsync(
-        int quizCount, string sourceType, string sourceDirectory)
+        int quizCount, string sourceType, string sourceDirectory, string profileName)
     {
         if (quizCount <= 0)
             return [];
@@ -217,6 +220,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                 FROM QuizHistory
                 WHERE SourceType = @SourceType COLLATE NOCASE
                   AND SourceDirectory = @SourceDirectory COLLATE NOCASE
+                  AND ProfileName = @ProfileName COLLATE NOCASE
                 ORDER BY Date DESC, Id DESC
                 LIMIT @QuizCount
             )
@@ -226,6 +230,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
             """;
         cmd.Parameters.AddWithValue("@SourceType", sourceType);
         cmd.Parameters.AddWithValue("@SourceDirectory", sourceDirectory);
+        cmd.Parameters.AddWithValue("@ProfileName", string.IsNullOrWhiteSpace(profileName) ? "Default" : profileName);
         cmd.Parameters.AddWithValue("@QuizCount", quizCount);
 
         var songs = new List<Song>();
@@ -260,6 +265,36 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                 """;
             await cmd.ExecuteNonQueryAsync();
             await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<bool> DeleteAsync(int id)
+    {
+        using var connection = new SqliteConnection(ConnectionString);
+        await connection.OpenAsync();
+        using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+        try
+        {
+            using var resultsCommand = connection.CreateCommand();
+            resultsCommand.Transaction = transaction;
+            resultsCommand.CommandText = "DELETE FROM QuizSongResult WHERE QuizHistoryId = @Id;";
+            resultsCommand.Parameters.AddWithValue("@Id", id);
+            await resultsCommand.ExecuteNonQueryAsync();
+
+            using var historyCommand = connection.CreateCommand();
+            historyCommand.Transaction = transaction;
+            historyCommand.CommandText = "DELETE FROM QuizHistory WHERE Id = @Id;";
+            historyCommand.Parameters.AddWithValue("@Id", id);
+            var deleted = await historyCommand.ExecuteNonQueryAsync() > 0;
+
+            await transaction.CommitAsync();
+            return deleted;
         }
         catch
         {

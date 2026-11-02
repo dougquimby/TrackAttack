@@ -29,7 +29,8 @@ public static class DatabaseInitializer
                 ConfigJson      TEXT    NOT NULL,
                 MulligansUsed   INTEGER,
                 ExtendersUsed   INTEGER,
-                HintsUsed       INTEGER
+                HintsUsed       INTEGER,
+                ProfileName     TEXT    NOT NULL DEFAULT 'Default'
             );
             CREATE TABLE IF NOT EXISTS QuizSongResult (
                 Id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,6 +112,11 @@ public static class DatabaseInitializer
             if (!historyColumns.Contains("HintsUsed"))
             {
                 alterCmd.CommandText = "ALTER TABLE QuizHistory ADD COLUMN HintsUsed INTEGER;";
+                alterCmd.ExecuteNonQuery();
+            }
+            if (!historyColumns.Contains("ProfileName"))
+            {
+                alterCmd.CommandText = "ALTER TABLE QuizHistory ADD COLUMN ProfileName TEXT NOT NULL DEFAULT 'Default';";
                 alterCmd.ExecuteNonQuery();
             }
         }

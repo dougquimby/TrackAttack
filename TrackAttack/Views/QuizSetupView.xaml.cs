@@ -177,6 +177,50 @@ public partial class QuizSetupView : UserControl
     private void UpdateClipStartInput()
         => ClipStartPanel.IsEnabled = RandomClipCheck.IsChecked != true;
 
+    public async Task RefreshProfileSettingsAsync()
+    {
+        var settings = AppSettings.Load();
+        var previousFolder = FolderText.Text.Trim();
+        _initializing = true;
+        FolderText.Text = settings.MusicDirectory;
+        SecondsText.Text = settings.DefaultSecondsPerSong.ToString();
+        ClipDurationText.Text = settings.DefaultClipDurationSeconds.ToString();
+        FuzzyArtistCheck.IsChecked = settings.FuzzyArtistMatching;
+        FuzzyTitleCheck.IsChecked = settings.FuzzySongTitleMatching;
+        IgnorePunctuationCheck.IsChecked = settings.IgnorePunctuation;
+        SkipCorrectCheck.IsChecked = settings.SkipOnCorrectGuess;
+        ExcludeRecentCheck.IsChecked = settings.ExcludeRecentQuizSongs;
+        RecentQuizCountText.Text = settings.RecentQuizzesToExclude.ToString();
+        UpdateRecentCountInput();
+        _initializing = false;
+
+        if (!IsSpotifySource && !string.Equals(previousFolder, FolderText.Text.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            if (Directory.Exists(FolderText.Text.Trim()))
+                await ScanAsync(FolderText.Text.Trim());
+            else
+            {
+                _scannedSongs.Clear();
+                _genres.Clear();
+                _decades.Clear();
+                ScanStatus.Text = "Select an existing music folder.";
+                UpdateMatchCount();
+            }
+        }
+        else if (ExcludeRecentCheck.IsChecked == true)
+        {
+            await RefreshRecentSongsAsync();
+            UpdateMatchCount();
+        }
+        else
+        {
+            _recentQuizSongPaths.Clear();
+            _recentQuizSongIdentities.Clear();
+            _recentHistoryLoaded = true;
+            UpdateMatchCount();
+        }
+    }
+
     public async Task RefreshSpotifyFeatureSwitchAsync(bool enabled)
     {
         if (_spotifyEnabled == enabled)
@@ -516,7 +560,8 @@ public partial class QuizSetupView : UserControl
                 _recentHistoryLoaded = true;
                 return;
             }
-            var recent = await _history.GetRecentQuizSongsAsync(count, sourceType, sourceDirectory);
+            var profileName = AppSettings.Load().ActiveProfileName;
+            var recent = await _history.GetRecentQuizSongsAsync(count, sourceType, sourceDirectory, profileName);
             foreach (var song in recent)
             {
                 if (!string.IsNullOrWhiteSpace(song.SourcePath))

@@ -40,4 +40,11 @@ public class QuizConfig
     public double ExtenderPenalty { get; set; }
     public double HintPenalty { get; set; }
     public double MaxPowerPenaltyPerSong { get; set; } = 1;
+
+    public QuizConfig Clone()
+    {
+        var clone = (QuizConfig)MemberwiseClone();
+        clone.EnabledHintTypes = [.. (EnabledHintTypes ?? [])];
+        return clone;
+    }
 }
