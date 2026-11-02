@@ -45,7 +45,8 @@ public partial class SettingsView : UserControl
         UpdateSpotifyVisibility();
         ProviderCombo.ItemsSource = Enum.GetValues<MetadataSuggestionProviderKind>();
         ProviderCombo.SelectedItem = _settings.MetadataSuggestionProvider;
-        PathsText.Text = $"Settings: {AppSettings.FilePath}{Environment.NewLine}Quiz history: {DatabaseInitializer.DatabasePath}";
+        PathsText.Text = $"Settings: {AppSettings.FilePath}{Environment.NewLine}"
+            + $"Quiz history: {DatabaseInitializer.DatabasePath}";
         _isInitializingProfiles = false;
     }
 

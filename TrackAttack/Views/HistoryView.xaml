@@ -22,7 +22,6 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="12"
                        Foreground="#65738A" FontWeight="Bold" VerticalAlignment="Center"
@@ -41,12 +40,6 @@
                     AutomationProperties.Name="Delete selected quiz from history"
                     FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
                     IsEnabled="False" Click="OnDeleteQuizClick"/>
-            <Button x:Name="ClearHistoryButton" Grid.Column="4" Content="Clear history…"
-                    ToolTip="Permanently delete all quiz history"
-                    AutomationProperties.Name="Clear all quiz history"
-                    Height="30" Padding="8,4" Margin="6,0,0,0"
-                    Background="#B4232F" Foreground="White" BorderBrush="#941D27"
-                    Click="OnClearHistoryClick"/>
         </Grid>
         <Grid Grid.Row="2">
                 <Grid.ColumnDefinitions>
@@ -60,7 +53,7 @@
                                Foreground="#65738A" Height="30" VerticalAlignment="Center"
                                Margin="0,0,0,10"/>
                     <DataGrid x:Name="HistoryGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
-                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Visible"
                               ScrollViewer.VerticalScrollBarVisibility="Auto"
                               SelectionMode="Single" SelectionChanged="OnSelectionChanged">
                         <DataGrid.Columns>
@@ -109,7 +102,7 @@
                                Foreground="#65738A" Height="30" VerticalAlignment="Center"
                                Margin="0,0,0,10"/>
                     <DataGrid x:Name="DetailGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
-                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.HorizontalScrollBarVisibility="Visible"
                               ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">
@@ -230,7 +223,10 @@
                         <TabItem Header="Leaderboard">
                             <Grid Background="#F4F6FA">
                                 <DataGrid x:Name="LeaderboardGrid" AutoGenerateColumns="False"
-                                          IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                                          IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                                          Visibility="Collapsed"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Visible"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="40"/>
                                         <DataGridTextColumn Header="Profile" Binding="{Binding ProfileName}" Width="*"/>

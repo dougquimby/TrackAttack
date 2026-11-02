@@ -56,7 +56,6 @@ public partial class HistoryView : UserControl
     private readonly IQuizHistoryRepository _history;
     private readonly string _activeProfileName;
     private HistoryRow[] _allRows = [];
-    private bool _clearingHistory;
     private bool _initializingProfileFilter = true;
     private SpoilerMode _spoilerMode = SpoilerMode.BlurAll;
 
@@ -102,58 +101,13 @@ public partial class HistoryView : UserControl
         }
     }
 
-    private async void OnClearHistoryClick(object sender, RoutedEventArgs e)
-    {
-        if (_clearingHistory || HistoryGrid.Items.Count == 0)
-            return;
-        if (MessageBox.Show("Permanently delete all quiz history? This cannot be undone.", "Clear quiz history",
-                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
-            return;
-
-        _clearingHistory = true;
-        ClearHistoryButton.IsEnabled = false;
-        try
-        {
-            await _history.ClearAllAsync();
-            HistoryGrid.SelectedItem = null;
-            _allRows = [];
-            HistoryGrid.ItemsSource = null;
-            DetailGrid.ItemsSource = null;
-            LeaderboardGrid.ItemsSource = null;
-            LeaderboardEmptyText.Visibility = Visibility.Visible;
-            ReplayQuizButton.IsEnabled = false;
-            DeleteQuizButton.IsEnabled = false;
-            ToggleSpoilersButton.IsEnabled = false;
-            DetailHeading.Text = "Select a quiz to review its answers";
-            SettingsSummaryPanel.Children.Clear();
-            SettingsSummaryPanel.Children.Add(new TextBlock
-            {
-                Text = "Select a quiz to see its settings and power usage.",
-                Foreground = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0x34, 0x44, 0x5C)),
-                FontSize = 12,
-                TextWrapping = TextWrapping.Wrap
-            });
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Could not clear quiz history:\n{ex.Message}", "History clear failed",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            await LoadAsync();
-        }
-        finally
-        {
-            _clearingHistory = false;
-            ClearHistoryButton.IsEnabled = HistoryGrid.Items.Count > 0;
-        }
-    }
-
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (HistoryGrid.SelectedItem is not HistoryRow row)
         {
             DetailGrid.ItemsSource = null;
             LeaderboardGrid.ItemsSource = null;
+            LeaderboardGrid.Visibility = Visibility.Collapsed;
             LeaderboardEmptyText.Visibility = Visibility.Visible;
             ReplayQuizButton.IsEnabled = false;
             DeleteQuizButton.IsEnabled = false;
@@ -192,7 +146,6 @@ public partial class HistoryView : UserControl
         ProfileColumn.Visibility = filter is null || filter.IsAll
             ? Visibility.Visible
             : Visibility.Collapsed;
-        ClearHistoryButton.IsEnabled = rows.Length > 0 && !_clearingHistory;
     }
 
     private HistoryDetailRow[] CreateDetailRows(QuizSession session)
@@ -240,7 +193,9 @@ public partial class HistoryView : UserControl
             .ToArray();
 
         LeaderboardGrid.ItemsSource = matches;
-        LeaderboardEmptyText.Visibility = matches.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        var hasLeaderboard = matches.Length > 0;
+        LeaderboardGrid.Visibility = hasLeaderboard ? Visibility.Visible : Visibility.Collapsed;
+        LeaderboardEmptyText.Visibility = hasLeaderboard ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private static bool IsSameQuiz(QuizSession first, QuizSession second)
@@ -312,7 +267,7 @@ public partial class HistoryView : UserControl
 
     private async void OnDeleteQuizClick(object sender, RoutedEventArgs e)
     {
-        if (HistoryGrid.SelectedItem is not HistoryRow row || _clearingHistory)
+        if (HistoryGrid.SelectedItem is not HistoryRow row)
             return;
 
         var title = row.Title;

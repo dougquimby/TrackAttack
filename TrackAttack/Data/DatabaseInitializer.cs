@@ -1,12 +1,11 @@
 using Microsoft.Data.Sqlite;
+using TrackAttack.Settings;
 
 namespace TrackAttack.Data;
 
 public static class DatabaseInitializer
 {
-    public static string DatabasePath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "MusicQuiz", "history.db");
+    public static string DatabasePath => Path.Combine(AppDataPaths.DirectoryPath, "history.db");
 
     public static void Initialize()
     {
@@ -66,6 +65,7 @@ public static class DatabaseInitializer
                 hasSongPath |= string.Equals(columnName, "SongPath", StringComparison.OrdinalIgnoreCase);
                 hasPowerPenalty |= string.Equals(columnName, "PowerPenalty", StringComparison.OrdinalIgnoreCase);
             }
+
         }
 
         var historyColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -121,4 +121,5 @@ public static class DatabaseInitializer
             }
         }
     }
+
 }

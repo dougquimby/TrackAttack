@@ -4,9 +4,9 @@ Use this repository map before exploring. Treat the code as authoritative when b
 
 ## Scope
 
-- TrackAttack is the WPF port of MusicQuiz. Local-file quizzes are the default; Spotify playlist quizzes are also a supported source, disabled by default and controlled by `EnableSpotifyIntegration`. Preserve the feature switch and keep source-specific behavior appropriately gated, while considering both sources for shared quiz features.
+- TrackAttack is a Windows desktop music-guessing game. Local-file quizzes are the default; Spotify playlist quizzes are also a supported source, disabled by default and controlled by `EnableSpotifyIntegration`. Preserve the feature switch and keep source-specific behavior appropriately gated, while considering both sources for shared quiz features.
 - Prefer presentation-independent quiz rules and services. Keep WPF controls and lifecycle concerns in `Views/`; avoid adding WPF dependencies to `Engine/`, `Models/`, or reusable `Services/`.
-- The port shares user data paths with MusicQuiz (`%APPDATA%\MusicQuiz`). Preserve compatibility with existing settings and quiz-history data unless a migration is intentional.
+- TrackAttack stores its settings, quiz history, and metadata backups under `%APPDATA%\TrackAttack`.
 
 ## Project and commands
 
@@ -54,13 +54,13 @@ TrackAttack/App.xaml
 
 - Spotify integration is off by default. `SettingsView` persists the `EnableSpotifyIntegration` switch; when disabled, Spotify controls are hidden and new quizzes require the local library. Changing the switch in Settings updates an already-open quiz setup view when returning to it.
 - When enabled, `QuizSetupView` reuses shared quiz options, powers, and presets. Spotify playlists saved to the connected user's account are the selection source; genre filtering is hidden, while decade and duration filters and optional unique-artist/recent-quiz exclusion remain available. Track years come from Spotify album release dates.
-- `SpotifyService` uses browser PKCE authorization. Configure a Spotify developer app and register `http://127.0.0.1:5543/callback`; credentials are stored with the existing settings in `%APPDATA%\MusicQuiz\settings.json`. A playlist must be available in the connected account's playlist library.
+- `SpotifyService` uses browser PKCE authorization. Configure a Spotify developer app and register `http://127.0.0.1:5543/callback`; credentials are stored with the existing settings in `%APPDATA%\TrackAttack\settings.json`. A playlist must be available in the connected account's playlist library.
 - `SpotifyMusicSource` pages playlist tracks and maps track URIs for stable history identity. Preview URLs play locally through NAudio when available; tracks without previews use Spotify Connect playback, with the selected output device shown in the quiz. For Connect playback, use the selected playlist as `context_uri` and the selected track URI as the request offset, pass the selected device ID (which activates that device), and verify Spotify reports the requested track playing before starting quiz progress. Serialize Connect start commands and ignore stale song requests so rapid grid selection cannot leave an older request as the final track. A playback failure must leave the quiz usable: show retry guidance, allow Replay or another song selection, and do not pause the engine without a playback recovery path. Connect audio comes from that Spotify device, not the app's local audio stream. Spotify Web API playback control requires Premium and an available playback device. Runtime API/device behavior requires a connected Spotify account and is not covered by the project build.
 - Keep playlist APIs and OAuth in `Services/`, source-specific controls gated in `Views/`, and quiz/source metadata in `QuizConfig` and `Song`. Do not change the local-file path when modifying optional Spotify behavior.
 
 ## Metadata repair and lookup
 
-- `MetadataView` scans MP3/FLAC files through `LocalMetadataManager`, stages edits to Title, Artist, Album, Genre, and Year, and asks for confirmation before writing. Unreadable rows are marked non-editable. Before applying changes, the manager saves a recovery snapshot under `%APPDATA%\MusicQuiz\MetadataBackups`; **Undo Last Batch** restores the latest snapshot.
+- `MetadataView` scans MP3/FLAC files through `LocalMetadataManager`, stages edits to Title, Artist, Album, Genre, and Year, and asks for confirmation before writing. Unreadable rows are marked non-editable. Before applying changes, the manager saves a recovery snapshot under `%APPDATA%\TrackAttack\MetadataBackups`; **Undo Last Batch** restores the latest snapshot.
 - Catalog lookup uses `IMetadataSuggestionProvider`, with the provider selection persisted in settings: MusicBrainz or TheAudioDB. Both providers retry common punctuation/spacing variants of the artist name, and MusicBrainz falls back to a title/album query when artist-filtered searches return nothing. Keep provider-specific API requests behind this interface and feed suggestions into the same staged-edit workflow.
 - `MetadataMatchScorer` ranks candidates using title (20%), artist (15%), album (20%), and duration (45%). Neither provider scores genre; album/year/genre details may be unavailable.
 - Bulk lookup operates on selected readable rows, processes requests sequentially, and stages matches for review; it does not write files. For a single selected row, the candidate grid lets users choose which title, artist, album, genre, and year fields to stage; all field checkboxes start checked. Multi-row bulk lookup stages confident top matches automatically, while the one-request-per-album option stages year/genre to matching readable tracks. Manual candidate staging can also propagate its checked genre/year fields to tracks with the same original album and artist. Cancellation stops further work while retaining already staged candidates. The existing apply confirmation, recovery snapshot, and undo flow still governs file writes.
@@ -80,8 +80,8 @@ TrackAttack/App.xaml
 
 ## Persistence
 
-- Settings JSON: `%APPDATA%\MusicQuiz\settings.json` (`AppSettings.FilePath`), including profile settings, active profile, global settings, sidebar collapsed preference, and legacy quiz defaults.
-- History SQLite database: `%APPDATA%\MusicQuiz\history.db` (`DatabaseInitializer.DatabasePath`); `DatabaseInitializer.Initialize()` creates and migrates the schema at startup, including the legacy-safe profile-name field.
+- Settings JSON: `%APPDATA%\TrackAttack\settings.json` (`AppSettings.FilePath`), including profile settings, active profile, global settings, sidebar collapsed preference, and quiz defaults.
+- History SQLite database: `%APPDATA%\TrackAttack\history.db` (`DatabaseInitializer.DatabasePath`); `DatabaseInitializer.Initialize()` creates and migrates the schema, including the profile-name field. Metadata recovery snapshots are stored under `%APPDATA%\TrackAttack\MetadataBackups`.
 - `IQuizHistoryRepository` exposes async save/list/detail/recent-song/clear operations. Quiz results are saved through the history repository; abandoning a running quiz saves partial results.
 - `QuizConfig` is serialized as JSON in `QuizHistory.ConfigJson`; individual song outcome fields are stored in `QuizSongResult`.
 
@@ -89,5 +89,5 @@ TrackAttack/App.xaml
 
 - Keep async repository and catalog calls async from views; use the existing error reporting patterns rather than swallowing failures.
 - Keep XAML layout and its code-behind in sync. Unhook or dispose timers, playback, and event subscriptions along the existing lifecycle.
-- For changes to shared settings or history, account for the existing MusicQuiz data in `%APPDATA%\MusicQuiz`; do not rename paths or break old rows casually.
+- For settings/history changes, keep all TrackAttack data under `%APPDATA%\TrackAttack`.
 - Follow the repository's existing project and UI conventions. Update this guide when architecture, commands, or important workflows change.

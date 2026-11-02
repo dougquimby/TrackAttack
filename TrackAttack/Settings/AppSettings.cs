@@ -30,17 +30,16 @@ public class AppSettings
     public Rectangle WindowBounds { get; set; }
     public bool NavigationCollapsed { get; set; }
 
-    public static string FilePath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "MusicQuiz", "settings.json");
+    public static string FilePath => Path.Combine(AppDataPaths.DirectoryPath, "settings.json");
 
     public static AppSettings Load()
     {
+        var filePath = FilePath;
         try
         {
-            if (File.Exists(FilePath))
+            if (File.Exists(filePath))
             {
-                var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+                var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath)) ?? new AppSettings();
                 settings.EnsureProfiles();
                 return settings;
             }

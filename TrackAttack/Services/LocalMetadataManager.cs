@@ -1,5 +1,6 @@
 using System.Text.Json;
 using TrackAttack.Models;
+using TrackAttack.Settings;
 
 namespace TrackAttack.Services;
 
@@ -7,9 +8,7 @@ public sealed class LocalMetadataManager
 {
     private static readonly string[] SupportedExtensions = [".mp3", ".flac"];
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-    private static string BackupDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "MusicQuiz", "MetadataBackups");
+    private static string BackupDirectory => Path.Combine(AppDataPaths.DirectoryPath, "MetadataBackups");
 
     public bool HasUndoAvailable =>
         Directory.Exists(BackupDirectory)

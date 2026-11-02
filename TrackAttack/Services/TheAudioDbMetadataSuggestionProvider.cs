@@ -120,7 +120,7 @@ public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionPr
             return null;
 
         using var request = new HttpRequestMessage(HttpMethod.Get, thumbnailUri);
-        request.Headers.UserAgent.ParseAdd("MusicQuiz/1.0");
+        request.Headers.UserAgent.ParseAdd("TrackAttack/1.0");
         using var response = await HttpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
@@ -267,7 +267,7 @@ public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionPr
                 await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
 
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.Headers.UserAgent.ParseAdd("MusicQuiz/1.0");
+            request.Headers.UserAgent.ParseAdd("TrackAttack/1.0");
             var response = await HttpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
