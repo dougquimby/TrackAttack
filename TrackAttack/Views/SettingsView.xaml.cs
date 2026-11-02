@@ -25,6 +25,7 @@ public partial class SettingsView : UserControl
         ProfileCombo.ItemsSource = _settings.Profiles;
         ProfileCombo.SelectedItem = _settings.Profiles.FirstOrDefault(profile =>
             string.Equals(profile.Name, _settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase));
+        UpdateProfileIconPreview(ProfileCombo.SelectedItem as QuizProfile);
         ProfileNameText.Text = _settings.ActiveProfileName;
         FolderText.Text = _settings.MusicDirectory;
         SecondsText.Text = _settings.DefaultSecondsPerSong.ToString();
@@ -86,6 +87,134 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private void OnChooseProfileIconClick(object sender, RoutedEventArgs e)
+    {
+        if (ProfileCombo.SelectedItem is not QuizProfile profile)
+            return;
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Choose a profile image",
+            Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
+            CheckFileExists = true
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var previousIconFileName = profile.IconFileName;
+        string? newIconFileName = null;
+        try
+        {
+            newIconFileName = ProfileIconFiles.SaveResizedPng(dialog.FileName);
+            profile.IconFileName = newIconFileName;
+            _settings.Save();
+        }
+        catch (Exception exception)
+        {
+            profile.IconFileName = previousIconFileName;
+            if (newIconFileName is not null)
+            {
+                try
+                {
+                    ProfileIconFiles.Delete(newIconFileName);
+                }
+                catch (Exception cleanupException)
+                {
+                    MessageBox.Show(
+                        $"Could not save the profile image:\n{exception.Message}\n\n"
+                        + $"The unused resized image could not be removed:\n{cleanupException.Message}",
+                        "Profile image failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+            }
+
+            MessageBox.Show($"Could not save the profile image:\n{exception.Message}",
+                "Profile image failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        UpdateProfileIconPreview(profile);
+        ProfileChanged?.Invoke();
+        try
+        {
+            DeleteProfileIconIfUnused(previousIconFileName, profile);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show($"The new profile image was saved, but the previous image could not be removed:\n{exception.Message}",
+                "Profile image cleanup failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OnRemoveProfileIconClick(object sender, RoutedEventArgs e)
+    {
+        if (ProfileCombo.SelectedItem is not QuizProfile profile
+            || string.IsNullOrWhiteSpace(profile.IconFileName))
+            return;
+
+        var previousIconFileName = profile.IconFileName;
+        try
+        {
+            profile.IconFileName = null;
+            _settings.Save();
+        }
+        catch (Exception exception)
+        {
+            profile.IconFileName = previousIconFileName;
+            UpdateProfileIconPreview(profile);
+            MessageBox.Show($"Could not remove the profile image:\n{exception.Message}",
+                "Profile image failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        UpdateProfileIconPreview(profile);
+        ProfileChanged?.Invoke();
+        try
+        {
+            DeleteProfileIconIfUnused(previousIconFileName, profile);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show($"The profile image was removed, but its file could not be deleted:\n{exception.Message}",
+                "Profile image cleanup failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void UpdateProfileIconPreview(QuizProfile? profile)
+    {
+        ProfileIconInitials.Text = ProfileIconFiles.GetInitials(profile?.Name);
+        ProfileIconInitials.ToolTip = null;
+        ProfileIconInitials.Visibility = Visibility.Visible;
+        ProfileIconPreview.Source = null;
+        ProfileIconPreview.Visibility = Visibility.Collapsed;
+        RemoveProfileIconButton.IsEnabled = !string.IsNullOrWhiteSpace(profile?.IconFileName);
+
+        var path = ProfileIconFiles.GetExistingPath(profile?.IconFileName);
+        if (path is null)
+            return;
+
+        try
+        {
+            ProfileIconPreview.Source = ProfileIconFiles.LoadBitmapSource(path);
+            ProfileIconPreview.Visibility = Visibility.Visible;
+            ProfileIconInitials.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception exception) when (
+            exception is IOException or NotSupportedException or System.IO.FileFormatException)
+        {
+            ProfileIconInitials.ToolTip = $"The saved profile image could not be loaded: {exception.Message}";
+        }
+    }
+
+    private void DeleteProfileIconIfUnused(string? fileName, QuizProfile owner)
+    {
+        if (_settings.Profiles.Any(profile => !ReferenceEquals(profile, owner)
+                && string.Equals(profile.IconFileName, fileName, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        ProfileIconFiles.Delete(fileName);
+    }
+
     private void OnAddProfileClick(object sender, RoutedEventArgs e)
     {
         if (!TryCaptureProfileSettings())
@@ -138,6 +267,8 @@ public partial class SettingsView : UserControl
 
         if (!TryCaptureProfileSettings())
             return;
+        var deletedProfile = _settings.Profiles.First(profile =>
+            string.Equals(profile.Name, _settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase));
         try
         {
             _settings.DeleteActiveProfile();
@@ -151,6 +282,17 @@ public partial class SettingsView : UserControl
         {
             MessageBox.Show(exception.Message, "Could not delete profile",
                 MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        try
+        {
+            DeleteProfileIconIfUnused(deletedProfile.IconFileName, deletedProfile);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show($"The profile was deleted, but its image could not be removed:\n{exception.Message}",
+                "Profile image cleanup failed", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -189,6 +331,7 @@ public partial class SettingsView : UserControl
         IgnorePunctuationCheck.IsChecked = _settings.IgnorePunctuation;
         SkipCorrectCheck.IsChecked = _settings.SkipOnCorrectGuess;
         ProfileNameText.Text = _settings.ActiveProfileName;
+        UpdateProfileIconPreview(ProfileCombo.SelectedItem as QuizProfile);
     }
 
     private void SelectActiveProfile()
@@ -206,6 +349,7 @@ public partial class SettingsView : UserControl
         ProfileCombo.SelectedItem = _settings.Profiles.FirstOrDefault(profile =>
             string.Equals(profile.Name, selectedProfileName, StringComparison.OrdinalIgnoreCase));
         _isInitializingProfiles = false;
+        UpdateProfileIconPreview(ProfileCombo.SelectedItem as QuizProfile);
     }
 
     private void OnSaveClick(object sender, RoutedEventArgs e)

@@ -3,6 +3,7 @@ namespace TrackAttack.Models;
 public sealed class QuizProfile
 {
     public string Name { get; set; } = "Default";
+    public string? IconFileName { get; set; }
     public string MusicDirectory { get; set; } = string.Empty;
     public int DefaultSecondsPerSong { get; set; } = 30;
     public int DefaultClipDurationSeconds { get; set; } = 15;

@@ -29,6 +29,7 @@ public partial class MainWindow : Window
         DatabaseInitializer.Initialize();
         RestoreWindowPlacement();
         SetNavigationCollapsed(AppSettings.Load().NavigationCollapsed);
+        RefreshNavigationProfile();
         ShowHome(pushHistory: false);
         RefreshQuizSetupSources();
         StateChanged += OnWindowStateChanged;
@@ -150,7 +151,7 @@ public partial class MainWindow : Window
         home.MetadataRequested += OnMetadataClickFromHome;
         home.HistoryRequested += OnHistoryClickFromHome;
         home.SettingsRequested += OnSettingsClickFromHome;
-        home.ProfileChanged += RefreshQuizSetupProfileSettings;
+        home.ProfileChanged += OnHomeProfileChanged;
         Navigate(home, "Home", pushHistory);
     }
 
@@ -158,6 +159,11 @@ public partial class MainWindow : Window
     private void OnMetadataClickFromHome() => OnMetadataClick(this, new RoutedEventArgs());
     private void OnHistoryClickFromHome() => OnHistoryClick(this, new RoutedEventArgs());
     private void OnSettingsClickFromHome() => OnSettingsClick(this, new RoutedEventArgs());
+    private void OnHomeProfileChanged()
+    {
+        RefreshQuizSetupProfileSettings();
+        RefreshNavigationProfile();
+    }
 
     private void OnHomeClick(object sender, RoutedEventArgs e)
     {
@@ -411,8 +417,38 @@ public partial class MainWindow : Window
     {
         var view = new SettingsView(_history);
         view.SettingsSaved += RefreshQuizSetupSources;
-        view.ProfileChanged += RefreshQuizSetupProfileSettings;
+        view.SettingsSaved += RefreshNavigationProfile;
+        view.ProfileChanged += OnHomeProfileChanged;
         Navigate(view, "Settings");
+    }
+
+    private void RefreshNavigationProfile()
+    {
+        var settings = AppSettings.Load();
+        var profile = settings.Profiles.FirstOrDefault(item =>
+            string.Equals(item.Name, settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase));
+        NavigationProfileName.Text = profile?.Name ?? settings.ActiveProfileName;
+        NavigationProfileInitials.Text = ProfileIconFiles.GetInitials(profile?.Name);
+        NavigationProfileInitials.Visibility = Visibility.Visible;
+        NavigationProfileImage.Source = null;
+        NavigationProfileImage.Visibility = Visibility.Collapsed;
+        NavigationProfileName.ToolTip = null;
+
+        var path = ProfileIconFiles.GetExistingPath(profile?.IconFileName);
+        if (path is null)
+            return;
+
+        try
+        {
+            NavigationProfileImage.Source = ProfileIconFiles.LoadBitmapSource(path);
+            NavigationProfileImage.Visibility = Visibility.Visible;
+            NavigationProfileInitials.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception exception) when (
+            exception is IOException or NotSupportedException or System.IO.FileFormatException)
+        {
+            NavigationProfileName.ToolTip = $"The saved profile image could not be loaded: {exception.Message}";
+        }
     }
 
     private void RefreshQuizSetupProfileSettings()
@@ -486,6 +522,13 @@ public partial class MainWindow : Window
             ? new Thickness(0)
             : new Thickness(0, 0, 10, 0);
         NavigationWordmark.Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        NavigationProfileName.Visibility = _navigationCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        NavigationProfileFooter.Margin = _navigationCollapsed
+            ? new Thickness(8, 12, 8, 12)
+            : new Thickness(12, 12, 12, 12);
+        NavigationProfileFooter.Padding = _navigationCollapsed
+            ? new Thickness(3)
+            : new Thickness(8);
 
         var navigationButtons = new (Button Button, TextBlock Label)[]
         {

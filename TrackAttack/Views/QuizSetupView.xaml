@@ -191,8 +191,10 @@
                         </WrapPanel>
                         <CheckBox x:Name="RandomClipCheck" Content="Choose a random clip start point" IsChecked="True"
                                   Checked="OnRandomClipCheckChanged" Unchecked="OnRandomClipCheckChanged"/>
-                        <CheckBox x:Name="FuzzyArtistCheck" Content="Allow fuzzy artist matching" IsChecked="True"/>
-                        <CheckBox x:Name="FuzzyTitleCheck" Content="Allow fuzzy song-title matching" IsChecked="True"/>
+                        <CheckBox x:Name="FuzzyArtistCheck" Content="Allow fuzzy artist matching" IsChecked="True"
+                                  ToolTip="Accept an exact match or a guess containing any whole, significant word from the artist name. This does not correct misspellings."/>
+                        <CheckBox x:Name="FuzzyTitleCheck" Content="Allow fuzzy song-title matching" IsChecked="True"
+                                  ToolTip="Accept an exact match or a guess containing any whole, significant word from the song title. This does not correct misspellings."/>
                         <CheckBox x:Name="IgnorePunctuationCheck" Content="Ignore punctuation when matching" IsChecked="True"/>
                         <CheckBox x:Name="SkipCorrectCheck" Content="Advance immediately after a correct guess" IsChecked="True"/>
                     </StackPanel>

@@ -83,6 +83,7 @@ public class AppSettings
         StoreActiveProfileSettings();
         var profile = CloneProfile(GetActiveProfile());
         profile.Name = name;
+        profile.IconFileName = null;
         Profiles.Add(profile);
         ActiveProfileName = name;
         ApplyProfileSettings(profile);
@@ -192,6 +193,7 @@ public class AppSettings
         => new()
         {
             Name = profile.Name,
+            IconFileName = profile.IconFileName,
             MusicDirectory = profile.MusicDirectory,
             DefaultSecondsPerSong = profile.DefaultSecondsPerSong,
             DefaultClipDurationSeconds = profile.DefaultClipDurationSeconds,

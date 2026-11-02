@@ -79,6 +79,45 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style TargetType="TextBlock" x:Key="NavigationIcon">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="LineHeight" Value="24"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="Button" x:Key="NavigationToggleButton"
+               BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#253248"/>
+            <Setter Property="Foreground" Value="#A9BED7"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ToggleButtonChrome"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ToggleButtonChrome" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ToggleButtonChrome" Property="Opacity" Value="0.74"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ToggleButtonChrome" Property="BorderBrush" Value="#1677C8"/>
+                                <Setter TargetName="ToggleButtonChrome" Property="BorderThickness" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="Button" x:Key="ActionButton" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="14,8"/>
             <Setter Property="Margin" Value="4"/>
