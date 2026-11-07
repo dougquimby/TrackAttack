@@ -717,8 +717,11 @@ public partial class QuizSetupView : UserControl
             MulliganCount = reserve.Length,
             ExtenderCount = ParseInt(ExtenderCountText.Text),
             HintCount = ParseInt(HintCountText.Text),
-            EnabledHintTypes = HintTypesPanel.Children.OfType<CheckBox>().Where(check => check.IsChecked == true)
-                .Select((check, index) => HintTypes[index]).ToList(),
+            EnabledHintTypes = HintTypesPanel.Children.OfType<CheckBox>()
+                .Select((check, index) => new { IsChecked = check.IsChecked == true, HintType = HintTypes[index] })
+                .Where(x => x.IsChecked)
+                .Select(x => x.HintType)
+                .ToList(),
             ScrambleHintsPerWord = ScrambleHintsPerWordCheck.IsChecked == true,
             MulliganPenalty = mulliganPenalty,
             ExtenderPenalty = extenderPenalty,
@@ -781,8 +784,11 @@ public partial class QuizSetupView : UserControl
             MulliganCount = ParseInt(MulliganCountText.Text),
             ExtenderCount = ParseInt(ExtenderCountText.Text),
             HintCount = ParseInt(HintCountText.Text),
-            EnabledHintTypes = HintTypesPanel.Children.OfType<CheckBox>().Where(check => check.IsChecked == true)
-                .Select((check, index) => HintTypes[index]).ToList(),
+            EnabledHintTypes = HintTypesPanel.Children.OfType<CheckBox>()
+                .Select((check, index) => new { IsChecked = check.IsChecked == true, HintType = HintTypes[index] })
+                .Where(x => x.IsChecked)
+                .Select(x => x.HintType)
+                .ToList(),
             ScrambleHintsPerWord = ScrambleHintsPerWordCheck.IsChecked == true,
             MulliganPenalty = ParseDouble(MulliganPenaltyText.Text),
             ExtenderPenalty = ParseDouble(ExtenderPenaltyText.Text),
