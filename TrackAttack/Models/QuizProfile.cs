@@ -5,6 +5,7 @@ public sealed class QuizProfile
     public string Name { get; set; } = "Default";
     public string? IconFileName { get; set; }
     public string MusicDirectory { get; set; } = string.Empty;
+    public List<string> AdditionalMusicDirectories { get; set; } = [];
     public int DefaultSecondsPerSong { get; set; } = 30;
     public int DefaultClipDurationSeconds { get; set; } = 15;
     public double AudioVolume { get; set; } = 1.0;

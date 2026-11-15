@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Collections.ObjectModel;
 using Microsoft.Win32;
 using TrackAttack.Data;
 using TrackAttack.Models;
@@ -14,6 +15,7 @@ public partial class SettingsView : UserControl
     private readonly IQuizHistoryRepository _history;
     private bool _isInitializingAudioVolume = true;
     private bool _isInitializingProfiles = true;
+    private readonly ObservableCollection<string> _additionalFolders = [];
 
     public event Action? SettingsSaved;
     public event Action? ProfileChanged;
@@ -28,6 +30,8 @@ public partial class SettingsView : UserControl
         UpdateProfileIconPreview(ProfileCombo.SelectedItem as QuizProfile);
         ProfileNameText.Text = _settings.ActiveProfileName;
         FolderText.Text = _settings.MusicDirectory;
+        AdditionalFoldersList.ItemsSource = _additionalFolders;
+        LoadAdditionalFolders();
         SecondsText.Text = _settings.DefaultSecondsPerSong.ToString();
         ClipDurationText.Text = _settings.DefaultClipDurationSeconds.ToString();
         AudioVolumeSlider.Value = GetNormalizedAudioVolume(_settings.AudioVolume);
@@ -56,6 +60,36 @@ public partial class SettingsView : UserControl
         var dialog = new OpenFolderDialog { Title = "Select your music library", FolderName = FolderText.Text };
         if (dialog.ShowDialog() == true)
             FolderText.Text = dialog.FolderName;
+    }
+
+    private void OnAddMusicFolderClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog { Title = "Add a music library folder" };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dialog.FolderName));
+        if (string.Equals(path, Path.TrimEndingDirectorySeparator(FolderText.Text.Trim()), StringComparison.OrdinalIgnoreCase)
+            || _additionalFolders.Contains(path, StringComparer.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("This folder is already in the music library.", "Folder already added",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        _additionalFolders.Add(path);
+    }
+
+    private void OnRemoveMusicFolderClick(object sender, RoutedEventArgs e)
+    {
+        if (AdditionalFoldersList.SelectedItem is string folder)
+            _additionalFolders.Remove(folder);
+    }
+
+    private void LoadAdditionalFolders()
+    {
+        _additionalFolders.Clear();
+        foreach (var folder in _settings.AdditionalMusicDirectories)
+            _additionalFolders.Add(folder);
     }
 
     private void OnProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -307,6 +341,7 @@ public partial class SettingsView : UserControl
         }
 
         _settings.MusicDirectory = FolderText.Text.Trim();
+        _settings.AdditionalMusicDirectories = [.. _additionalFolders];
         _settings.DefaultSecondsPerSong = seconds;
         _settings.DefaultClipDurationSeconds = clipDuration;
         _settings.AudioVolume = AudioVolumeSlider.Value;
@@ -320,6 +355,7 @@ public partial class SettingsView : UserControl
     private void PopulateProfileSettings()
     {
         FolderText.Text = _settings.MusicDirectory;
+        LoadAdditionalFolders();
         SecondsText.Text = _settings.DefaultSecondsPerSong.ToString();
         ClipDurationText.Text = _settings.DefaultClipDurationSeconds.ToString();
         _isInitializingAudioVolume = true;
@@ -363,6 +399,7 @@ public partial class SettingsView : UserControl
         }
 
         _settings.MusicDirectory = FolderText.Text.Trim();
+        _settings.AdditionalMusicDirectories = [.. _additionalFolders];
         _settings.DefaultSecondsPerSong = seconds;
         _settings.DefaultClipDurationSeconds = clipDuration;
         _settings.FuzzyArtistMatching = FuzzyArtistCheck.IsChecked == true;

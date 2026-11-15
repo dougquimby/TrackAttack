@@ -3,6 +3,8 @@ namespace TrackAttack.Models;
 public class QuizConfig
 {
     public string SourceDirectory { get; set; } = string.Empty;
+    public List<string>? LocalMusicDirectories { get; set; }
+    public List<MusicFolderRule>? LocalFolderRules { get; set; }
     public string? FilterGenre { get; set; }
     public string? FilterDecade { get; set; }
     // Optional song-length bounds. null = no bound on that side.
@@ -44,6 +46,12 @@ public class QuizConfig
     public QuizConfig Clone()
     {
         var clone = (QuizConfig)MemberwiseClone();
+        clone.LocalMusicDirectories = LocalMusicDirectories is null ? null : [.. LocalMusicDirectories];
+        clone.LocalFolderRules = LocalFolderRules?.Select(rule => new MusicFolderRule
+        {
+            Path = rule.Path,
+            Included = rule.Included
+        }).ToList();
         clone.EnabledHintTypes = [.. (EnabledHintTypes ?? [])];
         return clone;
     }

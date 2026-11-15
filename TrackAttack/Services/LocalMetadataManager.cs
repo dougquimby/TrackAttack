@@ -52,18 +52,19 @@ public sealed class LocalMetadataManager
             var performers = tag.Performers ?? [];
             var albumArtists = tag.AlbumArtists ?? [];
             var genres = tag.Genres ?? [];
+            var artist = LocalArtistResolver.FromTags(tag) ?? string.Empty;
             var entry = new MetadataEditEntry
             {
                 FilePath = path,
                 Title = tag.Title?.Trim() ?? string.Empty,
-                Artist = (FirstNonBlank(performers) ?? FirstNonBlank(albumArtists))?.Trim() ?? string.Empty,
+                Artist = artist,
                 Album = tag.Album?.Trim() ?? string.Empty,
                 Genre = FirstNonBlank(genres)?.Trim() ?? string.Empty,
                 Year = tag.Year == 0 ? string.Empty : tag.Year.ToString(),
                 Duration = MetadataDurationFormatter.Format(file.Properties.Duration),
                 AudioDuration = file.Properties.Duration,
                 OriginalTitle = tag.Title?.Trim() ?? string.Empty,
-                OriginalArtist = (FirstNonBlank(performers) ?? FirstNonBlank(albumArtists))?.Trim() ?? string.Empty,
+                OriginalArtist = artist,
                 OriginalAlbum = tag.Album?.Trim() ?? string.Empty,
                 OriginalGenre = FirstNonBlank(genres)?.Trim() ?? string.Empty,
                 OriginalYear = tag.Year == 0 ? string.Empty : tag.Year.ToString(),

@@ -52,6 +52,7 @@ public partial class QuizView : UserControl, IDisposable
     private string? _coverArtLookupStatus;
     private string? _preparedCoverArtSongPath;
     private BitmapImage? _preparedCoverArtImage;
+    private AlbumCoverWindow? _albumCoverWindow;
 
     public event Action<QuizSession>? QuizFinished;
 
@@ -112,6 +113,7 @@ public partial class QuizView : UserControl, IDisposable
     {
         if (_displayedSong is not null && _displayedSong.SourcePath != e.Song.SourcePath)
         {
+            _albumCoverWindow?.Close();
             var previousRow = FindRow(_displayedSong);
             if (previousRow.Status == "Playing")
                 previousRow.Status = string.Empty;
@@ -216,6 +218,7 @@ public partial class QuizView : UserControl, IDisposable
 
     private void OnMulliganUsed(object? sender, MulliganUsedEventArgs e)
     {
+        _albumCoverWindow?.Close();
         var row = FindRow(e.OldSong);
         row.Title = string.Empty;
         row.Artist = string.Empty;
@@ -269,11 +272,22 @@ public partial class QuizView : UserControl, IDisposable
         var image = new BitmapImage();
         image.BeginInit();
         image.CacheOption = BitmapCacheOption.OnLoad;
-        image.DecodePixelWidth = 256;
         image.StreamSource = stream;
         image.EndInit();
         image.Freeze();
         return image;
+    }
+
+    private void OnEnlargeCoverClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: QuizHintDisplay { Artwork: { } artwork } })
+            return;
+
+        _albumCoverWindow?.Close();
+        var window = new AlbumCoverWindow(artwork) { Owner = Window.GetWindow(this) };
+        _albumCoverWindow = window;
+        window.Closed += (_, _) => _albumCoverWindow = null;
+        window.Show();
     }
 
     private async void OnQuizEnded(object? sender, QuizEndedEventArgs e)
@@ -281,6 +295,7 @@ public partial class QuizView : UserControl, IDisposable
         if (_finished)
             return;
         _finished = true;
+        _albumCoverWindow?.Close();
         _progressTimer.Stop();
         var session = new QuizSession
         {
@@ -772,6 +787,7 @@ public partial class QuizView : UserControl, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _albumCoverWindow?.Close();
         _lifetimeCts.Cancel();
         _lifetimeCts.Dispose();
         if (_playback is SpotifyPlaybackService spotifyPlayback)

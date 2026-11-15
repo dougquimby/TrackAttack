@@ -191,10 +191,11 @@
                                 <Border Background="#EEF3FA" CornerRadius="4" Padding="9,5" Margin="0,0,7,5">
                                     <StackPanel>
                                         <TextBlock Text="{Binding DisplayText}" Foreground="#34445C" TextWrapping="Wrap"/>
-                                        <Image Source="{Binding Artwork}" Width="128" Height="128"
-                                               Stretch="UniformToFill" Margin="0,6,0,0">
-                                            <Image.Style>
-                                                <Style TargetType="Image">
+                                        <Button Padding="0" BorderThickness="0" Background="Transparent" Margin="0,6,0,0"
+                                                HorizontalAlignment="Left" ToolTip="Click to enlarge album cover"
+                                                AutomationProperties.Name="Enlarge album cover" Click="OnEnlargeCoverClick">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                                                     <Setter Property="Visibility" Value="Visible"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Artwork}" Value="{x:Null}">
@@ -202,8 +203,9 @@
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </Image.Style>
-                                        </Image>
+                                            </Button.Style>
+                                            <Image Source="{Binding Artwork}" Width="128" Height="128" Stretch="Uniform"/>
+                                        </Button>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>

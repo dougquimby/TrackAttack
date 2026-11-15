@@ -48,6 +48,14 @@
                         <Button Content="Browse…" Click="OnBrowseClick" DockPanel.Dock="Right" Margin="8,0"/>
                         <TextBox x:Name="FolderText" Height="32" VerticalContentAlignment="Center"/>
                     </DockPanel>
+                    <TextBlock Text="Additional library folders" Foreground="#65738A"/>
+                    <DockPanel Margin="0,6,0,20">
+                        <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0">
+                            <Button Content="Add folder…" Click="OnAddMusicFolderClick" Margin="0,0,0,6"/>
+                            <Button Content="Remove" Click="OnRemoveMusicFolderClick"/>
+                        </StackPanel>
+                        <ListBox x:Name="AdditionalFoldersList" Height="90"/>
+                    </DockPanel>
                     <TextBlock Text="DEFAULT QUIZ BEHAVIOR" FontSize="12" FontWeight="Bold"
                                Foreground="#65738A" Margin="0,0,0,10"/>
                     <WrapPanel>

@@ -276,8 +276,10 @@ public partial class MainWindow : Window
             }
             else
             {
-                availableSongs = await Task.Run(
-                    () => _musicSource.ScanDirectory(config.SourceDirectory).ToArray());
+                if (_musicSource is not LocalFileMusicSource localSource)
+                    throw new InvalidOperationException("The selected source cannot scan local music folders.");
+                availableSongs = await Task.Run(() => localSource.ScanSelectedDirectories(
+                    MusicFolderSelection.Roots(config), config.LocalFolderRules).ToArray());
             }
 
             var resolvedSongs = new List<Song>(historySongs.Length);
@@ -388,19 +390,7 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrWhiteSpace(config.FilterDecade))
         {
-            var decades = config.FilterDecade.Split(
-                [',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var includesUnknown = decades.Any(decade => string.Equals(
-                decade, LocalFileMusicSource.UnknownMetadataOption, StringComparison.OrdinalIgnoreCase));
-            var years = decades
-                .Where(decade => !string.Equals(decade, LocalFileMusicSource.UnknownMetadataOption,
-                    StringComparison.OrdinalIgnoreCase))
-                .Select(decade => int.TryParse(decade.TrimEnd('s'), out var year) ? year : (int?)null)
-                .Where(year => year.HasValue)
-                .Select(year => year!.Value)
-                .ToArray();
-            if (!(includesUnknown && song.Year <= 0)
-                && !years.Any(year => song.Year >= year && song.Year < year + 10))
+            if (!YearFilter.FromString(config.FilterDecade).Matches(song.Year))
                 return false;
         }
 
@@ -417,6 +407,7 @@ public partial class MainWindow : Window
     {
         var view = new SettingsView(_history);
         view.SettingsSaved += RefreshQuizSetupSources;
+        view.SettingsSaved += RefreshQuizSetupProfileSettings;
         view.SettingsSaved += RefreshNavigationProfile;
         view.ProfileChanged += OnHomeProfileChanged;
         Navigate(view, "Settings");

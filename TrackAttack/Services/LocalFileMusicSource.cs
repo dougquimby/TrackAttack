@@ -17,7 +17,7 @@ public class LocalFileMusicSource : IMusicSource
 
     private IEnumerable<Song> GetFilteredSongs(QuizConfig config)
     {
-        var songs = ScanDirectory(config.SourceDirectory).ToList();
+        var songs = ScanSelectedDirectories(MusicFolderSelection.Roots(config), config.LocalFolderRules).ToList();
 
         if (!string.IsNullOrWhiteSpace(config.FilterGenre))
         {
@@ -29,17 +29,8 @@ public class LocalFileMusicSource : IMusicSource
 
         if (!string.IsNullOrEmpty(config.FilterDecade))
         {
-            var decades = config.FilterDecade.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var years = decades
-                .Where(d => !IsUnknownOption(d))
-                .Select(d => int.TryParse(d.TrimEnd('s'), out var decade) ? decade : (int?)null)
-                .Where(d => d.HasValue)
-                .Select(d => d!.Value)
-                .ToArray();
-            bool includeUnknown = decades.Any(IsUnknownOption);
-            if (years.Length > 0 || includeUnknown)
-                songs = songs.Where(s => (includeUnknown && s.Year <= 0)
-                    || years.Any(decade => s.Year >= decade && s.Year < decade + 10)).ToList();
+            var yearFilter = YearFilter.FromString(config.FilterDecade);
+            songs = songs.Where(song => yearFilter.Matches(song.Year)).ToList();
         }
 
         if (config.MinSongDuration.HasValue)
@@ -104,27 +95,61 @@ public class LocalFileMusicSource : IMusicSource
         }
     }
 
+    public IEnumerable<Song> ScanSelectedDirectories(
+        IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var directories = new Stack<string>(roots.Select(Path.GetFullPath));
+        while (directories.TryPop(out var directory))
+        {
+            directory = Path.TrimEndingDirectorySeparator(directory);
+            if (!visited.Add(directory))
+                continue;
+            if (!Directory.Exists(directory))
+                throw new DirectoryNotFoundException($"The music folder does not exist: {directory}");
+
+            if (MusicFolderSelection.IsIncluded(directory, rules))
+            {
+                foreach (var file in Directory.EnumerateFiles(directory))
+                {
+                    if (!SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                        continue;
+                    var song = ReadSong(file);
+                    if (song is not null)
+                        yield return song;
+                }
+            }
+
+            foreach (var child in Directory.EnumerateDirectories(directory))
+            {
+                if ((System.IO.File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
+                    directories.Push(child);
+            }
+        }
+    }
+
     private static Song? ReadSong(string filePath)
     {
         try
         {
             using var tagFile = TagLib.File.Create(filePath);
             var title = tagFile.Tag.Title?.Trim();
-            var artist = (tagFile.Tag.FirstPerformer ?? tagFile.Tag.FirstAlbumArtist)?.Trim();
+            var artist = LocalArtistResolver.FromTags(tagFile.Tag);
 
             if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(artist))
             {
                 var (parsedArtist, parsedTitle) = ParseFilename(filePath);
                 if (string.IsNullOrEmpty(parsedTitle))
                     return null;
-                title ??= parsedTitle;
-                artist ??= parsedArtist ?? string.Empty;
+                if (string.IsNullOrEmpty(title))
+                    title = parsedTitle;
+                artist ??= LocalArtistResolver.UsableArtist(parsedArtist);
             }
 
             return new Song
             {
                 Title = title,
-                Artist = artist,
+                Artist = artist ?? string.Empty,
                 Album = tagFile.Tag.Album?.Trim() ?? string.Empty,
                 Genre = tagFile.Tag.FirstGenre?.Trim() ?? string.Empty,
                 Year = (int)tagFile.Tag.Year,

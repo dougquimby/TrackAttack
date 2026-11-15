@@ -1,0 +1,7 @@
+<Window x:Class="TrackAttack.Views.AlbumCoverWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Album cover" Width="700" Height="740" MinWidth="250" MinHeight="250"
+        WindowStartupLocation="CenterOwner" ShowActivated="False" Background="#253248">
+    <Image x:Name="CoverImage" Margin="12" Stretch="Uniform"/>
+</Window>

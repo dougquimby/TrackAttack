@@ -7,6 +7,7 @@ namespace TrackAttack.Settings;
 public class AppSettings
 {
     public string MusicDirectory { get; set; } = string.Empty;
+    public List<string> AdditionalMusicDirectories { get; set; } = [];
     public int DefaultSecondsPerSong { get; set; } = 30;
     public int DefaultClipDurationSeconds { get; set; } = 15;
     public double AudioVolume { get; set; } = 1.0;
@@ -129,6 +130,7 @@ public class AppSettings
             {
                 Name = string.IsNullOrWhiteSpace(ActiveProfileName) ? "Default" : ActiveProfileName.Trim(),
                 MusicDirectory = MusicDirectory,
+                AdditionalMusicDirectories = [.. (AdditionalMusicDirectories ?? [])],
                 DefaultSecondsPerSong = DefaultSecondsPerSong,
                 DefaultClipDurationSeconds = DefaultClipDurationSeconds,
                 AudioVolume = AudioVolume,
@@ -164,6 +166,7 @@ public class AppSettings
     {
         var profile = GetActiveProfile();
         profile.MusicDirectory = MusicDirectory;
+        profile.AdditionalMusicDirectories = [.. (AdditionalMusicDirectories ?? [])];
         profile.DefaultSecondsPerSong = DefaultSecondsPerSong;
         profile.DefaultClipDurationSeconds = DefaultClipDurationSeconds;
         profile.AudioVolume = double.IsFinite(AudioVolume) ? Math.Clamp(AudioVolume, 0.0, 1.0) : 1.0;
@@ -178,6 +181,7 @@ public class AppSettings
     private void ApplyProfileSettings(QuizProfile profile)
     {
         MusicDirectory = profile.MusicDirectory;
+        AdditionalMusicDirectories = [.. (profile.AdditionalMusicDirectories ?? [])];
         DefaultSecondsPerSong = profile.DefaultSecondsPerSong;
         DefaultClipDurationSeconds = profile.DefaultClipDurationSeconds;
         AudioVolume = profile.AudioVolume;
@@ -195,6 +199,7 @@ public class AppSettings
             Name = profile.Name,
             IconFileName = profile.IconFileName,
             MusicDirectory = profile.MusicDirectory,
+            AdditionalMusicDirectories = [.. (profile.AdditionalMusicDirectories ?? [])],
             DefaultSecondsPerSong = profile.DefaultSecondsPerSong,
             DefaultClipDurationSeconds = profile.DefaultClipDurationSeconds,
             AudioVolume = profile.AudioVolume,

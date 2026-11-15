@@ -17,10 +17,13 @@ public partial class QuizSetupView : UserControl
     private readonly IQuizHistoryRepository _history;
     private bool _spotifyEnabled;
     private readonly ObservableCollection<FilterChoice> _genres = [];
-    private readonly ObservableCollection<FilterChoice> _decades = [];
+    private readonly ObservableCollection<YearFilterNode> _decades = [];
     private readonly HashSet<string> _recentQuizSongPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _recentQuizSongIdentities = new(StringComparer.OrdinalIgnoreCase);
     private List<Song> _scannedSongs = [];
+    private List<string> _additionalMusicDirectories = [];
+    private List<MusicFolderNode> _folderNodes = [];
+    private bool _folderSelectionDirty;
     private bool _busy;
     private bool _initializing;
     private bool _recentHistoryLoaded = true;
@@ -58,6 +61,7 @@ public partial class QuizSetupView : UserControl
 
         var settings = AppSettings.Load();
         FolderText.Text = settings.MusicDirectory;
+        _additionalMusicDirectories = [.. settings.AdditionalMusicDirectories];
         SecondsText.Text = settings.DefaultSecondsPerSong.ToString();
         ClipDurationText.Text = settings.DefaultClipDurationSeconds.ToString();
         FuzzyArtistCheck.IsChecked = settings.FuzzyArtistMatching;
@@ -181,8 +185,10 @@ public partial class QuizSetupView : UserControl
     {
         var settings = AppSettings.Load();
         var previousFolder = FolderText.Text.Trim();
+        var previousAdditionalFolders = _additionalMusicDirectories;
         _initializing = true;
         FolderText.Text = settings.MusicDirectory;
+        _additionalMusicDirectories = [.. settings.AdditionalMusicDirectories];
         SecondsText.Text = settings.DefaultSecondsPerSong.ToString();
         ClipDurationText.Text = settings.DefaultClipDurationSeconds.ToString();
         FuzzyArtistCheck.IsChecked = settings.FuzzyArtistMatching;
@@ -194,10 +200,11 @@ public partial class QuizSetupView : UserControl
         UpdateRecentCountInput();
         _initializing = false;
 
-        if (!IsSpotifySource && !string.Equals(previousFolder, FolderText.Text.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (!IsSpotifySource && (!string.Equals(previousFolder, FolderText.Text.Trim(), StringComparison.OrdinalIgnoreCase)
+            || !previousAdditionalFolders.SequenceEqual(_additionalMusicDirectories, StringComparer.OrdinalIgnoreCase)))
         {
             if (Directory.Exists(FolderText.Text.Trim()))
-                await ScanAsync(FolderText.Text.Trim());
+                await ScanAsync(FolderText.Text.Trim(), []);
             else
             {
                 _scannedSongs.Clear();
@@ -389,10 +396,48 @@ public partial class QuizSetupView : UserControl
             FolderText.Text = dialog.FolderName;
     }
 
+    private void OnLocalFolderTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_initializing && !IsSpotifySource)
+        {
+            _folderNodes = [];
+            MusicFolderTree.ItemsSource = null;
+            OnFolderSelectionChanged();
+        }
+    }
+
     private async void OnScanClick(object sender, RoutedEventArgs e)
         => await ScanAsync(FolderText.Text.Trim());
 
-    private async Task<bool> ScanAsync(string folder)
+    private IReadOnlyList<string> GetLocalRoots(string folder)
+        => new[] { folder }.Concat(_additionalMusicDirectories)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+
+    private List<MusicFolderRule> GetFolderRules()
+    {
+        var rules = new List<MusicFolderRule>();
+        foreach (var node in _folderNodes)
+            node.AddRules(rules);
+        return rules;
+    }
+
+    private static void SubscribeFolderNode(MusicFolderNode node, Action changed)
+    {
+        node.SelectionChanged += changed;
+        foreach (var child in node.Children)
+            SubscribeFolderNode(child, changed);
+    }
+
+    private void OnFolderSelectionChanged()
+    {
+        _folderSelectionDirty = true;
+        _scannedSongs.Clear();
+        ScanStatus.Text = "Folder selection changed. Scan / Refresh to update tracks.";
+        UpdateMatchCount();
+    }
+
+    private async Task<bool> ScanAsync(string folder, IReadOnlyList<MusicFolderRule>? savedRules = null)
     {
         if (_busy)
             return false;
@@ -406,9 +451,28 @@ public partial class QuizSetupView : UserControl
         ScanStatus.Text = "Scanning local audio files…";
         try
         {
-            _scannedSongs = await Task.Run(() => _musicSource is LocalFileMusicSource local
-                ? local.ScanDirectory(folder).ToList()
-                : new List<Song>());
+            var roots = GetLocalRoots(folder);
+            for (var i = 0; i < roots.Count; i++)
+            {
+                for (var j = i + 1; j < roots.Count; j++)
+                {
+                    if (MusicFolderSelection.IsSameOrDescendant(roots[i], roots[j])
+                        || MusicFolderSelection.IsSameOrDescendant(roots[j], roots[i]))
+                        throw new InvalidOperationException(
+                            $"Music library roots cannot overlap:\n{roots[i]}\n{roots[j]}\nChoose separate folders or remove the nested root in Settings.");
+                }
+            }
+            var rules = savedRules ?? GetFolderRules();
+            var nodes = await Task.Run(() => roots.Select(root => MusicFolderNode.Create(root, rules)).ToList());
+            foreach (var node in nodes)
+                SubscribeFolderNode(node, OnFolderSelectionChanged);
+            _folderNodes = nodes;
+            MusicFolderTree.ItemsSource = _folderNodes;
+            var effectiveRules = GetFolderRules();
+            if (_musicSource is not LocalFileMusicSource local)
+                throw new InvalidOperationException("The selected source cannot scan local music folders.");
+            _scannedSongs = await Task.Run(() => local.ScanSelectedDirectories(roots, effectiveRules).ToList());
+            _folderSelectionDirty = false;
             PopulateFilters();
             if (ExcludeRecentCheck.IsChecked == true)
                 await RefreshRecentSongsAsync();
@@ -418,6 +482,9 @@ public partial class QuizSetupView : UserControl
         }
         catch (Exception ex)
         {
+            _scannedSongs.Clear();
+            _folderSelectionDirty = true;
+            UpdateMatchCount();
             ScanStatus.Text = "Scan failed.";
             MessageBox.Show($"Could not scan this music folder:\n{ex.Message}", "Scan failed", MessageBoxButton.OK, MessageBoxImage.Error);
             return false;
@@ -428,9 +495,8 @@ public partial class QuizSetupView : UserControl
     private void PopulateFilters()
     {
         var oldGenres = _genres.Where(item => item.IsChecked).Select(item => item.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var oldDecades = _decades.Where(item => item.IsChecked).Select(item => item.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var oldYears = GetSelectedYears();
         _genres.Clear();
-        _decades.Clear();
         if (!IsSpotifySource)
         {
             foreach (var (value, count) in _scannedSongs
@@ -440,27 +506,56 @@ public partial class QuizSetupView : UserControl
                          .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
                 _genres.Add(new FilterChoice(value, count, _showSongCounts) { IsChecked = oldGenres.Contains(value) });
         }
-        foreach (var (value, count) in _scannedSongs
-                     .GroupBy(song => song.Year > 0 ? $"{song.Year / 10 * 10}s" : LocalFileMusicSource.UnknownMetadataOption,
-                         StringComparer.OrdinalIgnoreCase)
-                     .Select(group => (group.Key, group.Count()))
-                     .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase))
-            _decades.Add(new FilterChoice(value, count, _showSongCounts) { IsChecked = oldDecades.Contains(value) });
+        PopulateYearFilters(oldYears);
     }
+
+    private void PopulateYearFilters(IReadOnlyCollection<string> selectedYears)
+    {
+        var filter = new YearFilter(selectedYears);
+        var counts = _scannedSongs.Where(song => song.Year > 0)
+            .GroupBy(song => song.Year).ToDictionary(group => group.Key, group => group.Count());
+        foreach (var selection in selectedYears)
+        {
+            if (selection.EndsWith('s') && int.TryParse(selection[..^1], out var decade)
+                && decade > 0 && decade % 10 == 0 && decade <= int.MaxValue - 9)
+            {
+                for (var year = decade; year < decade + 10; year++)
+                    counts.TryAdd(year, 0);
+            }
+            else if (int.TryParse(selection, out var year) && year > 0)
+                counts.TryAdd(year, 0);
+        }
+
+        _decades.Clear();
+        var unknownCount = _scannedSongs.Count(song => song.Year <= 0);
+        if (unknownCount > 0 || selectedYears.Any(value => string.Equals(
+                value, LocalFileMusicSource.UnknownMetadataOption, StringComparison.OrdinalIgnoreCase)))
+            _decades.Add(new YearFilterNode(LocalFileMusicSource.UnknownMetadataOption, unknownCount,
+                _showSongCounts, selectedYears.Count > 0 && filter.Matches(0), UpdateMatchCount));
+        foreach (var decade in counts.GroupBy(item => item.Key / 10 * 10).OrderBy(group => group.Key))
+        {
+            var node = new YearFilterNode($"{decade.Key}s", decade.Sum(item => item.Value), _showSongCounts,
+                false, UpdateMatchCount);
+            foreach (var year in decade.OrderBy(item => item.Key))
+                node.Children.Add(new YearFilterNode(year.Key.ToString(), year.Value, _showSongCounts,
+                    selectedYears.Count > 0 && filter.Matches(year.Key), UpdateMatchCount, node));
+            _decades.Add(node);
+        }
+    }
+
+    private List<string> GetSelectedYears() => _decades.SelectMany(node => node.SelectedValues()).ToList();
 
     private List<Song> GetMatchingSongs()
     {
         var selectedGenres = IsSpotifySource
             ? []
             : _genres.Where(item => item.IsChecked).Select(item => item.Value).ToArray();
-        var selectedDecades = _decades.Where(item => item.IsChecked).Select(item => item.Value).ToArray();
+        var yearFilter = new YearFilter(GetSelectedYears());
         IEnumerable<Song> songs = _scannedSongs;
         if (selectedGenres.Length > 0)
             songs = songs.Where(song => selectedGenres.Any(value => value == LocalFileMusicSource.UnknownMetadataOption
                 ? string.IsNullOrWhiteSpace(song.Genre) : string.Equals(value, song.Genre, StringComparison.OrdinalIgnoreCase)));
-        if (selectedDecades.Length > 0)
-            songs = songs.Where(song => selectedDecades.Any(value => value == LocalFileMusicSource.UnknownMetadataOption
-                ? song.Year <= 0 : int.TryParse(value.TrimEnd('s'), out var decade) && song.Year >= decade && song.Year < decade + 10));
+        songs = songs.Where(song => yearFilter.Matches(song.Year));
         if (TryInt(MinLengthText.Text, 0, 0, 86400, out var minimumSeconds) && minimumSeconds > 0)
             songs = songs.Where(song => song.Duration.TotalSeconds >= minimumSeconds);
         if (TryInt(MaxLengthText.Text, 0, 0, 86400, out var maximumSeconds) && maximumSeconds > 0)
@@ -482,8 +577,8 @@ public partial class QuizSetupView : UserControl
     private void OnFilterCheckedChanged(object sender, RoutedEventArgs e) => UpdateMatchCount();
     private void OnSelectAllGenresClick(object sender, RoutedEventArgs e) => SetFilterChoices(_genres, true);
     private void OnSelectNoGenresClick(object sender, RoutedEventArgs e) => SetFilterChoices(_genres, false);
-    private void OnSelectAllDecadesClick(object sender, RoutedEventArgs e) => SetFilterChoices(_decades, true);
-    private void OnSelectNoDecadesClick(object sender, RoutedEventArgs e) => SetFilterChoices(_decades, false);
+    private void OnSelectAllDecadesClick(object sender, RoutedEventArgs e) => SetYearChoices(true);
+    private void OnSelectNoDecadesClick(object sender, RoutedEventArgs e) => SetYearChoices(false);
     private void OnSelectAllHintsClick(object sender, RoutedEventArgs e) => SetHintTypes(true);
     private void OnSelectNoHintsClick(object sender, RoutedEventArgs e) => SetHintTypes(false);
 
@@ -491,6 +586,13 @@ public partial class QuizSetupView : UserControl
     {
         foreach (var choice in choices)
             choice.IsChecked = isChecked;
+        UpdateMatchCount();
+    }
+
+    private void SetYearChoices(bool isChecked)
+    {
+        foreach (var node in _decades)
+            node.IsChecked = isChecked;
         UpdateMatchCount();
     }
 
@@ -610,6 +712,12 @@ public partial class QuizSetupView : UserControl
 
     private void StartQuiz()
     {
+        if (!IsSpotifySource && _folderSelectionDirty)
+        {
+            MessageBox.Show("Scan the selected folders before starting the quiz.",
+                "Scan required", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         var selectedSpotifyPlaylist = _selectedSpotifyPlaylist;
         var spotifyPlaylistId = selectedSpotifyPlaylist?.Id;
         if (IsSpotifySource && string.IsNullOrWhiteSpace(spotifyPlaylistId))
@@ -657,7 +765,10 @@ public partial class QuizSetupView : UserControl
         var reserve = shuffled.Skip(count).Take(reserveCount).ToArray();
         var settings = AppSettings.Load();
         if (!IsSpotifySource)
+        {
             settings.MusicDirectory = FolderText.Text.Trim();
+            settings.AdditionalMusicDirectories = [.. _additionalMusicDirectories];
+        }
         settings.DefaultSecondsPerSong = seconds;
         settings.DefaultClipDurationSeconds = clipDuration;
         settings.FuzzyArtistMatching = FuzzyArtistCheck.IsChecked == true;
@@ -673,13 +784,15 @@ public partial class QuizSetupView : UserControl
         }
 
         var selectedGenres = _genres.Where(item => item.IsChecked).Select(item => item.Value).ToList();
-        var selectedDecades = _decades.Where(item => item.IsChecked).Select(item => item.Value).ToList();
+        var selectedDecades = GetSelectedYears();
         var config = new QuizConfig
         {
             SourceType = IsSpotifySource ? "Spotify" : "Local",
             SourceDirectory = IsSpotifySource
                 ? spotifyPlaylistId!
                 : FolderText.Text.Trim(),
+            LocalMusicDirectories = IsSpotifySource ? null : GetLocalRoots(FolderText.Text.Trim()).ToList(),
+            LocalFolderRules = IsSpotifySource ? null : GetFolderRules(),
             SpotifyPlaylistId = IsSpotifySource ? spotifyPlaylistId! : string.Empty,
             FilterGenre = !IsSpotifySource && selectedGenres.Count > 0
                 ? string.Join(", ", selectedGenres)
@@ -736,6 +849,12 @@ public partial class QuizSetupView : UserControl
 
     private void OnSavePresetClick(object sender, RoutedEventArgs e)
     {
+        if (!IsSpotifySource && (_folderSelectionDirty || _folderNodes.Count == 0))
+        {
+            MessageBox.Show("Scan the selected folders before saving this setup.",
+                "Scan required", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
         var name = PresetNameText.Text.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -756,13 +875,13 @@ public partial class QuizSetupView : UserControl
         {
             SourceType = IsSpotifySource ? "Spotify" : "Local",
             SourceDirectory = IsSpotifySource ? _selectedSpotifyPlaylist?.Id ?? string.Empty : FolderText.Text.Trim(),
+            LocalMusicDirectories = IsSpotifySource ? null : GetLocalRoots(FolderText.Text.Trim()).ToList(),
+            LocalFolderRules = IsSpotifySource ? null : GetFolderRules(),
             SpotifyPlaylistId = IsSpotifySource ? _selectedSpotifyPlaylist?.Id ?? string.Empty : string.Empty,
             FilterGenre = !IsSpotifySource && _genres.Any(item => item.IsChecked)
                 ? string.Join(", ", _genres.Where(item => item.IsChecked).Select(item => item.Value))
                 : null,
-            FilterDecade = _decades.Any(item => item.IsChecked)
-                ? string.Join(", ", _decades.Where(item => item.IsChecked).Select(item => item.Value))
-                : null,
+            FilterDecade = GetSelectedYears() is { Count: > 0 } years ? string.Join(", ", years) : null,
             SongCount = songCount,
             TimePerSong = TimeSpan.FromSeconds(seconds),
             TotalTime = TimeSpan.FromSeconds(seconds * songCount),
@@ -800,7 +919,7 @@ public partial class QuizSetupView : UserControl
             Name = name,
             Config = config,
             Genres = IsSpotifySource ? [] : _genres.Where(item => item.IsChecked).Select(item => item.Value).ToList(),
-            Decades = _decades.Where(item => item.IsChecked).Select(item => item.Value).ToList(),
+            Decades = GetSelectedYears(),
             UniqueArtistsOnly = UniqueArtistsCheck.IsChecked == true,
             FuzzySongTitleMatching = FuzzyTitleCheck.IsChecked == true,
             ExcludeRecentQuizSongs = ExcludeRecentCheck.IsChecked == true,
@@ -874,15 +993,15 @@ public partial class QuizSetupView : UserControl
         }
         else
         {
-            var wasSpotify = IsSpotifySource;
             _initializing = true;
             SourceCombo.SelectedIndex = 0;
             UpdateSourcePanels();
-            var folderChanged = !string.Equals(FolderText.Text, preset.Config.SourceDirectory, StringComparison.OrdinalIgnoreCase);
             FolderText.Text = preset.Config.SourceDirectory;
+            _additionalMusicDirectories = preset.Config.LocalMusicDirectories is null
+                ? []
+                : preset.Config.LocalMusicDirectories.Skip(1).ToList();
             _initializing = false;
-            if ((wasSpotify || folderChanged || _scannedSongs.Count == 0)
-                && !await ScanAsync(preset.Config.SourceDirectory))
+            if (!await ScanAsync(preset.Config.SourceDirectory, preset.Config.LocalFolderRules ?? []))
                 return;
             ApplyPreset(preset);
         }
@@ -941,9 +1060,8 @@ public partial class QuizSetupView : UserControl
         RecentQuizCountText.Text = preset.RecentQuizzesToExclude.ToString();
         UpdateRecentCountInput();
         var genres = preset.Genres.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var decades = preset.Decades.ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var item in _genres) item.IsChecked = genres.Contains(item.Value);
-        foreach (var item in _decades) item.IsChecked = decades.Contains(item.Value);
+        PopulateYearFilters(preset.Decades);
         var enabledHints = config.EnabledHintTypes ?? HintTypes.ToList();
         for (var index = 0; index < HintTypesPanel.Children.Count; index++)
             ((CheckBox)HintTypesPanel.Children[index]).IsChecked = enabledHints.Contains(HintTypes[index]);
@@ -993,6 +1111,7 @@ public partial class QuizSetupView : UserControl
         SourceCombo.IsEnabled = !busy;
         BrowseLibraryButton.IsEnabled = !busy;
         FolderText.IsEnabled = !busy;
+        MusicFolderTree.IsEnabled = !busy;
         ScanButton.IsEnabled = !busy;
         SpotifyPlaylistCombo.IsEnabled = !busy;
         RefreshSpotifyPlaylistsButton.IsEnabled = !busy;

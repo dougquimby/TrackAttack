@@ -401,7 +401,7 @@ public partial class HistoryView : UserControl
             filters.Add(config.FilterDecade);
         var poolRows = new List<(string Label, string Value)>();
         if (filters.Count > 0)
-            poolRows.Add(("Genres / decades", string.Join("\n", filters)));
+            poolRows.Add(("Genres / years", string.Join("\n", filters)));
         if (config.MinSongDuration is not null || config.MaxSongDuration is not null)
             poolRows.Add(("Track length", $"{config.MinSongDuration?.TotalSeconds.ToString("0") ?? "any"}–{config.MaxSongDuration?.TotalSeconds.ToString("0") ?? "any"} seconds"));
         if (poolRows.Count == 0)
