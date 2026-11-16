@@ -78,6 +78,13 @@
                             <TextBlock x:Name="NewQuizNavigationLabel" Text="New Quiz" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+                    <Button x:Name="SocialNavigationButton" Style="{StaticResource NavigationButton}"
+                            ToolTip="Social" AutomationProperties.Name="Social" Click="OnSocialClick">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource NavigationIcon}"/>
+                            <TextBlock x:Name="SocialNavigationLabel" Text="Social" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                     <Button x:Name="StatisticsNavigationButton" Style="{StaticResource NavigationButton}"
                             ToolTip="Statistics" AutomationProperties.Name="Statistics" Click="OnStatisticsClick">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -90,13 +97,6 @@
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="◷" Style="{StaticResource NavigationIcon}"/>
                             <TextBlock x:Name="HistoryNavigationLabel" Text="Quiz History" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="SocialNavigationButton" Style="{StaticResource NavigationButton}"
-                            ToolTip="Social" AutomationProperties.Name="Social" Click="OnSocialClick">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="♬" Style="{StaticResource NavigationIcon}"/>
-                            <TextBlock x:Name="SocialNavigationLabel" Text="Social" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button x:Name="SettingsNavigationButton" Style="{StaticResource NavigationButton}"

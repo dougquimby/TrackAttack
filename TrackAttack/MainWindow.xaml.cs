@@ -290,7 +290,7 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) != true)
             return false;
         QuizChallengeService.Save(dialog.FileName, challenge);
-        MessageBox.Show(this, "Challenge saved. It contains track answers but no audio; anyone opening the file as text can see the answers.",
+        MessageBox.Show(this, "Challenge saved. The file does not include audio.",
             "Challenge saved", MessageBoxButton.OK, MessageBoxImage.Information);
         return true;
     }
@@ -847,9 +847,9 @@ public partial class MainWindow : Window
         {
             (HomeNavigationButton, HomeNavigationLabel),
             (NewQuizNavigationButton, NewQuizNavigationLabel),
-            (HistoryNavigationButton, HistoryNavigationLabel),
-            (StatisticsNavigationButton, StatisticsNavigationLabel),
             (SocialNavigationButton, SocialNavigationLabel),
+            (StatisticsNavigationButton, StatisticsNavigationLabel),
+            (HistoryNavigationButton, HistoryNavigationLabel),
             (SettingsNavigationButton, SettingsNavigationLabel)
         };
         foreach (var (button, label) in navigationButtons)

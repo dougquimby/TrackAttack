@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using TrackAttack.Data;
 using TrackAttack.Models;
 using TrackAttack.Settings;
+using TrackAttack.Services;
 
 namespace TrackAttack.Views;
 
@@ -151,6 +152,7 @@ public partial class HistoryView : UserControl
             LeaderboardEmptyText.Visibility = Visibility.Visible;
             ReplayQuizButton.IsEnabled = false;
             ExportChallengeButton.IsEnabled = false;
+            ExportResultCardButton.IsEnabled = false;
             DeleteQuizButton.IsEnabled = false;
             ToggleSpoilersButton.IsEnabled = false;
             UpdateSpoilerToggle();
@@ -162,6 +164,7 @@ public partial class HistoryView : UserControl
         UpdateLeaderboard(row.Session);
         ReplayQuizButton.IsEnabled = row.Session.Results.Count > 0;
         ExportChallengeButton.IsEnabled = row.Session.Results.Count > 0 && !row.IsSpotify;
+        ExportResultCardButton.IsEnabled = true;
         DeleteQuizButton.IsEnabled = true;
         ToggleSpoilersButton.IsEnabled = row.Session.Results.Count > 0;
         UpdateSpoilerToggle();
@@ -223,17 +226,13 @@ public partial class HistoryView : UserControl
 
     private void UpdateLeaderboard(QuizSession selectedSession)
     {
-        var matches = _allRows
-            .Where(row => IsSameQuiz(row.Session, selectedSession))
-            .OrderByDescending(row => row.Session.Percentage)
-            .ThenByDescending(row => row.Session.TotalPoints)
-            .ThenBy(row => row.Session.Date)
-            .Select((row, index) => new HistoryLeaderboardRow(
+        var matches = QuizLeaderboard.Rank(_allRows.Select(row => row.Session), selectedSession)
+            .Select((session, index) => new HistoryLeaderboardRow(
                 index + 1,
-                row.ProfileName,
-                $"{row.Session.TotalPoints:F1}/{row.Session.MaxPoints:F1}",
-                $"{row.Session.Percentage:F0}%",
-                row.Session.Date.ToString("g")))
+                string.IsNullOrWhiteSpace(session.ProfileName) ? "Default" : session.ProfileName,
+                $"{session.TotalPoints:F1}/{session.MaxPoints:F1}",
+                $"{session.Percentage:F0}%",
+                session.Date.ToString("g")))
             .ToArray();
 
         LeaderboardGrid.ItemsSource = matches;
@@ -241,32 +240,6 @@ public partial class HistoryView : UserControl
         LeaderboardGrid.Visibility = hasLeaderboard ? Visibility.Visible : Visibility.Collapsed;
         LeaderboardEmptyText.Visibility = hasLeaderboard ? Visibility.Collapsed : Visibility.Visible;
     }
-
-    private static bool IsSameQuiz(QuizSession first, QuizSession second)
-    {
-        if (!string.Equals(first.Config.QuizTitle, second.Config.QuizTitle, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(first.Config.SourceType, second.Config.SourceType, StringComparison.OrdinalIgnoreCase)
-            || first.Config.QuizMode != second.Config.QuizMode
-            || first.Results.Count != second.Results.Count)
-            return false;
-
-        for (var index = 0; index < first.Results.Count; index++)
-        {
-            var firstSong = first.Results[index].Song;
-            var secondSong = second.Results[index].Song;
-            var firstIdentity = GetSongIdentity(firstSong);
-            var secondIdentity = GetSongIdentity(secondSong);
-            if (!string.Equals(firstIdentity, secondIdentity, StringComparison.OrdinalIgnoreCase))
-                return false;
-        }
-
-        return true;
-    }
-
-    private static string GetSongIdentity(Song song)
-        => string.IsNullOrWhiteSpace(song.SourcePath)
-            ? $"{song.Artist.Trim()}|{song.Title.Trim()}"
-            : song.SourcePath.Trim();
 
     private bool ShouldBlur(bool wasGuessed)
         => _spoilerMode == SpoilerMode.BlurAll
@@ -315,6 +288,12 @@ public partial class HistoryView : UserControl
             ChallengeRequested?.Invoke(row.Session);
     }
 
+    private void OnExportResultCardClick(object sender, RoutedEventArgs e)
+    {
+        if (HistoryGrid.SelectedItem is HistoryRow row)
+            ResultCardExporter.PromptAndSave(this, row.Session, _history);
+    }
+
     private async void OnDeleteQuizClick(object sender, RoutedEventArgs e)
     {
         if (HistoryGrid.SelectedItem is not HistoryRow row)
@@ -332,6 +311,7 @@ public partial class HistoryView : UserControl
         DeleteQuizButton.IsEnabled = false;
         ReplayQuizButton.IsEnabled = false;
         ExportChallengeButton.IsEnabled = false;
+        ExportResultCardButton.IsEnabled = false;
         try
         {
             if (!await _history.DeleteAsync(row.Session.Id))
@@ -355,6 +335,7 @@ public partial class HistoryView : UserControl
             DeleteQuizButton.IsEnabled = true;
             ReplayQuizButton.IsEnabled = row.Session.Results.Count > 0;
             ExportChallengeButton.IsEnabled = row.Session.Results.Count > 0 && !row.IsSpotify;
+            ExportResultCardButton.IsEnabled = true;
         }
     }
 
@@ -373,6 +354,15 @@ public partial class HistoryView : UserControl
 
     private void ShowSettingsSummary(QuizSession session)
     {
+        SettingsSummaryPanel.Children.Clear();
+        foreach (var (heading, rows) in BuildSettingsSummary(session))
+            AddSettingsSection(heading, rows);
+    }
+
+    internal static IReadOnlyList<(string Heading, (string Label, string Value)[] Rows)> BuildSettingsSummary(QuizSession session)
+    {
+        var sections = new List<(string Heading, (string Label, string Value)[] Rows)>();
+        void AddSettingsSection(string heading, params (string Label, string Value)[] rows) => sections.Add((heading, rows));
         var config = session.Config;
         var mode = config.QuizMode switch
         {
@@ -420,7 +410,6 @@ public partial class HistoryView : UserControl
         });
         var powerCosts = $"Mulligan {config.MulliganPenalty:F1} pts; Extender {config.ExtenderPenalty:F1} pts; Clip reroll {config.ClipRerollPenalty:F1} pts; Hint {config.HintPenalty:F1} pts";
         var filters = new List<string>();
-        SettingsSummaryPanel.Children.Clear();
         AddSettingsSection("QUIZ RULES",
             ("Answer mode", mode),
             ("Timer", timer),
@@ -470,6 +459,7 @@ public partial class HistoryView : UserControl
         if (poolRows.Count == 0)
             poolRows.Add(("Filters", "All tracks"));
         AddSettingsSection("SONG POOL", poolRows.ToArray());
+        return sections;
     }
 
     private static string GetQuizPointSummary(QuizConfig config)

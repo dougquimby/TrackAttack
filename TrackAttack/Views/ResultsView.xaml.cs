@@ -22,6 +22,8 @@ public sealed record ResultsRow(int Number, string Title, string Artist, string 
 /// <summary>Displays a completed quiz and actions for playing again or viewing history.</summary>
 public partial class ResultsView : UserControl
 {
+    private readonly QuizSession _session;
+    private readonly IQuizHistoryRepository _history;
     private static readonly string[] PerfectMessages =
     [
         "Flawless! The playlist never stood a chance.",
@@ -86,6 +88,8 @@ public partial class ResultsView : UserControl
     /// <param name="history">The history repository supplied by the host.</param>
     public ResultsView(QuizSession session, IQuizHistoryRepository history)
     {
+        _session = session;
+        _history = history;
         InitializeComponent();
         ScoreText.Text = HomeView.UsesPoints(session.Config)
             ? $"{session.TotalPoints:F1} / {session.MaxPoints:F1} pts"
@@ -144,7 +148,7 @@ public partial class ResultsView : UserControl
         }
     }
 
-    private static IEnumerable<ResultsRow> CreateRows(SongResult result, QuizConfig config, int number)
+    internal static IEnumerable<ResultsRow> CreateRows(SongResult result, QuizConfig config, int number)
     {
         foreach (var song in result.MulliganSongs)
             yield return new ResultsRow(number, song.Title, song.DisplayArtistYear, "", "", "", "", "", "Mulligan");
@@ -173,6 +177,9 @@ public partial class ResultsView : UserControl
 
     private void OnHistoryClick(object sender, System.Windows.RoutedEventArgs e)
         => HistoryRequested?.Invoke();
+
+    private void OnSaveResultCardClick(object sender, RoutedEventArgs e)
+        => ResultCardExporter.PromptAndSave(this, _session, _history);
 
     private static (string Message, string ColorResource) GetPerformanceMessage(QuizSession session)
     {

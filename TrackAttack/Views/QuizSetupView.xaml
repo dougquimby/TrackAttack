@@ -578,12 +578,14 @@
                 <Button x:Name="StartQuizButton" Content="Start Quiz" Style="{StaticResource ActionButton}"
                         DockPanel.Dock="Right" MinWidth="130" Height="40" Margin="8,0,0,0"
                         FontWeight="SemiBold" Click="OnStartQuizClick"/>
+                <Button x:Name="CreateChallengeButton" Content="&#xE72D;"
+                        DockPanel.Dock="Right" Width="40" Height="40" Padding="0"
+                        FontFamily="Segoe MDL2 Assets" FontSize="16"
+                        AutomationProperties.Name="Create and play challenge"
+                        ToolTip="Save a challenge file and play the same tracks and initial clips."
+                        ToolTipService.ShowOnDisabled="True" Click="OnCreateChallengeClick"/>
                 <Button x:Name="ViewSongsButton" Content="View matching songs"
                         DockPanel.Dock="Left" VerticalAlignment="Center" Click="OnViewSongsClick"/>
-                <Button x:Name="CreateChallengeButton" Content="Create &amp; play challenge…"
-                        DockPanel.Dock="Left" VerticalAlignment="Center" Margin="8,0,0,0"
-                        ToolTip="Save a challenge file and play the same tracks and initial clips."
-                        Click="OnCreateChallengeClick"/>
                 <TextBlock x:Name="MatchCountText" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}"
                            Margin="12,0" Text="0 matching tracks"/>
             </DockPanel>

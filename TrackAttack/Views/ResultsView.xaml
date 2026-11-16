@@ -10,6 +10,9 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,12">
+            <Button Content="Save result card…" Height="36" Margin="0,0,8,0"
+                    ToolTip="Choose details and save a PNG result card."
+                    Click="OnSaveResultCardClick"/>
             <Button Content="Quiz History" MinWidth="120" Height="36" Margin="0,0,8,0"
                     Click="OnHistoryClick"/>
             <Button Content="Play Again" Style="{StaticResource ActionButton}"
