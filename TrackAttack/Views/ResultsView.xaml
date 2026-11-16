@@ -75,6 +75,7 @@
                 <DataGridTextColumn Header="Artist guess" Binding="{Binding ArtistGuess}" Width="*"/>
                 <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="70"/>
                 <DataGridTextColumn x:Name="QuickBonusColumn" Header="Quick bonus" Binding="{Binding QuickBonus}" Width="90"/>
+                <DataGridTextColumn x:Name="StarBonusColumn" Header="Star bonus" Binding="{Binding StarBonus}" Width="90"/>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

@@ -91,12 +91,13 @@ public class LocalFileMusicSource : IMusicSource
         if (!Directory.Exists(directory))
             yield break;
 
+        using var cache = LocalLibraryMetadataCache.Open(null);
         foreach (var file in Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories))
         {
             if (!SupportedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
                 continue;
 
-            var song = ReadSong(file);
+            var song = cache is null ? ReadSong(file) : cache.Read(file, () => ReadSong(file));
             if (song != null)
                 yield return song;
         }
@@ -110,6 +111,15 @@ public class LocalFileMusicSource : IMusicSource
     public IEnumerable<Song> ScanSelectedDirectories(
         IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules,
         ICollection<LibraryScanIssue>? issues = null)
+    {
+        using var cache = LocalLibraryMetadataCache.Open(issues);
+        foreach (var song in ScanSelectedDirectoriesCore(roots, rules, issues, cache))
+            yield return song;
+    }
+
+    private static IEnumerable<Song> ScanSelectedDirectoriesCore(
+        IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules,
+        ICollection<LibraryScanIssue>? issues, LocalLibraryMetadataCache? cache)
     {
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var directories = new Stack<string>(roots.Select(Path.GetFullPath));
@@ -126,17 +136,22 @@ public class LocalFileMusicSource : IMusicSource
 
             if (MusicFolderSelection.IsIncluded(directory, rules))
             {
-                foreach (var file in GetEntries(directory, false, issues))
+                var files = GetEntries(directory, false, issues);
+                if (files is not null)
                 {
-                    if (!SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
-                        continue;
-                    var song = ReadSong(file, issues);
-                    if (song is not null)
-                        yield return song;
+                    cache?.RecordDirectory(directory, files);
+                    foreach (var file in files)
+                    {
+                        if (!SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                            continue;
+                        var song = cache is null ? ReadSong(file, issues) : cache.Read(file, () => ReadSong(file, issues));
+                        if (song is not null)
+                            yield return song;
+                    }
                 }
             }
 
-            foreach (var child in GetEntries(directory, true, issues))
+            foreach (var child in GetEntries(directory, true, issues) ?? [])
             {
                 bool isLink;
                 try
@@ -160,11 +175,17 @@ public class LocalFileMusicSource : IMusicSource
     public LibraryScanResult ScanLibrary(IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules)
     {
         var issues = new List<LibraryScanIssue>();
-        var songs = ScanSelectedDirectories(roots, rules, issues).ToArray();
-        return new LibraryScanResult(songs, issues);
+        Song[] songs;
+        int cachedSongs;
+        using (var cache = LocalLibraryMetadataCache.Open(issues))
+        {
+            songs = ScanSelectedDirectoriesCore(roots, rules, issues, cache).ToArray();
+            cachedSongs = cache?.Hits ?? 0;
+        }
+        return new LibraryScanResult(songs, issues) { CachedSongs = cachedSongs };
     }
 
-    private static string[] GetEntries(string directory, bool directories, ICollection<LibraryScanIssue>? issues)
+    private static string[]? GetEntries(string directory, bool directories, ICollection<LibraryScanIssue>? issues)
     {
         try
         {
@@ -173,7 +194,7 @@ public class LocalFileMusicSource : IMusicSource
         catch (Exception exception) when (IsFileAccessFailure(exception))
         {
             ReportIssue(issues, directory, exception);
-            return [];
+            return null;
         }
     }
 

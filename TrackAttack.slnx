@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="TrackAttack.Tests/TrackAttack.Tests.csproj" />
   <Project Path="TrackAttack/TrackAttack.csproj" />
 </Solution>

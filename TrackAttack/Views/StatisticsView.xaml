@@ -62,6 +62,17 @@
             <Setter Property="Padding" Value="14"/>
             <Setter Property="Margin" Value="0,0,10,10"/>
         </Style>
+        <Style x:Key="HighlightHeadingBorderStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="0,0,0,8"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style x:Key="HighlightHeadingStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentStrongTextBrush}"/>
+        </Style>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -128,31 +139,41 @@
                         <UniformGrid Columns="2">
                             <Border Style="{StaticResource HighlightCardStyle}">
                                 <StackPanel>
-                                    <TextBlock Text="TOP QUIZ PERFORMANCES" FontWeight="Bold"/>
+                                    <Border Style="{StaticResource HighlightHeadingBorderStyle}">
+                                        <TextBlock Text="TOP QUIZ PERFORMANCES" Style="{StaticResource HighlightHeadingStyle}"/>
+                                    </Border>
                                     <ItemsControl x:Name="TopQuizzesList" Style="{StaticResource HighlightsListStyle}"/>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource HighlightCardStyle}">
                                 <StackPanel>
-                                    <TextBlock Text="TOP ARTISTS" FontWeight="Bold"/>
+                                    <Border Style="{StaticResource HighlightHeadingBorderStyle}">
+                                        <TextBlock Text="TOP ARTISTS" Style="{StaticResource HighlightHeadingStyle}"/>
+                                    </Border>
                                     <ItemsControl x:Name="TopArtistsList" Style="{StaticResource HighlightsListStyle}"/>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource HighlightCardStyle}">
                                 <StackPanel>
-                                    <TextBlock Text="TOP GENRES" FontWeight="Bold"/>
+                                    <Border Style="{StaticResource HighlightHeadingBorderStyle}">
+                                        <TextBlock Text="TOP GENRES" Style="{StaticResource HighlightHeadingStyle}"/>
+                                    </Border>
                                     <ItemsControl x:Name="TopGenresList" Style="{StaticResource HighlightsListStyle}"/>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource HighlightCardStyle}">
                                 <StackPanel>
-                                    <TextBlock Text="TOP DECADES" FontWeight="Bold"/>
+                                    <Border Style="{StaticResource HighlightHeadingBorderStyle}">
+                                        <TextBlock Text="TOP DECADES" Style="{StaticResource HighlightHeadingStyle}"/>
+                                    </Border>
                                     <ItemsControl x:Name="TopDecadesList" Style="{StaticResource HighlightsListStyle}"/>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource HighlightCardStyle}">
                                 <StackPanel>
-                                    <TextBlock Text="TOP SONGS" FontWeight="Bold"/>
+                                    <Border Style="{StaticResource HighlightHeadingBorderStyle}">
+                                        <TextBlock Text="TOP SONGS" Style="{StaticResource HighlightHeadingStyle}"/>
+                                    </Border>
                                     <ItemsControl x:Name="TopSongsList" Style="{StaticResource HighlightsListStyle}"/>
                                 </StackPanel>
                             </Border>

@@ -8,6 +8,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using MetaBrainz.Common;
 using TrackAttack.Data;
@@ -49,6 +50,7 @@ public partial class QuizView : UserControl, IDisposable
     private bool _hintRequestInProgress;
     private bool _finished;
     private bool _disposed;
+    private bool _starPowerVisualActive;
     private string? _playbackFailureMessage;
     private string? _coverArtLookupStatus;
     private string? _preparedCoverArtSongPath;
@@ -110,6 +112,7 @@ public partial class QuizView : UserControl, IDisposable
         _engine.ExtenderUsed += (_, _) => UpdatePowers();
         _engine.ClipRerollUsed += OnClipRerollUsed;
         _engine.HintUsed += OnHintUsed;
+        _engine.StreakChanged += OnStreakChanged;
         _progressTimer.Tick += OnProgressTick;
         TimerText.Text = FormatTime(_engine.RemainingSeconds);
         Loaded += (_, _) =>
@@ -123,6 +126,42 @@ public partial class QuizView : UserControl, IDisposable
         UpdatePrompt();
         UpdatePowers();
         UpdateScore();
+        UpdateStreak();
+    }
+
+    private void OnStreakChanged(object? sender, EventArgs e) => UpdateStreak();
+
+    private void UpdateStreak()
+    {
+        StreakText.Text = $"STREAK  {_engine.CurrentStreak}";
+        var active = _engine.IsStarPowerActive;
+        StarPowerBanner.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        StarPowerBackdrop.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        StarPowerText.Text = $"STAR POWER ACTIVE  +{_config.StarPowerBonusPoints:0.##} / song";
+        if (active == _starPowerVisualActive)
+            return;
+        _starPowerVisualActive = active;
+        if (active)
+        {
+            StarPowerBackdrop.BeginAnimation(OpacityProperty, new DoubleAnimation(0.7, 1, TimeSpan.FromSeconds(1.5))
+            {
+                AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever
+            });
+            StarPowerIcon.BeginAnimation(OpacityProperty, new DoubleAnimation(0.55, 1, TimeSpan.FromMilliseconds(650))
+            {
+                AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever
+            });
+            StarPowerRotation.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(-18, 18, TimeSpan.FromMilliseconds(650))
+            {
+                AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever
+            });
+        }
+        else
+        {
+            StarPowerBackdrop.BeginAnimation(OpacityProperty, null);
+            StarPowerIcon.BeginAnimation(OpacityProperty, null);
+            StarPowerRotation.BeginAnimation(RotateTransform.AngleProperty, null);
+        }
     }
 
     private void OnSongChanged(object? sender, SongChangedEventArgs e)
@@ -892,6 +931,10 @@ public partial class QuizView : UserControl, IDisposable
             spotifyPlayback.PlaybackStatusChanged -= OnPlaybackStatusChanged;
         }
         CompositionTarget.Rendering -= OnProgressRendering;
+        _engine.StreakChanged -= OnStreakChanged;
+        StarPowerBackdrop.BeginAnimation(OpacityProperty, null);
+        StarPowerIcon.BeginAnimation(OpacityProperty, null);
+        StarPowerRotation.BeginAnimation(RotateTransform.AngleProperty, null);
         _progressTimer.Stop();
         _engine.Dispose();
         _playback.Dispose();

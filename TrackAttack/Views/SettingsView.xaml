@@ -121,6 +121,9 @@
                             <TextBlock Text="The theme is saved for this profile and changes throughout Track Attack when you save Settings or switch profiles."
                                        Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                             <CheckBox x:Name="ShowCountsCheck" Content="Show track counts in genre and decade filters" Margin="0,18,0,0"/>
+                            <CheckBox x:Name="ShowRecordCelebrationsCheck" Content="Show personal-best and record celebrations after quizzes" Margin="0,10,0,0"/>
+                            <TextBlock Text="This applies to all profiles."
+                                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
                 </ScrollViewer>

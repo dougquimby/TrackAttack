@@ -27,6 +27,8 @@ public class AppSettings
     public bool SkipOnCorrectGuess { get; set; } = true;
     /// <summary>Gets or sets whether song counts are shown in filter lists.</summary>
     public bool ShowSongCountsInLists { get; set; } = true;
+    /// <summary>Gets or sets whether record celebrations are shown after quizzes.</summary>
+    public bool ShowRecordCelebrations { get; set; } = true;
     /// <summary>Gets or sets whether recent quiz songs are excluded by default.</summary>
     public bool ExcludeRecentQuizSongs { get; set; }
     /// <summary>Gets or sets the default number of recent quizzes considered for exclusion.</summary>
@@ -76,9 +78,14 @@ public class AppSettings
     /// <summary>Loads user settings, or creates defaults when the file is absent.</summary>
     /// <returns>The loaded settings with an active profile.</returns>
     /// <exception cref="SettingsLoadException">The settings file is invalid or cannot be read.</exception>
-    public static AppSettings Load()
+    public static AppSettings Load() => Load(FilePath);
+
+    /// <summary>Loads settings from the supplied file, or creates defaults when it is absent.</summary>
+    /// <param name="filePath">The settings JSON file to load.</param>
+    /// <returns>The loaded settings with an active profile.</returns>
+    /// <exception cref="SettingsLoadException">The settings file is invalid or cannot be read.</exception>
+    public static AppSettings Load(string filePath)
     {
-        var filePath = FilePath;
         try
         {
             var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath))
@@ -299,12 +306,16 @@ public class AppSettings
     }
 
     /// <summary>Persists settings using a temporary file before replacing the existing file.</summary>
-    public void Save()
+    public void Save() => Save(FilePath);
+
+    /// <summary>Persists settings to the supplied file using an atomic replacement.</summary>
+    /// <param name="filePath">The settings JSON file to write.</param>
+    public void Save(string filePath)
     {
         EnsureProfiles(applyProfileSettings: false);
         StoreActiveProfileSettings();
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-        var filePath = FilePath;
+        filePath = Path.GetFullPath(filePath);
         var directory = Path.GetDirectoryName(filePath)!;
         Directory.CreateDirectory(directory);
         var temporaryPath = Path.Combine(directory, $".settings-{Guid.NewGuid():N}.tmp");

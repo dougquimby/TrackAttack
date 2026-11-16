@@ -390,6 +390,20 @@
                             <TextBox x:Name="QuickGuessPointsText" Text="0.5" Width="130" AutomationProperties.Name="Quick-guess bonus points per song"/>
                         </StackPanel>
                     </WrapPanel>
+                    <CheckBox x:Name="StarPowerCheck" Content="Enable star-power streak bonus"
+                              ToolTip="Complete consecutive songs to activate star power. Bonuses begin with the next completed song and continue until the streak is broken."/>
+                    <TextBlock Text="Passing, switching away from, timing out on, or replacing an unfinished song breaks the streak."
+                               Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    <WrapPanel Margin="0,4,0,12">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Songs to activate"/>
+                            <TextBox x:Name="StarPowerStreakText" Text="5" Width="130" AutomationProperties.Name="Songs needed to activate star power"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Bonus points per song"/>
+                            <TextBox x:Name="StarPowerPointsText" Text="0.5" Width="130" AutomationProperties.Name="Star-power bonus points per song"/>
+                        </StackPanel>
+                    </WrapPanel>
                     <WrapPanel>
                     <StackPanel Width="390" Margin="0,0,24,12">
                     <Grid HorizontalAlignment="Left" Margin="0,0,0,10">

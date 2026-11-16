@@ -32,6 +32,8 @@ public class SongResult
     public double PowerPenalty { get; set; }
     /// <summary>Gets or sets whether the song earned the configured quick-guess bonus.</summary>
     public bool QuickGuessBonusAwarded { get; set; }
+    /// <summary>Gets or sets whether the song earned the configured star-power bonus.</summary>
+    public bool StarPowerBonusAwarded { get; set; }
     /// <summary>Gets or sets the songs replaced in this slot.</summary>
     public List<MulliganSong> MulliganSongs { get; set; } = [];
 }

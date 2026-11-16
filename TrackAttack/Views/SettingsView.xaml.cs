@@ -47,6 +47,7 @@ public partial class SettingsView : UserControl
         UpdateAudioVolumeLabel(AudioVolumeSlider.Value);
         _isInitializingAudioVolume = false;
         ShowCountsCheck.IsChecked = _settings.ShowSongCountsInLists;
+        ShowRecordCelebrationsCheck.IsChecked = _settings.ShowRecordCelebrations;
         DarkModeCheck.IsChecked = _settings.DarkModeEnabled;
         EnableSpotifyCheck.IsChecked = _settings.EnableSpotifyIntegration;
         SpotifyClientIdText.Text = _settings.SpotifyClientId;
@@ -528,6 +529,7 @@ public partial class SettingsView : UserControl
     {
         _settings.SetMusicDirectories(_musicFolders);
         _settings.ShowSongCountsInLists = ShowCountsCheck.IsChecked == true;
+        _settings.ShowRecordCelebrations = ShowRecordCelebrationsCheck.IsChecked == true;
         _settings.DarkModeEnabled = DarkModeCheck.IsChecked == true;
         _settings.EnableSpotifyIntegration = EnableSpotifyCheck.IsChecked == true;
         _settings.SpotifyClientId = SpotifyClientIdText.Text.Trim();

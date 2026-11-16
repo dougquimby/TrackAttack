@@ -68,6 +68,12 @@ public class QuizConfig
     public int QuickGuessBonusSeconds { get; set; } = 10;
     /// <summary>Gets or sets the bonus points for a quickly completed song.</summary>
     public double QuickGuessBonusPoints { get; set; } = 0.5;
+    /// <summary>Gets or sets whether a streak activates star-power bonus points.</summary>
+    public bool StarPowerEnabled { get; set; }
+    /// <summary>Gets or sets the number of consecutive completed songs needed to activate star power.</summary>
+    public int StarPowerStreakRequired { get; set; } = 5;
+    /// <summary>Gets or sets the bonus points per song completed after star power activates.</summary>
+    public double StarPowerBonusPoints { get; set; } = 0.5;
     /// <summary>Gets or sets the requested number of track replacements.</summary>
     public int MulliganCount { get; set; } = 0;
     /// <summary>Gets or sets the number of clip-duration extensions.</summary>

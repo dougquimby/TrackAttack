@@ -26,7 +26,7 @@ public class QuizSession
     /// <summary>Gets the total points after capped power penalties.</summary>
     public double TotalPoints => Results.Sum(result => CalculatePoints(result, Config));
     /// <summary>Gets the maximum available points for the recorded songs.</summary>
-    public double MaxPoints => CalculateMaxPointsPerSong(Config) * Results.Count;
+    public double MaxPoints => CalculateMaxPoints(Config, Results.Count);
     /// <summary>Gets the percentage of available points earned, or zero when none are available.</summary>
     public double Percentage => MaxPoints > 0 ? TotalPoints / MaxPoints * 100.0 : 0;
     /// <summary>Gets or sets the quiz duration, excluding quiz pauses.</summary>
@@ -56,11 +56,12 @@ public class QuizSession
                 (result.IsCorrect ? config.SongTitlePoints ?? 1.5 : 0.0)
                 + (result.ArtistCorrect ? config.ArtistPoints ?? 0.5 : 0.0),
             _ => result.IsCorrect ? config.SongTitlePoints ?? 1.0 : 0.0
-        }) + (config.QuickGuessBonusEnabled && result.QuickGuessBonusAwarded ? config.QuickGuessBonusPoints : 0);
+        }) + (config.QuickGuessBonusEnabled && result.QuickGuessBonusAwarded ? config.QuickGuessBonusPoints : 0)
+           + (config.StarPowerEnabled && result.StarPowerBonusAwarded ? config.StarPowerBonusPoints : 0);
 
-    /// <summary>Calculates the maximum points available for a song.</summary>
+    /// <summary>Calculates the maximum points for a song before streak bonuses.</summary>
     /// <param name="config">The quiz scoring rules.</param>
-    /// <returns>The maximum points for one song.</returns>
+    /// <returns>The maximum points for one song, excluding star power.</returns>
     public static double CalculateMaxPointsPerSong(QuizConfig config)
         => (config.QuizMode switch
         {
@@ -68,4 +69,14 @@ public class QuizSession
             QuizMode.GuessBoth => (config.SongTitlePoints ?? 1.5) + (config.ArtistPoints ?? 0.5),
             _ => config.SongTitlePoints ?? 1.0
         }) + (config.QuickGuessBonusEnabled ? config.QuickGuessBonusPoints : 0);
+
+    /// <summary>Calculates the maximum score for a quiz, including attainable streak bonuses.</summary>
+    /// <param name="config">The quiz scoring rules.</param>
+    /// <param name="songCount">The number of song slots.</param>
+    /// <returns>The maximum score for the quiz.</returns>
+    public static double CalculateMaxPoints(QuizConfig config, int songCount)
+        => CalculateMaxPointsPerSong(config) * songCount
+           + (config.StarPowerEnabled
+               ? Math.Max(0, songCount - config.StarPowerStreakRequired) * config.StarPowerBonusPoints
+               : 0);
 }

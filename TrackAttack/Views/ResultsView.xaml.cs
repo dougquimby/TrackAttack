@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using TrackAttack.Data;
 using TrackAttack.Models;
+using TrackAttack.Settings;
 using TrackAttack.Services;
 
 namespace TrackAttack.Views;
@@ -14,8 +15,9 @@ namespace TrackAttack.Views;
 /// <param name="ArtistGuess">The accepted artist guess.</param>
 /// <param name="Points">The formatted points.</param>
 /// <param name="QuickBonus">The quick-guess bonus awarded, when applicable.</param>
+/// <param name="StarBonus">The star-power bonus awarded, when applicable.</param>
 /// <param name="Status">The result status.</param>
-public sealed record ResultsRow(int Number, string Title, string Artist, string Guess, string ArtistGuess, string Points, string QuickBonus, string Status);
+public sealed record ResultsRow(int Number, string Title, string Artist, string Guess, string ArtistGuess, string Points, string QuickBonus, string StarBonus, string Status);
 
 /// <summary>Displays a completed quiz and actions for playing again or viewing history.</summary>
 public partial class ResultsView : UserControl
@@ -97,6 +99,8 @@ public partial class ResultsView : UserControl
         DurationText.Text = $"Time: {(int)session.Duration.TotalMinutes}:{session.Duration.Seconds:D2}";
         QuickBonusColumn.Visibility = session.Config.QuickGuessBonusEnabled
             ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        StarBonusColumn.Visibility = session.Config.StarPowerEnabled
+            ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
         ResultsGrid.ItemsSource = session.Results
             .SelectMany((result, index) => CreateRows(result, session.Config, index + 1)).ToArray();
         _ = LoadRecordCelebrationsAsync(session, history);
@@ -109,6 +113,8 @@ public partial class ResultsView : UserControl
 
         try
         {
+            if (!AppSettings.Load().ShowRecordCelebrations)
+                return;
             var previous = await history.GetAllAsync();
             var records = QuizRecordCalculator.Calculate(session, previous);
             var messages = new List<string>();
@@ -131,7 +137,7 @@ public partial class ResultsView : UserControl
         catch (Exception ex)
         {
             RecordCelebrationText.Text =
-                $"Personal-best records could not be checked because quiz history could not be loaded:\n{ex.Message}";
+                $"Personal-best records could not be checked:\n{ex.Message}";
             RecordCelebrationPanel.SetResourceReference(Border.BackgroundProperty, "MissedSurfaceBrush");
             RecordCelebrationText.SetResourceReference(TextBlock.ForegroundProperty, "MissedTextBrush");
             RecordCelebrationPanel.Visibility = Visibility.Visible;
@@ -141,7 +147,7 @@ public partial class ResultsView : UserControl
     private static IEnumerable<ResultsRow> CreateRows(SongResult result, QuizConfig config, int number)
     {
         foreach (var song in result.MulliganSongs)
-            yield return new ResultsRow(number, song.Title, song.DisplayArtistYear, "", "", "", "", "Mulligan");
+            yield return new ResultsRow(number, song.Title, song.DisplayArtistYear, "", "", "", "", "", "Mulligan");
 
         yield return new ResultsRow(
             number,
@@ -155,6 +161,8 @@ public partial class ResultsView : UserControl
             $"{QuizSession.CalculatePoints(result, config):F1}",
             config.QuickGuessBonusEnabled && result.QuickGuessBonusAwarded
                 ? $"+{config.QuickGuessBonusPoints:0.##}" : string.Empty,
+            config.StarPowerEnabled && result.StarPowerBonusAwarded
+                ? $"+{config.StarPowerBonusPoints:0.##}" : string.Empty,
             result.IsCorrect && (config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
                 ? "Correct"
                 : result.IsCorrect || result.ArtistCorrect ? "Partial" : "Missed");

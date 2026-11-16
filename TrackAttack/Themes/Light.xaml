@@ -48,6 +48,19 @@
     <SolidColorBrush x:Key="PowerHintSurfaceBrush" Color="#E8F1F6"/>
     <SolidColorBrush x:Key="PowerHintBorderBrush" Color="#CBDDE7"/>
     <SolidColorBrush x:Key="PowerHintTextBrush" Color="#286583"/>
+    <SolidColorBrush x:Key="StarPowerBannerBrush" Color="#FFF0B5"/>
+    <SolidColorBrush x:Key="StarPowerBorderBrush" Color="#C28A16"/>
+    <SolidColorBrush x:Key="StarPowerTextBrush" Color="#674400"/>
+    <SolidColorBrush x:Key="StarPowerPatternBrush" Color="#B67C00"/>
+    <LinearGradientBrush x:Key="StarPowerBackdropBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FFF6C5" Offset="0"/>
+        <GradientStop Color="#E9B93E" Offset="0.5"/>
+        <GradientStop Color="#FFF3BA" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="StarPowerSurfaceBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FFFEF9" Offset="0"/>
+        <GradientStop Color="#FFF2C4" Offset="1"/>
+    </LinearGradientBrush>
     <SolidColorBrush x:Key="QuizCorrectSurfaceBrush" Color="#C6EFCE"/>
     <SolidColorBrush x:Key="QuizCorrectTextBrush" Color="#006100"/>
     <SolidColorBrush x:Key="QuizTitleSurfaceBrush" Color="#FFEB96"/>

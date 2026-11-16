@@ -421,6 +421,9 @@ public partial class HistoryView : UserControl
             ("Quick-guess bonus", config.QuickGuessBonusEnabled
                 ? $"{config.QuickGuessBonusPoints:0.##} pts within {config.QuickGuessBonusSeconds}s; earned on {session.Results.Count(result => result.QuickGuessBonusAwarded)} songs"
                 : "Off"),
+            ("Star power", config.StarPowerEnabled
+                ? $"{config.StarPowerBonusPoints:0.##} pts per song after a streak of {config.StarPowerStreakRequired}; earned on {session.Results.Count(result => result.StarPowerBonusAwarded)} songs"
+                : "Off"),
             ("Available / used", powers),
             ("Cost per use", powerCosts),
             ("Penalty cap", $"{config.MaxPowerPenaltyPerSong:F1} pts per song"),

@@ -7,7 +7,19 @@ namespace TrackAttack.Data;
 /// <summary>Stores quiz history and song results in the local SQLite database.</summary>
 public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
 {
-    private string ConnectionString => $"Data Source={DatabaseInitializer.DatabasePath}";
+    private readonly string _connectionString;
+
+    /// <summary>Creates a repository for the user's history database.</summary>
+    public SQLiteQuizHistoryRepository() : this(DatabaseInitializer.DatabasePath) { }
+
+    /// <summary>Creates a repository for the history database at the supplied path.</summary>
+    /// <param name="databasePath">The path to the history database.</param>
+    public SQLiteQuizHistoryRepository(string databasePath)
+    {
+        _connectionString = new SqliteConnectionStringBuilder { DataSource = Path.GetFullPath(databasePath) }.ToString();
+    }
+
+    private string ConnectionString => _connectionString;
 
     /// <inheritdoc />
     public async Task SaveAsync(QuizSession session)
@@ -44,8 +56,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         {
             using var rc = connection.CreateCommand();
             rc.CommandText = """
-                INSERT INTO QuizSongResult (QuizHistoryId, SongTitle, SongArtist, SongAlbum, SongPath, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded)
-                VALUES (@HId, @Title, @Artist, @Album, @Path, @Year, @Genre, @Correct, @Guess, @ArtistGuess, @ArtistCorrect, @PowerPenalty, @MulliganSongs, @QuickBonus);
+                INSERT INTO QuizSongResult (QuizHistoryId, SongTitle, SongArtist, SongAlbum, SongPath, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded, StarPowerBonusAwarded)
+                VALUES (@HId, @Title, @Artist, @Album, @Path, @Year, @Genre, @Correct, @Guess, @ArtistGuess, @ArtistCorrect, @PowerPenalty, @MulliganSongs, @QuickBonus, @StarBonus);
                 """;
             rc.Parameters.AddWithValue("@HId", session.Id);
             rc.Parameters.AddWithValue("@Title", result.Song.Title);
@@ -61,6 +73,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
             rc.Parameters.AddWithValue("@PowerPenalty", result.PowerPenalty);
             rc.Parameters.AddWithValue("@MulliganSongs", JsonSerializer.Serialize(result.MulliganSongs));
             rc.Parameters.AddWithValue("@QuickBonus", result.QuickGuessBonusAwarded ? 1 : 0);
+            rc.Parameters.AddWithValue("@StarBonus", result.StarPowerBonusAwarded ? 1 : 0);
             await rc.ExecuteNonQueryAsync();
         }
 
@@ -112,7 +125,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
             using var rc = connection.CreateCommand();
             rc.CommandText = """
                 SELECT QuizHistoryId, SongTitle, SongArtist, SongAlbum, SongYear, SongGenre,
-                       IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded
+                       IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded, StarPowerBonusAwarded
                 FROM QuizSongResult ORDER BY QuizHistoryId, Id
                 """;
             using var rr = await rc.ExecuteReaderAsync();
@@ -138,7 +151,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                     ArtistCorrect = !rr.IsDBNull(9) && rr.GetInt32(9) == 1,
                     PowerPenalty = rr.GetDouble(11),
                     MulliganSongs = ReadMulliganSongs(rr, 12),
-                    QuickGuessBonusAwarded = rr.GetInt32(13) == 1
+                    QuickGuessBonusAwarded = rr.GetInt32(13) == 1,
+                    StarPowerBonusAwarded = rr.GetInt32(14) == 1
                 });
             }
         }
@@ -184,7 +198,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
 
         using var rc = connection.CreateCommand();
         rc.CommandText = """
-            SELECT SongTitle, SongArtist, SongAlbum, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded
+            SELECT SongTitle, SongArtist, SongAlbum, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded, StarPowerBonusAwarded
             FROM QuizSongResult WHERE QuizHistoryId = @Id ORDER BY Id
             """;
         rc.Parameters.AddWithValue("@Id", id);
@@ -210,7 +224,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                 ArtistCorrect = !rr.IsDBNull(8) && rr.GetInt32(8) == 1,
                 PowerPenalty = rr.GetDouble(10),
                 MulliganSongs = ReadMulliganSongs(rr, 11),
-                QuickGuessBonusAwarded = rr.GetInt32(12) == 1
+                QuickGuessBonusAwarded = rr.GetInt32(12) == 1,
+                StarPowerBonusAwarded = rr.GetInt32(13) == 1
             });
         }
 

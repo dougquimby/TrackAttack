@@ -10,11 +10,16 @@ public static class DatabaseInitializer
     public static string DatabasePath => Path.Combine(AppDataPaths.DirectoryPath, "history.db");
 
     /// <summary>Creates the database and applies required schema migrations.</summary>
-    public static void Initialize()
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
+    public static void Initialize() => Initialize(DatabasePath);
 
-        using var connection = new SqliteConnection($"Data Source={DatabasePath}");
+    /// <summary>Creates a history database at the supplied path and applies required schema migrations.</summary>
+    /// <param name="databasePath">The path to the history database.</param>
+    public static void Initialize(string databasePath)
+    {
+        var path = Path.GetFullPath(databasePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path }.ToString());
         connection.Open();
 
         using var cmd = connection.CreateCommand();
@@ -50,6 +55,7 @@ public static class DatabaseInitializer
                 ArtistCorrect INTEGER NOT NULL DEFAULT 0,
                 PowerPenalty  REAL    NOT NULL DEFAULT 0,
                 QuickGuessBonusAwarded INTEGER NOT NULL DEFAULT 0,
+                StarPowerBonusAwarded INTEGER NOT NULL DEFAULT 0,
                 MulliganSongsJson TEXT
             );
             """;
@@ -63,6 +69,7 @@ public static class DatabaseInitializer
         var hasPowerPenalty = false;
         var hasMulliganSongs = false;
         var hasQuickGuessBonus = false;
+        var hasStarPowerBonus = false;
         using (var reader = columnsCmd.ExecuteReader())
         {
             while (reader.Read())
@@ -74,6 +81,7 @@ public static class DatabaseInitializer
                 hasPowerPenalty |= string.Equals(columnName, "PowerPenalty", StringComparison.OrdinalIgnoreCase);
                 hasMulliganSongs |= string.Equals(columnName, "MulliganSongsJson", StringComparison.OrdinalIgnoreCase);
                 hasQuickGuessBonus |= string.Equals(columnName, "QuickGuessBonusAwarded", StringComparison.OrdinalIgnoreCase);
+                hasStarPowerBonus |= string.Equals(columnName, "StarPowerBonusAwarded", StringComparison.OrdinalIgnoreCase);
             }
 
         }
@@ -117,6 +125,11 @@ public static class DatabaseInitializer
             if (!hasQuickGuessBonus)
             {
                 alterCmd.CommandText = "ALTER TABLE QuizSongResult ADD COLUMN QuickGuessBonusAwarded INTEGER NOT NULL DEFAULT 0;";
+                alterCmd.ExecuteNonQuery();
+            }
+            if (!hasStarPowerBonus)
+            {
+                alterCmd.CommandText = "ALTER TABLE QuizSongResult ADD COLUMN StarPowerBonusAwarded INTEGER NOT NULL DEFAULT 0;";
                 alterCmd.ExecuteNonQuery();
             }
             if (!historyColumns.Contains("MulligansUsed"))

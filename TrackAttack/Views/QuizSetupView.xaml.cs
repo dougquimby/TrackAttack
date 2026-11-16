@@ -706,11 +706,11 @@ public partial class QuizSetupView : UserControl
                     new LibraryScanIssue(rule.Path, "Saved folder selection is unavailable and has been retained.")))
                 .DistinctBy(issue => issue.Path, StringComparer.OrdinalIgnoreCase).ToArray();
             ScanStatus.Text = issues.Length == 0
-                ? $"Scan complete: {_scannedSongs.Count:N0} readable tracks."
-                : $"Scan complete: {_scannedSongs.Count:N0} readable tracks; {issues.Length:N0} unavailable item(s).";
+                ? $"Scan complete: {_scannedSongs.Count:N0} readable tracks ({scan.CachedSongs:N0} cached)."
+                : $"Scan complete: {_scannedSongs.Count:N0} readable tracks ({scan.CachedSongs:N0} cached); {issues.Length:N0} warning(s).";
             if (issues.Length > 0)
                 MessageBox.Show(LibraryScanIssueSummary.Format(issues),
-                    "Some library items are unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Library scan warnings", MessageBoxButton.OK, MessageBoxImage.Warning);
             return true;
         }
         catch (Exception ex)
@@ -1085,6 +1085,8 @@ public partial class QuizSetupView : UserControl
             return;
         if (!TryGetQuickGuessSettings(out var quickGuessSeconds, out var quickGuessPoints))
             return;
+        if (!TryGetStarPowerSettings(out var starPowerStreak, out var starPowerPoints))
+            return;
 
         var count = Math.Min(requestedCount, candidates.Count);
         var shuffled = candidates.ToArray();
@@ -1152,6 +1154,9 @@ public partial class QuizSetupView : UserControl
             QuickGuessBonusEnabled = QuickGuessBonusCheck.IsChecked == true,
             QuickGuessBonusSeconds = quickGuessSeconds,
             QuickGuessBonusPoints = quickGuessPoints,
+            StarPowerEnabled = StarPowerCheck.IsChecked == true,
+            StarPowerStreakRequired = starPowerStreak,
+            StarPowerBonusPoints = starPowerPoints,
             MulliganCount = reserve.Length,
             ExtenderCount = ParseInt(ExtenderCountText.Text),
             ClipRerollCount = ParseInt(ClipRerollCountText.Text),
@@ -1219,6 +1224,8 @@ public partial class QuizSetupView : UserControl
             return;
         if (!TryGetQuickGuessSettings(out var quickGuessSeconds, out var quickGuessPoints))
             return;
+        if (!TryGetStarPowerSettings(out var starPowerStreak, out var starPowerPoints))
+            return;
 
         var settings = AppSettings.Load();
         settings.LocalQuizPresets.RemoveAll(preset => string.Equals(preset.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -1263,6 +1270,9 @@ public partial class QuizSetupView : UserControl
             QuickGuessBonusEnabled = QuickGuessBonusCheck.IsChecked == true,
             QuickGuessBonusSeconds = quickGuessSeconds,
             QuickGuessBonusPoints = quickGuessPoints,
+            StarPowerEnabled = StarPowerCheck.IsChecked == true,
+            StarPowerStreakRequired = starPowerStreak,
+            StarPowerBonusPoints = starPowerPoints,
             MulliganCount = ParseInt(MulliganCountText.Text),
             ExtenderCount = ParseInt(ExtenderCountText.Text),
             ClipRerollCount = ParseInt(ClipRerollCountText.Text),
@@ -1451,6 +1461,9 @@ public partial class QuizSetupView : UserControl
         QuickGuessBonusCheck.IsChecked = config.QuickGuessBonusEnabled;
         QuickGuessSecondsText.Text = config.QuickGuessBonusSeconds.ToString();
         QuickGuessPointsText.Text = config.QuickGuessBonusPoints.ToString();
+        StarPowerCheck.IsChecked = config.StarPowerEnabled;
+        StarPowerStreakText.Text = config.StarPowerStreakRequired.ToString();
+        StarPowerPointsText.Text = config.StarPowerBonusPoints.ToString();
         MulliganCountText.Text = config.MulliganCount.ToString();
         ExtenderCountText.Text = config.ExtenderCount.ToString();
         ClipRerollCountText.Text = config.ClipRerollCount.ToString();
@@ -1490,6 +1503,18 @@ public partial class QuizSetupView : UserControl
         {
             MessageBox.Show($"Could not delete the preset:\n{ex.Message}", "Preset delete failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private bool TryGetStarPowerSettings(out int streak, out double points)
+    {
+        var validStreak = TryInt(StarPowerStreakText.Text, 5, 1, 1000, out streak);
+        var validPoints = TryPointValue(StarPowerPointsText.Text, out points);
+        if (validStreak && validPoints)
+            return true;
+        PowersTab.IsSelected = true;
+        MessageBox.Show("Star power requires a streak of 1–1000 songs and a nonnegative bonus.",
+            "Invalid star-power settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
     }
 
     private bool TryGetQuickGuessSettings(out int seconds, out double points)

@@ -36,6 +36,7 @@ public class QuizEngine : IDisposable
     private TimeSpan _totalPausedDuration;
     private bool _guessBothTitleDone;
     private bool _guessBothArtistDone;
+    private int _currentStreak;
     private bool _songCompleted;
     private bool _isRevisitingCompletedSong;
     private SongResult? _pendingResult;
@@ -76,6 +77,8 @@ public class QuizEngine : IDisposable
     public event EventHandler<int>? ClipRerollUsed;
     /// <summary>Occurs after a hint is revealed.</summary>
     public event EventHandler<HintUsedEventArgs>? HintUsed;
+    /// <summary>Occurs when the number of consecutive completed songs changes.</summary>
+    public event EventHandler? StreakChanged;
 
     /// <summary>Gets the current song, if one has been selected.</summary>
     public Song? CurrentSong { get; private set; }
@@ -86,7 +89,11 @@ public class QuizEngine : IDisposable
     /// <summary>Gets the points earned so far after power penalties.</summary>
     public double TotalPoints => _results.Sum(result => QuizSession.CalculatePoints(result, _config));
     /// <summary>Gets the maximum points available for all song slots.</summary>
-    public double MaxPoints => QuizSession.CalculateMaxPointsPerSong(_config) * TotalSongs;
+    public double MaxPoints => QuizSession.CalculateMaxPoints(_config, TotalSongs);
+    /// <summary>Gets the number of consecutively completed songs.</summary>
+    public int CurrentStreak => _currentStreak;
+    /// <summary>Gets whether star power is currently active.</summary>
+    public bool IsStarPowerActive => _config.StarPowerEnabled && _currentStreak >= _config.StarPowerStreakRequired;
     /// <summary>Gets the displayed seconds remaining on the active timer.</summary>
     public int RemainingSeconds => _secondsRemaining;
     /// <summary>Gets whether the quiz is running.</summary>
@@ -237,7 +244,7 @@ public class QuizEngine : IDisposable
                 _guessBothTitleDone = true;
                 _songCompleted = _guessBothArtistDone;
                 if (_songCompleted)
-                    AwardQuickGuessBonus(_pendingResult);
+                    CompleteSong(_pendingResult);
                 SongCorrect?.Invoke(this, new SongCorrectEventArgs(CurrentSong, CorrectCount, TotalSongs));
             }
             else
@@ -247,7 +254,7 @@ public class QuizEngine : IDisposable
                 _guessBothArtistDone = true;
                 _songCompleted = _guessBothTitleDone;
                 if (_songCompleted)
-                    AwardQuickGuessBonus(_pendingResult);
+                    CompleteSong(_pendingResult);
                 ArtistBonusGuessed?.Invoke(this, new SongCorrectEventArgs(CurrentSong, CorrectCount, TotalSongs));
             }
 
@@ -288,9 +295,9 @@ public class QuizEngine : IDisposable
             IsCorrect = true,
             PowerPenalty = GetPowerPenalty(song)
         };
-        AwardQuickGuessBonus(result);
         _results.Add(result);
         _songCompleted = true;
+        CompleteSong(result);
         SongCorrect?.Invoke(this, new SongCorrectEventArgs(song, CorrectCount, TotalSongs));
 
         if (_config.SkipOnCorrectGuess)
@@ -337,12 +344,30 @@ public class QuizEngine : IDisposable
         result.QuickGuessBonusAwarded = elapsed <= TimeSpan.FromSeconds(_config.QuickGuessBonusSeconds);
     }
 
+    private void CompleteSong(SongResult result)
+    {
+        AwardQuickGuessBonus(result);
+        result.StarPowerBonusAwarded = IsStarPowerActive;
+        _currentStreak++;
+        StreakChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void BreakStreak()
+    {
+        if (_currentStreak == 0)
+            return;
+        _currentStreak = 0;
+        StreakChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>Passes the current song and advances to another eligible song.</summary>
     public void PassCurrentSong()
     {
         if (!IsRunning || _isPaused || _songsInSession.Count == 0) return;
         if (ExpireCurrentSongIfNeeded()) return;
 
+        if (!_songCompleted && !_isRevisitingCompletedSong)
+            BreakStreak();
         SongPassed?.Invoke(this, EventArgs.Empty);
         if (_isRevisitingCompletedSong)
         {
@@ -384,6 +409,8 @@ public class QuizEngine : IDisposable
         if (!alreadyCompleted && targetIdx < 0)
             return;
 
+        if (CurrentSong is not null && !_songCompleted && !_isRevisitingCompletedSong)
+            BreakStreak();
         StopPerSongTimer();
         if (_songCompleted && !_isRevisitingCompletedSong)
         {
@@ -510,6 +537,7 @@ public class QuizEngine : IDisposable
         TimerTick?.Invoke(this, _secondsRemaining);
         if (!_songCompleted)
         {
+            BreakStreak();
             if (!_results.Any(result => result.Song.SourcePath == song.SourcePath))
                 _results.Add(new SongResult { Song = song, PowerPenalty = GetPowerPenalty(song) });
             SongTimedOut?.Invoke(this, song);
@@ -659,6 +687,7 @@ public class QuizEngine : IDisposable
         int sessionSlotIdx = _songsInSession.FindIndex(s => s.SourcePath == oldSong.SourcePath);
         int originalSlotIdx = _allSongs.FindIndex(s => s.SourcePath == oldSong.SourcePath);
         if (sessionSlotIdx < 0 || originalSlotIdx < 0 || !_mulliganReserve.TryDequeue(out var newSong)) return;
+        BreakStreak();
         StopPerSongTimer();
         _perSongRemaining.Remove(oldSong);
         _quickGuessElapsed.Remove(oldSong);

@@ -147,7 +147,10 @@ internal static class QuizRecordCalculator
         double MaxPowerPenaltyPerSong,
         bool QuickGuessBonusEnabled,
         int QuickGuessBonusSeconds,
-        double QuickGuessBonusPoints);
+        double QuickGuessBonusPoints,
+        bool StarPowerEnabled,
+        int StarPowerStreakRequired,
+        double StarPowerBonusPoints);
 
     public static QuizRecordCelebrations Calculate(
         QuizSession current, IEnumerable<QuizSession> history)
@@ -228,7 +231,10 @@ internal static class QuizRecordCalculator
             config.MaxPowerPenaltyPerSong,
             config.QuickGuessBonusEnabled,
             config.QuickGuessBonusEnabled ? config.QuickGuessBonusSeconds : 0,
-            config.QuickGuessBonusEnabled ? config.QuickGuessBonusPoints : 0);
+            config.QuickGuessBonusEnabled ? config.QuickGuessBonusPoints : 0,
+            config.StarPowerEnabled,
+            config.StarPowerEnabled ? config.StarPowerStreakRequired : 0,
+            config.StarPowerEnabled ? config.StarPowerBonusPoints : 0);
     }
 
     private static AnswerCount CountAnswers(QuizSession session)
