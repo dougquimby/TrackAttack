@@ -76,6 +76,7 @@ public partial class HomeView : UserControl
     internal static bool UsesPoints(QuizConfig config)
         => config.QuizMode == QuizMode.GuessBoth
             || config.SongTitlePoints.HasValue || config.ArtistPoints.HasValue
+            || config.QuickGuessBonusEnabled
             || config.MulliganPenalty > 0
             || config.ExtenderPenalty > 0 || config.ClipRerollPenalty > 0 || config.HintPenalty > 0;
 

@@ -504,13 +504,22 @@ public partial class QuizView : UserControl, IDisposable
         ? $"{_engine.TotalPoints:F1} / {_engine.MaxPoints:F1} pts · {_engine.CorrectCount} correct"
         : $"{_engine.CorrectCount} / {_engine.TotalSongs} correct";
 
-    private void OnAnswerTextChanged(object sender, TextChangedEventArgs e) => SubmitAnswer();
+    private void OnAnswerTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (FeedbackText.Text == "So close! Check your spelling and try again.")
+            FeedbackText.Text = string.Empty;
+        SubmitAnswer();
+    }
     private void OnAnswerKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
             SubmitAnswer();
+            if (_engine.IsNearMiss(AnswerText.Text))
+                FeedbackText.Text = "So close! Check your spelling and try again.";
+            else if (FeedbackText.Text == "So close! Check your spelling and try again.")
+                FeedbackText.Text = string.Empty;
         }
     }
     private void SubmitAnswer()

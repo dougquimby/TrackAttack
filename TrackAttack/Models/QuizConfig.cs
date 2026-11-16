@@ -60,6 +60,14 @@ public class QuizConfig
     public bool IgnorePunctuation { get; set; } = true;
     /// <summary>Gets or sets whether a completed answer advances immediately instead of finishing the clip cycle.</summary>
     public bool SkipOnCorrectGuess { get; set; } = true;
+    /// <summary>Gets or sets whether a rejected close spelling receives feedback.</summary>
+    public bool NearMissFeedbackEnabled { get; set; }
+    /// <summary>Gets or sets whether quickly completed songs earn bonus points.</summary>
+    public bool QuickGuessBonusEnabled { get; set; }
+    /// <summary>Gets or sets the maximum active seconds spent on a song to earn the bonus.</summary>
+    public int QuickGuessBonusSeconds { get; set; } = 10;
+    /// <summary>Gets or sets the bonus points for a quickly completed song.</summary>
+    public double QuickGuessBonusPoints { get; set; } = 0.5;
     /// <summary>Gets or sets the requested number of track replacements.</summary>
     public int MulliganCount { get; set; } = 0;
     /// <summary>Gets or sets the number of clip-duration extensions.</summary>

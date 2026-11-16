@@ -44,8 +44,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         {
             using var rc = connection.CreateCommand();
             rc.CommandText = """
-                INSERT INTO QuizSongResult (QuizHistoryId, SongTitle, SongArtist, SongAlbum, SongPath, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, PowerPenalty, MulliganSongsJson)
-                VALUES (@HId, @Title, @Artist, @Album, @Path, @Year, @Genre, @Correct, @Guess, @ArtistGuess, @ArtistCorrect, @PowerPenalty, @MulliganSongs);
+                INSERT INTO QuizSongResult (QuizHistoryId, SongTitle, SongArtist, SongAlbum, SongPath, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded)
+                VALUES (@HId, @Title, @Artist, @Album, @Path, @Year, @Genre, @Correct, @Guess, @ArtistGuess, @ArtistCorrect, @PowerPenalty, @MulliganSongs, @QuickBonus);
                 """;
             rc.Parameters.AddWithValue("@HId", session.Id);
             rc.Parameters.AddWithValue("@Title", result.Song.Title);
@@ -60,6 +60,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
             rc.Parameters.AddWithValue("@ArtistCorrect", result.ArtistCorrect ? 1 : 0);
             rc.Parameters.AddWithValue("@PowerPenalty", result.PowerPenalty);
             rc.Parameters.AddWithValue("@MulliganSongs", JsonSerializer.Serialize(result.MulliganSongs));
+            rc.Parameters.AddWithValue("@QuickBonus", result.QuickGuessBonusAwarded ? 1 : 0);
             await rc.ExecuteNonQueryAsync();
         }
 
@@ -111,7 +112,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
             using var rc = connection.CreateCommand();
             rc.CommandText = """
                 SELECT QuizHistoryId, SongTitle, SongArtist, SongAlbum, SongYear, SongGenre,
-                       IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson
+                       IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded
                 FROM QuizSongResult ORDER BY QuizHistoryId, Id
                 """;
             using var rr = await rc.ExecuteReaderAsync();
@@ -136,7 +137,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                     ArtistGuess = rr.IsDBNull(8) ? null : rr.GetString(8),
                     ArtistCorrect = !rr.IsDBNull(9) && rr.GetInt32(9) == 1,
                     PowerPenalty = rr.GetDouble(11),
-                    MulliganSongs = ReadMulliganSongs(rr, 12)
+                    MulliganSongs = ReadMulliganSongs(rr, 12),
+                    QuickGuessBonusAwarded = rr.GetInt32(13) == 1
                 });
             }
         }
@@ -182,7 +184,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
 
         using var rc = connection.CreateCommand();
         rc.CommandText = """
-            SELECT SongTitle, SongArtist, SongAlbum, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson
+            SELECT SongTitle, SongArtist, SongAlbum, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson, QuickGuessBonusAwarded
             FROM QuizSongResult WHERE QuizHistoryId = @Id ORDER BY Id
             """;
         rc.Parameters.AddWithValue("@Id", id);
@@ -207,7 +209,8 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
                 ArtistGuess = rr.IsDBNull(7) ? null : rr.GetString(7),
                 ArtistCorrect = !rr.IsDBNull(8) && rr.GetInt32(8) == 1,
                 PowerPenalty = rr.GetDouble(10),
-                MulliganSongs = ReadMulliganSongs(rr, 11)
+                MulliganSongs = ReadMulliganSongs(rr, 11),
+                QuickGuessBonusAwarded = rr.GetInt32(12) == 1
             });
         }
 

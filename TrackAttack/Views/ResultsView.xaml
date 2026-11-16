@@ -6,6 +6,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,12">
@@ -33,9 +34,16 @@
                            Foreground="{DynamicResource MutedTextBrush}" TextAlignment="Right"/>
             </Grid>
         </Border>
-        <TextBlock Grid.Row="2" Text="SONG-BY-SONG RESULTS" FontSize="12" FontWeight="Bold"
+        <Border x:Name="RecordCelebrationPanel" Grid.Row="2" Visibility="Collapsed"
+                Background="{DynamicResource CorrectSurfaceBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="12" Margin="0,0,0,10">
+            <TextBlock x:Name="RecordCelebrationText" FontSize="15" FontWeight="SemiBold"
+                       Foreground="{DynamicResource CorrectTextBrush}" TextWrapping="Wrap"/>
+        </Border>
+        <TextBlock Grid.Row="3" Text="SONG-BY-SONG RESULTS" FontSize="12" FontWeight="Bold"
                    Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"/>
-        <DataGrid x:Name="ResultsGrid" Grid.Row="3" AutoGenerateColumns="False" IsReadOnly="True">
+        <DataGrid x:Name="ResultsGrid" Grid.Row="4" AutoGenerateColumns="False" IsReadOnly="True">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Style.Triggers>
@@ -66,6 +74,7 @@
                 <DataGridTextColumn Header="Your title guess" Binding="{Binding Guess}" Width="*"/>
                 <DataGridTextColumn Header="Artist guess" Binding="{Binding ArtistGuess}" Width="*"/>
                 <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="70"/>
+                <DataGridTextColumn x:Name="QuickBonusColumn" Header="Quick bonus" Binding="{Binding QuickBonus}" Width="90"/>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

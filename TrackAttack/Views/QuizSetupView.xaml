@@ -363,6 +363,8 @@
                         <CheckBox x:Name="FuzzyTitleCheck" Content="Allow fuzzy song-title matching" IsChecked="True"
                                   ToolTip="Accept an exact match or a guess containing any whole, significant word from the song title. This does not correct misspellings."/>
                         <CheckBox x:Name="IgnorePunctuationCheck" Content="Ignore punctuation when matching" IsChecked="True"/>
+                        <CheckBox x:Name="NearMissFeedbackCheck" Content="Show feedback for near-miss spellings"
+                                  ToolTip="Press Enter on a close but incorrect spelling to see feedback and try again. No credit is awarded."/>
                         <CheckBox x:Name="SkipCorrectCheck" Content="Advance immediately after a correct guess" IsChecked="True"/>
                     </StackPanel>
                 </Border>
@@ -376,6 +378,18 @@
                                FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <TextBlock Text="Hover over power names and scoring labels for details."
                                Foreground="{DynamicResource MutedTextBrush}" Margin="0,0,0,10"/>
+                    <CheckBox x:Name="QuickGuessBonusCheck" Content="Award a quick-guess bonus"
+                              ToolTip="Award the bonus once per song when all required answers are completed within the cutoff. Time spent on the song accumulates across visits; quiz pauses do not count."/>
+                    <WrapPanel Margin="0,4,0,12">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Cutoff (seconds)"/>
+                            <TextBox x:Name="QuickGuessSecondsText" Text="10" Width="130" AutomationProperties.Name="Quick-guess cutoff in seconds"/>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Bonus points per song"/>
+                            <TextBox x:Name="QuickGuessPointsText" Text="0.5" Width="130" AutomationProperties.Name="Quick-guess bonus points per song"/>
+                        </StackPanel>
+                    </WrapPanel>
                     <WrapPanel>
                     <StackPanel Width="390" Margin="0,0,24,12">
                     <Grid HorizontalAlignment="Left" Margin="0,0,0,10">

@@ -414,9 +414,13 @@ public partial class HistoryView : UserControl
             ("Timer", timer),
             ("Clip", $"{config.ClipDuration.TotalSeconds:0}s, {clipStart}, {playback}"),
             ("Advance", config.SkipOnCorrectGuess ? "Immediately on correct answer" : "After clip finishes"));
-        AddSettingsSection("ANSWER MATCHING", ("Matching rules", matching));
+        AddSettingsSection("ANSWER MATCHING", ("Matching rules", matching),
+            ("Near-miss feedback", config.NearMissFeedbackEnabled ? "On" : "Off"));
         AddSettingsSection("POWERS & SCORING",
             ("Correct answer points", GetQuizPointSummary(config)),
+            ("Quick-guess bonus", config.QuickGuessBonusEnabled
+                ? $"{config.QuickGuessBonusPoints:0.##} pts within {config.QuickGuessBonusSeconds}s; earned on {session.Results.Count(result => result.QuickGuessBonusAwarded)} songs"
+                : "Off"),
             ("Available / used", powers),
             ("Cost per use", powerCosts),
             ("Penalty cap", $"{config.MaxPowerPenaltyPerSong:F1} pts per song"),

@@ -49,6 +49,7 @@ public static class DatabaseInitializer
                 ArtistGuess   TEXT,
                 ArtistCorrect INTEGER NOT NULL DEFAULT 0,
                 PowerPenalty  REAL    NOT NULL DEFAULT 0,
+                QuickGuessBonusAwarded INTEGER NOT NULL DEFAULT 0,
                 MulliganSongsJson TEXT
             );
             """;
@@ -61,6 +62,7 @@ public static class DatabaseInitializer
         var hasSongPath = false;
         var hasPowerPenalty = false;
         var hasMulliganSongs = false;
+        var hasQuickGuessBonus = false;
         using (var reader = columnsCmd.ExecuteReader())
         {
             while (reader.Read())
@@ -71,6 +73,7 @@ public static class DatabaseInitializer
                 hasSongPath |= string.Equals(columnName, "SongPath", StringComparison.OrdinalIgnoreCase);
                 hasPowerPenalty |= string.Equals(columnName, "PowerPenalty", StringComparison.OrdinalIgnoreCase);
                 hasMulliganSongs |= string.Equals(columnName, "MulliganSongsJson", StringComparison.OrdinalIgnoreCase);
+                hasQuickGuessBonus |= string.Equals(columnName, "QuickGuessBonusAwarded", StringComparison.OrdinalIgnoreCase);
             }
 
         }
@@ -109,6 +112,11 @@ public static class DatabaseInitializer
             if (!hasMulliganSongs)
             {
                 alterCmd.CommandText = "ALTER TABLE QuizSongResult ADD COLUMN MulliganSongsJson TEXT;";
+                alterCmd.ExecuteNonQuery();
+            }
+            if (!hasQuickGuessBonus)
+            {
+                alterCmd.CommandText = "ALTER TABLE QuizSongResult ADD COLUMN QuickGuessBonusAwarded INTEGER NOT NULL DEFAULT 0;";
                 alterCmd.ExecuteNonQuery();
             }
             if (!historyColumns.Contains("MulligansUsed"))

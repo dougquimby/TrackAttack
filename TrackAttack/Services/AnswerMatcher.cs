@@ -77,6 +77,37 @@ public static class AnswerMatcher
         return stripped.Any(char.IsLetterOrDigit) ? stripped : title;
     }
 
+    /// <summary>Checks whether a rejected answer is one spelling edit away from the expected answer.</summary>
+    /// <param name="input">The player's answer.</param>
+    /// <param name="target">The expected answer.</param>
+    /// <param name="options">The configured normalization options.</param>
+    /// <param name="isTitle">Whether optional title-version labels should be ignored.</param>
+    /// <returns>Whether the answer is a near miss.</returns>
+    public static bool IsNearMiss(string input, string target, GuessMatchingOptions options, bool isTitle)
+    {
+        if (isTitle)
+        {
+            input = RemoveOptionalTitleVersions(input);
+            target = RemoveOptionalTitleVersions(target);
+        }
+        var left = Normalize(input, options, options.IgnorePunctuation, true, true);
+        var right = Normalize(target, options, options.IgnorePunctuation, true, true);
+        if (right.Length < 4 || left.Length < 3 || Math.Abs(left.Length - right.Length) > 1 || left == right)
+            return false;
+
+        var index = 0;
+        while (index < left.Length && index < right.Length && left[index] == right[index])
+            index++;
+        if (left.Length == right.Length && index + 1 < left.Length
+            && left[index] == right[index + 1] && left[index + 1] == right[index])
+            return left.AsSpan(index + 2).SequenceEqual(right.AsSpan(index + 2));
+        if (left.Length == right.Length)
+            return left.AsSpan(index + 1).SequenceEqual(right.AsSpan(index + 1));
+        return left.Length > right.Length
+            ? left.AsSpan(index + 1).SequenceEqual(right.AsSpan(index))
+            : left.AsSpan(index).SequenceEqual(right.AsSpan(index + 1));
+    }
+
     // Exact match first; if fuzzy=true, also accept any significant word from input appearing in target
     /// <summary>Compares an artist guess using the default matching options.</summary>
     /// <param name="input">The player's artist guess.</param>

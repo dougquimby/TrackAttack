@@ -1,6 +1,8 @@
+using System.Windows;
 using System.Windows.Controls;
 using TrackAttack.Data;
 using TrackAttack.Models;
+using TrackAttack.Services;
 
 namespace TrackAttack.Views;
 
@@ -11,8 +13,9 @@ namespace TrackAttack.Views;
 /// <param name="Guess">The accepted title guess.</param>
 /// <param name="ArtistGuess">The accepted artist guess.</param>
 /// <param name="Points">The formatted points.</param>
+/// <param name="QuickBonus">The quick-guess bonus awarded, when applicable.</param>
 /// <param name="Status">The result status.</param>
-public sealed record ResultsRow(int Number, string Title, string Artist, string Guess, string ArtistGuess, string Points, string Status);
+public sealed record ResultsRow(int Number, string Title, string Artist, string Guess, string ArtistGuess, string Points, string QuickBonus, string Status);
 
 /// <summary>Displays a completed quiz and actions for playing again or viewing history.</summary>
 public partial class ResultsView : UserControl
@@ -92,14 +95,53 @@ public partial class ResultsView : UserControl
         PercentText.SetResourceReference(TextBlock.ForegroundProperty, colorResource);
         ScoreText.SetResourceReference(TextBlock.ForegroundProperty, colorResource);
         DurationText.Text = $"Time: {(int)session.Duration.TotalMinutes}:{session.Duration.Seconds:D2}";
+        QuickBonusColumn.Visibility = session.Config.QuickGuessBonusEnabled
+            ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
         ResultsGrid.ItemsSource = session.Results
             .SelectMany((result, index) => CreateRows(result, session.Config, index + 1)).ToArray();
+        _ = LoadRecordCelebrationsAsync(session, history);
+    }
+
+    private async Task LoadRecordCelebrationsAsync(QuizSession session, IQuizHistoryRepository history)
+    {
+        if (!QuizStatisticsCalculator.IsLocal(session))
+            return;
+
+        try
+        {
+            var previous = await history.GetAllAsync();
+            var records = QuizRecordCalculator.Calculate(session, previous);
+            var messages = new List<string>();
+            var profileName = QuizStatisticsCalculator.ProfileName(session);
+            if (records.ProfileAccuracy)
+                messages.Add($"🏆 New profile best for {profileName}: {records.AccuracyPercentage:F1}% answer accuracy.");
+            if (records.ProfileHighScore)
+                messages.Add($"🏆 New profile high score for {profileName}: {records.TotalScore:F1} points.");
+            if (records.AllProfilesAccuracy)
+                messages.Add($"🌟 New all-profiles record: {records.AccuracyPercentage:F1}% answer accuracy.");
+            if (records.AllProfilesHighScore)
+                messages.Add($"🌟 New all-profiles high score: {records.TotalScore:F1} points.");
+
+            if (messages.Count > 0)
+            {
+                RecordCelebrationText.Text = string.Join(Environment.NewLine, messages);
+                RecordCelebrationPanel.Visibility = Visibility.Visible;
+            }
+        }
+        catch (Exception ex)
+        {
+            RecordCelebrationText.Text =
+                $"Personal-best records could not be checked because quiz history could not be loaded:\n{ex.Message}";
+            RecordCelebrationPanel.SetResourceReference(Border.BackgroundProperty, "MissedSurfaceBrush");
+            RecordCelebrationText.SetResourceReference(TextBlock.ForegroundProperty, "MissedTextBrush");
+            RecordCelebrationPanel.Visibility = Visibility.Visible;
+        }
     }
 
     private static IEnumerable<ResultsRow> CreateRows(SongResult result, QuizConfig config, int number)
     {
         foreach (var song in result.MulliganSongs)
-            yield return new ResultsRow(number, song.Title, song.DisplayArtistYear, "", "", "", "Mulligan");
+            yield return new ResultsRow(number, song.Title, song.DisplayArtistYear, "", "", "", "", "Mulligan");
 
         yield return new ResultsRow(
             number,
@@ -111,6 +153,8 @@ public partial class ResultsView : UserControl
                 ? result.UserGuess ?? string.Empty
                 : result.ArtistCorrect ? result.ArtistGuess ?? string.Empty : string.Empty,
             $"{QuizSession.CalculatePoints(result, config):F1}",
+            config.QuickGuessBonusEnabled && result.QuickGuessBonusAwarded
+                ? $"+{config.QuickGuessBonusPoints:0.##}" : string.Empty,
             result.IsCorrect && (config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
                 ? "Correct"
                 : result.IsCorrect || result.ArtistCorrect ? "Partial" : "Missed");

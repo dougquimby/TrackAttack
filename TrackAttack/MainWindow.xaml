@@ -93,6 +93,13 @@
                             <TextBlock x:Name="HistoryNavigationLabel" Text="Quiz History" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+                    <Button x:Name="StatisticsNavigationButton" Style="{StaticResource NavigationButton}"
+                            ToolTip="Statistics" AutomationProperties.Name="Statistics" Click="OnStatisticsClick">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="▥" Style="{StaticResource NavigationIcon}"/>
+                            <TextBlock x:Name="StatisticsNavigationLabel" Text="Statistics" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                     <Button x:Name="SettingsNavigationButton" Style="{StaticResource NavigationButton}"
                             ToolTip="Settings" AutomationProperties.Name="Settings" Click="OnSettingsClick">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

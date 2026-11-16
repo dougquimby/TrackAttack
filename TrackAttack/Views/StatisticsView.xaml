@@ -1,0 +1,210 @@
+<UserControl x:Class="TrackAttack.Views.StatisticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <DataTemplate x:Key="HighlightTemplate">
+            <Grid Margin="0,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,10,0">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Name}"/>
+                    <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource MutedTextBrush}"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Detail}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+                <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding Accuracy, StringFormat={}{0:F1}%}" FontWeight="SemiBold"
+                               HorizontalAlignment="Right"/>
+                    <TextBlock Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Right">
+                        <Run Text="{Binding CorrectAnswers}"/><Run Text="/"/><Run Text="{Binding TotalAnswers}"/>
+                        <Run Text=" correct answers · "/><Run Text="{Binding Songs}"/><Run Text=" song plays"/>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+        <Style x:Key="HighlightsListStyle" TargetType="ItemsControl">
+            <Setter Property="ItemTemplate" Value="{StaticResource HighlightTemplate}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ItemsControl">
+                        <Grid>
+                            <ItemsPresenter/>
+                            <TextBlock x:Name="EmptyMessage" Text="No qualifying results yet."
+                                       Foreground="{DynamicResource MutedTextBrush}"
+                                       Visibility="Collapsed" Margin="0,8,0,0"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="EmptyMessage" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="HighlightCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="Margin" Value="0,0,10,10"/>
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBlock Text="PROFILE" Foreground="{DynamicResource MutedTextBrush}"
+                       FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox x:Name="ProfileFilterCombo" Width="190" Height="30"
+                      AutomationProperties.Name="Statistics profile"
+                      SelectionChanged="OnProfileFilterChanged"/>
+        </StackPanel>
+
+        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,12">
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="QUIZZES" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock x:Name="QuizCountText" Text="—" FontSize="22" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="SONG PLAYS" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock x:Name="SongCountText" Text="—" FontSize="22" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="CORRECT / REQUIRED ANSWERS" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock x:Name="AnswersText" Text="—" FontSize="22" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="14">
+                <StackPanel>
+                    <TextBlock Text="ANSWER ACCURACY" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" FontWeight="Bold"/>
+                    <TextBlock x:Name="AccuracyText" Text="—" FontSize="22" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <TextBlock x:Name="StatusText" Text="Loading local quiz history..."
+                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="Artist, genre, and decade group songs by their metadata. Accuracy combines all title and artist answers required by the quizzes played."
+                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            <TextBlock Text="Title-only or artist-only: one answer per song. Guess Both: two answers per song, counted separately. Power penalties do not affect accuracy."
+                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="Overview">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <TextBlock Text="Ranked by answer accuracy, then by songs played. Ties are ordered by name."
+                                   Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,8,0,12"/>
+                        <UniformGrid Columns="2">
+                            <Border Style="{StaticResource HighlightCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="TOP QUIZ PERFORMANCES" FontWeight="Bold"/>
+                                    <ItemsControl x:Name="TopQuizzesList" Style="{StaticResource HighlightsListStyle}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HighlightCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="TOP ARTISTS" FontWeight="Bold"/>
+                                    <ItemsControl x:Name="TopArtistsList" Style="{StaticResource HighlightsListStyle}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HighlightCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="TOP GENRES" FontWeight="Bold"/>
+                                    <ItemsControl x:Name="TopGenresList" Style="{StaticResource HighlightsListStyle}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HighlightCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="TOP DECADES" FontWeight="Bold"/>
+                                    <ItemsControl x:Name="TopDecadesList" Style="{StaticResource HighlightsListStyle}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource HighlightCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="TOP SONGS" FontWeight="Bold"/>
+                                    <ItemsControl x:Name="TopSongsList" Style="{StaticResource HighlightsListStyle}"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Artists">
+                <DataGrid x:Name="ArtistsGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Artist" Binding="{Binding Name}" Width="*"/>
+                        <DataGridTextColumn Header="Song plays" Binding="{Binding Songs}" Width="100"/>
+                        <DataGridTextColumn Header="Correct answers" Binding="{Binding CorrectAnswers}" Width="130"/>
+                        <DataGridTextColumn Header="Required answers" Binding="{Binding TotalAnswers}" Width="140"/>
+                        <DataGridTextColumn Header="Answer accuracy" Binding="{Binding Accuracy, StringFormat={}{0:F1}%, TargetNullValue=—}" Width="140"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Genres">
+                <DataGrid x:Name="GenresGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Genre" Binding="{Binding Name}" Width="*"/>
+                        <DataGridTextColumn Header="Song plays" Binding="{Binding Songs}" Width="100"/>
+                        <DataGridTextColumn Header="Correct answers" Binding="{Binding CorrectAnswers}" Width="130"/>
+                        <DataGridTextColumn Header="Required answers" Binding="{Binding TotalAnswers}" Width="140"/>
+                        <DataGridTextColumn Header="Answer accuracy" Binding="{Binding Accuracy, StringFormat={}{0:F1}%, TargetNullValue=—}" Width="140"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Decades">
+                <DataGrid x:Name="DecadesGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Decade" Binding="{Binding Name}" Width="*"/>
+                        <DataGridTextColumn Header="Song plays" Binding="{Binding Songs}" Width="100"/>
+                        <DataGridTextColumn Header="Correct answers" Binding="{Binding CorrectAnswers}" Width="130"/>
+                        <DataGridTextColumn Header="Required answers" Binding="{Binding TotalAnswers}" Width="140"/>
+                        <DataGridTextColumn Header="Answer accuracy" Binding="{Binding Accuracy, StringFormat={}{0:F1}%, TargetNullValue=—}" Width="140"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Over time">
+                <DataGrid x:Name="MonthsGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Month" Binding="{Binding Name}" SortMemberPath="Month" Width="*"/>
+                        <DataGridTextColumn Header="Quizzes" Binding="{Binding Quizzes}" Width="90"/>
+                        <DataGridTextColumn Header="Song plays" Binding="{Binding Songs}" Width="100"/>
+                        <DataGridTextColumn Header="Correct answers" Binding="{Binding CorrectAnswers}" Width="130"/>
+                        <DataGridTextColumn Header="Required answers" Binding="{Binding TotalAnswers}" Width="140"/>
+                        <DataGridTextColumn Header="Answer accuracy" Binding="{Binding Accuracy, StringFormat={}{0:F1}%, TargetNullValue=—}" Width="140"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

@@ -1083,6 +1083,8 @@ public partial class QuizSetupView : UserControl
         }
         if (!TryGetQuizPointValues(out var quizMode, out var songTitlePoints, out var artistPoints))
             return;
+        if (!TryGetQuickGuessSettings(out var quickGuessSeconds, out var quickGuessPoints))
+            return;
 
         var count = Math.Min(requestedCount, candidates.Count);
         var shuffled = candidates.ToArray();
@@ -1146,6 +1148,10 @@ public partial class QuizSetupView : UserControl
             FuzzySongTitleMatching = FuzzyTitleCheck.IsChecked == true,
             IgnorePunctuation = IgnorePunctuationCheck.IsChecked == true,
             SkipOnCorrectGuess = SkipCorrectCheck.IsChecked == true,
+            NearMissFeedbackEnabled = NearMissFeedbackCheck.IsChecked == true,
+            QuickGuessBonusEnabled = QuickGuessBonusCheck.IsChecked == true,
+            QuickGuessBonusSeconds = quickGuessSeconds,
+            QuickGuessBonusPoints = quickGuessPoints,
             MulliganCount = reserve.Length,
             ExtenderCount = ParseInt(ExtenderCountText.Text),
             ClipRerollCount = ParseInt(ClipRerollCountText.Text),
@@ -1211,6 +1217,8 @@ public partial class QuizSetupView : UserControl
         }
         if (!TryGetQuizPointValues(out var quizMode, out var songTitlePoints, out var artistPoints))
             return;
+        if (!TryGetQuickGuessSettings(out var quickGuessSeconds, out var quickGuessPoints))
+            return;
 
         var settings = AppSettings.Load();
         settings.LocalQuizPresets.RemoveAll(preset => string.Equals(preset.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -1251,6 +1259,10 @@ public partial class QuizSetupView : UserControl
             FuzzySongTitleMatching = FuzzyTitleCheck.IsChecked == true,
             IgnorePunctuation = IgnorePunctuationCheck.IsChecked == true,
             SkipOnCorrectGuess = SkipCorrectCheck.IsChecked == true,
+            NearMissFeedbackEnabled = NearMissFeedbackCheck.IsChecked == true,
+            QuickGuessBonusEnabled = QuickGuessBonusCheck.IsChecked == true,
+            QuickGuessBonusSeconds = quickGuessSeconds,
+            QuickGuessBonusPoints = quickGuessPoints,
             MulliganCount = ParseInt(MulliganCountText.Text),
             ExtenderCount = ParseInt(ExtenderCountText.Text),
             ClipRerollCount = ParseInt(ClipRerollCountText.Text),
@@ -1435,6 +1447,10 @@ public partial class QuizSetupView : UserControl
         FuzzyTitleCheck.IsChecked = preset.FuzzySongTitleMatching;
         IgnorePunctuationCheck.IsChecked = config.IgnorePunctuation;
         SkipCorrectCheck.IsChecked = config.SkipOnCorrectGuess;
+        NearMissFeedbackCheck.IsChecked = config.NearMissFeedbackEnabled;
+        QuickGuessBonusCheck.IsChecked = config.QuickGuessBonusEnabled;
+        QuickGuessSecondsText.Text = config.QuickGuessBonusSeconds.ToString();
+        QuickGuessPointsText.Text = config.QuickGuessBonusPoints.ToString();
         MulliganCountText.Text = config.MulliganCount.ToString();
         ExtenderCountText.Text = config.ExtenderCount.ToString();
         ClipRerollCountText.Text = config.ClipRerollCount.ToString();
@@ -1474,6 +1490,18 @@ public partial class QuizSetupView : UserControl
         {
             MessageBox.Show($"Could not delete the preset:\n{ex.Message}", "Preset delete failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private bool TryGetQuickGuessSettings(out int seconds, out double points)
+    {
+        var validSeconds = TryInt(QuickGuessSecondsText.Text, 10, 1, 3600, out seconds);
+        var validPoints = TryPointValue(QuickGuessPointsText.Text, out points);
+        if (validSeconds && validPoints)
+            return true;
+        PowersTab.IsSelected = true;
+        MessageBox.Show("Quick-guess cutoff must be 1–3600 seconds and bonus points must be a nonnegative number.",
+            "Invalid quick-guess settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
     }
 
     private static bool TryInt(string text, int fallback, int min, int max, out int value)

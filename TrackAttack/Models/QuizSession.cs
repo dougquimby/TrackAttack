@@ -49,23 +49,23 @@ public class QuizSession
     /// <param name="config">The quiz scoring rules.</param>
     /// <returns>The points earned from correct answers.</returns>
     public static double CalculateEarnedPoints(SongResult result, QuizConfig config)
-        => config.QuizMode switch
+        => (config.QuizMode switch
         {
             QuizMode.GuessArtist => result.IsCorrect ? config.ArtistPoints ?? 1.0 : 0.0,
             QuizMode.GuessBoth =>
                 (result.IsCorrect ? config.SongTitlePoints ?? 1.5 : 0.0)
                 + (result.ArtistCorrect ? config.ArtistPoints ?? 0.5 : 0.0),
             _ => result.IsCorrect ? config.SongTitlePoints ?? 1.0 : 0.0
-        };
+        }) + (config.QuickGuessBonusEnabled && result.QuickGuessBonusAwarded ? config.QuickGuessBonusPoints : 0);
 
     /// <summary>Calculates the maximum points available for a song.</summary>
     /// <param name="config">The quiz scoring rules.</param>
     /// <returns>The maximum points for one song.</returns>
     public static double CalculateMaxPointsPerSong(QuizConfig config)
-        => config.QuizMode switch
+        => (config.QuizMode switch
         {
             QuizMode.GuessArtist => config.ArtistPoints ?? 1.0,
             QuizMode.GuessBoth => (config.SongTitlePoints ?? 1.5) + (config.ArtistPoints ?? 0.5),
             _ => config.SongTitlePoints ?? 1.0
-        };
+        }) + (config.QuickGuessBonusEnabled ? config.QuickGuessBonusPoints : 0);
 }

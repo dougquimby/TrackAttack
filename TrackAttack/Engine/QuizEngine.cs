@@ -21,6 +21,8 @@ public class QuizEngine : IDisposable
     private readonly Dictionary<string, TimeSpan> _assignedStartTimes = new(StringComparer.OrdinalIgnoreCase);
     private readonly System.Timers.Timer _timer;
     private readonly Stopwatch _perSongClock = new();
+    private readonly Stopwatch _quickGuessClock = new();
+    private readonly Dictionary<Song, TimeSpan> _quickGuessElapsed = [];
     private readonly Dictionary<Song, TimeSpan> _perSongRemaining = [];
     private int _secondsRemaining;
     private volatile bool _ended;
@@ -234,6 +236,8 @@ public class QuizEngine : IDisposable
                 _pendingResult.UserGuess = input;
                 _guessBothTitleDone = true;
                 _songCompleted = _guessBothArtistDone;
+                if (_songCompleted)
+                    AwardQuickGuessBonus(_pendingResult);
                 SongCorrect?.Invoke(this, new SongCorrectEventArgs(CurrentSong, CorrectCount, TotalSongs));
             }
             else
@@ -242,6 +246,8 @@ public class QuizEngine : IDisposable
                 _pendingResult.ArtistGuess = input;
                 _guessBothArtistDone = true;
                 _songCompleted = _guessBothTitleDone;
+                if (_songCompleted)
+                    AwardQuickGuessBonus(_pendingResult);
                 ArtistBonusGuessed?.Invoke(this, new SongCorrectEventArgs(CurrentSong, CorrectCount, TotalSongs));
             }
 
@@ -275,13 +281,15 @@ public class QuizEngine : IDisposable
                 : AnswerMatcher.IsSongTitleMatch(input, target, _config.FuzzySongTitleMatching, _matchingOptions))) return;
 
         var song = CurrentSong;
-        _results.Add(new SongResult
+        var result = new SongResult
         {
             Song = song,
             UserGuess = input,
             IsCorrect = true,
             PowerPenalty = GetPowerPenalty(song)
-        });
+        };
+        AwardQuickGuessBonus(result);
+        _results.Add(result);
         _songCompleted = true;
         SongCorrect?.Invoke(this, new SongCorrectEventArgs(song, CorrectCount, TotalSongs));
 
@@ -305,6 +313,28 @@ public class QuizEngine : IDisposable
             // Its recorded result prevents double-scoring while the clip finishes.
             _playback.ShouldStopLooping = true;
         }
+    }
+
+    /// <summary>Checks a rejected guess for a close spelling of an unfinished answer.</summary>
+    /// <param name="input">The player's rejected answer.</param>
+    /// <returns>Whether near-miss feedback applies.</returns>
+    public bool IsNearMiss(string input)
+    {
+        if (!_config.NearMissFeedbackEnabled || !IsRunning || _isPaused || _songCompleted
+            || CurrentSong is not { } song || string.IsNullOrWhiteSpace(input))
+            return false;
+        return (_config.QuizMode != QuizMode.GuessArtist && !_guessBothTitleDone
+                && AnswerMatcher.IsNearMiss(input, song.Title, _matchingOptions, true))
+            || (_config.QuizMode != QuizMode.GuessSongTitle && !_guessBothArtistDone
+                && AnswerMatcher.IsNearMiss(input, song.Artist, _matchingOptions, false));
+    }
+
+    private void AwardQuickGuessBonus(SongResult result)
+    {
+        if (!_config.QuickGuessBonusEnabled || CurrentSong is null)
+            return;
+        var elapsed = _quickGuessElapsed.GetValueOrDefault(CurrentSong) + _quickGuessClock.Elapsed;
+        result.QuickGuessBonusAwarded = elapsed <= TimeSpan.FromSeconds(_config.QuickGuessBonusSeconds);
     }
 
     /// <summary>Passes the current song and advances to another eligible song.</summary>
@@ -444,6 +474,9 @@ public class QuizEngine : IDisposable
 
     private void StopPerSongTimer()
     {
+        if (CurrentSong is not null && _quickGuessClock.IsRunning)
+            _quickGuessElapsed[CurrentSong] = _quickGuessElapsed.GetValueOrDefault(CurrentSong) + _quickGuessClock.Elapsed;
+        _quickGuessClock.Reset();
         if (_config.TimerMode != TimerMode.PerSong)
             return;
 
@@ -455,6 +488,8 @@ public class QuizEngine : IDisposable
 
     private void StartPerSongTimer()
     {
+        if (_config.QuickGuessBonusEnabled && CurrentSong is not null && !_isRevisitingCompletedSong)
+            _quickGuessClock.Restart();
         if (_config.TimerMode != TimerMode.PerSong || CurrentSong is null || _isRevisitingCompletedSong)
             return;
 
@@ -626,6 +661,7 @@ public class QuizEngine : IDisposable
         if (sessionSlotIdx < 0 || originalSlotIdx < 0 || !_mulliganReserve.TryDequeue(out var newSong)) return;
         StopPerSongTimer();
         _perSongRemaining.Remove(oldSong);
+        _quickGuessElapsed.Remove(oldSong);
 
         var slotNumber = originalSlotIdx + 1;
         if (!_mulliganSongsBySlot.TryGetValue(slotNumber, out var mulliganSongs))

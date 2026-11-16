@@ -145,6 +145,7 @@ public partial class MainWindow : Window
             _currentView is QuizSetupView or SongsView or QuizView or ResultsView);
         SetNavigationButtonActive(MetadataNavigationButton, _currentView is MetadataView);
         SetNavigationButtonActive(HistoryNavigationButton, _currentView is HistoryView);
+        SetNavigationButtonActive(StatisticsNavigationButton, _currentView is StatisticsView);
         SetNavigationButtonActive(SettingsNavigationButton, _currentView is SettingsView);
     }
 
@@ -251,6 +252,12 @@ public partial class MainWindow : Window
             historyView.ReplayRequested += OnReplayQuizRequested;
             Navigate(historyView, "Quiz History");
         }
+    }
+
+    private void OnStatisticsClick(object sender, RoutedEventArgs e)
+    {
+        if (GuardNavigation())
+            Navigate(new StatisticsView(_history), "Statistics");
     }
 
     private async void OnReplayQuizRequested(QuizSession session)
@@ -663,6 +670,7 @@ public partial class MainWindow : Window
             (NewQuizNavigationButton, NewQuizNavigationLabel),
             (MetadataNavigationButton, MetadataNavigationLabel),
             (HistoryNavigationButton, HistoryNavigationLabel),
+            (StatisticsNavigationButton, StatisticsNavigationLabel),
             (SettingsNavigationButton, SettingsNavigationLabel)
         };
         foreach (var (button, label) in navigationButtons)
