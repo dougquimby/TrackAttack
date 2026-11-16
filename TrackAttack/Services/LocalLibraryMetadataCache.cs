@@ -29,13 +29,14 @@ internal sealed class LocalLibraryMetadataCache : IDisposable
         _issues = issues;
     }
 
-    public static LocalLibraryMetadataCache? Open(ICollection<LibraryScanIssue>? issues)
+    public static LocalLibraryMetadataCache? Open(ICollection<LibraryScanIssue>? issues, string? directory = null)
     {
-        var path = Path.Combine(AppDataPaths.DirectoryPath, "library-metadata-v1.db");
+        directory ??= AppDataPaths.DirectoryPath;
+        var path = Path.Combine(directory, "library-metadata-v1.db");
         SqliteConnection? connection = null;
         try
         {
-            Directory.CreateDirectory(AppDataPaths.DirectoryPath);
+            Directory.CreateDirectory(directory);
             connection = new SqliteConnection(new SqliteConnectionStringBuilder
             {
                 DataSource = path,

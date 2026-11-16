@@ -199,6 +199,24 @@ public class QuizHistoryRepositoryTests
         Assert.Equal("New song", Assert.Single((await database.Repository.GetByIdAsync(recent.Id))!.Results).Song.Title);
     }
 
+    [Fact]
+    public async Task PlaylistHistoryRoundTripsAndRecentExclusionUsesPlaylistIdentity()
+    {
+        await using var database = await TestHistoryDatabase.CreateAsync();
+        const string playlist = @"C:\Playlists\Friday.m3u8";
+        var session = CreateSession(DateTime.UtcNow, playlist, "Alice",
+            CreateResult("Track", "Artist", @"D:\Music\track.mp3"));
+        session.Config.LocalPlaylistPath = playlist;
+        await database.Repository.SaveAsync(session);
+
+        var restored = await database.Repository.GetByIdAsync(session.Id);
+        Assert.NotNull(restored);
+        Assert.Equal(playlist, restored.Config.LocalPlaylistPath);
+        Assert.Equal(playlist, restored.Config.SourceDirectory);
+        Assert.Equal("Track", Assert.Single(await database.Repository.GetRecentQuizSongsAsync(5, "Local", playlist, "Alice")).Title);
+        Assert.Empty(await database.Repository.GetRecentQuizSongsAsync(5, "Local", @"C:\Playlists\Other.m3u", "Alice"));
+    }
+
     private static void AssertSongResultRoundTrip(SongResult expected, SongResult actual)
     {
         Assert.Equal(expected.Song.Title, actual.Song.Title);

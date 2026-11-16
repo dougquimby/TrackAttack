@@ -55,35 +55,40 @@
         </Border>
         <TabControl x:Name="SetupTabs" Grid.Row="1" Margin="0,0,0,8">
             <TabItem x:Name="SourceTab" Header="Music library">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
-            <Grid x:Name="SourceSection" Margin="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Border x:Name="SourceSelectorPanel" Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
-                        BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,12,0"
-                        VerticalAlignment="Stretch" Visibility="Collapsed">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                <Border x:Name="SourceSelectorPanel" Grid.RowSpan="2" Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="18" Margin="8,8,12,8"
+                        VerticalAlignment="Stretch">
                     <StackPanel VerticalAlignment="Top">
                         <TextBlock Text="Quiz source" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <ComboBox x:Name="SourceCombo" Width="200" Height="30" HorizontalAlignment="Left"
                                   SelectedIndex="0"
                                   SelectionChanged="OnSourceTypeChanged">
                             <ComboBoxItem Content="Local library"/>
-                            <ComboBoxItem Content="Spotify playlist"/>
+                            <ComboBoxItem x:Name="SpotifySourceOption" Content="Spotify playlist"/>
+                            <ComboBoxItem Content="Local M3U playlist"/>
                         </ComboBox>
                     </StackPanel>
                 </Border>
-                <Border x:Name="LocalSourcePanel" Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
+                <ScrollViewer x:Name="SourceScrollViewer" Grid.Row="0" Grid.Column="1" Margin="0,8,8,0"
+                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+            <Grid x:Name="SourceSection">
+                <Border x:Name="LocalSourcePanel" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="18">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Text="Music library" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <DockPanel Grid.Row="1" Margin="0,0,0,4">
@@ -114,16 +119,30 @@
                                 </HierarchicalDataTemplate>
                             </TreeView.Resources>
                         </TreeView>
-                        <TextBlock Grid.Row="3" Text="Folder changes take effect after Scan / Refresh."
-                                   Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,4,0,0"/>
-                        <DockPanel Grid.Row="4" Margin="0,8,0,0">
-                            <Button x:Name="ScanButton" Content="Scan / Refresh" Click="OnScanClick" DockPanel.Dock="Left"/>
-                            <TextBlock x:Name="ScanStatus" VerticalAlignment="Center" Margin="10,0"
-                                       TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}" Text="Add library folders in Settings and scan your tracks."/>
-                        </DockPanel>
                     </Grid>
                 </Border>
-                <Border x:Name="SpotifySourcePanel" Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
+                <Border x:Name="LocalPlaylistPanel" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="18" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Local playlist" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="Choose an M3U or M3U8 playlist. Its MP3 and FLAC tracks can be anywhere on your computer."
+                                   Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <DockPanel>
+                            <Button x:Name="BrowsePlaylistButton" Content="Choose playlist…" Click="OnBrowsePlaylistClick"
+                                    DockPanel.Dock="Right" Margin="8,0,0,0"/>
+                            <TextBox x:Name="LocalPlaylistPathText" IsReadOnly="True" Height="32"
+                                     VerticalContentAlignment="Center" ToolTip="Selected local playlist"
+                                     AutomationProperties.Name="Selected local playlist"/>
+                        </DockPanel>
+                        <DockPanel Margin="0,8,0,0">
+                            <Button x:Name="RefreshLocalPlaylistButton" Content="Refresh playlist" Click="OnRefreshLocalPlaylistClick"
+                                    DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="LocalPlaylistStatus" VerticalAlignment="Center" Margin="10,0"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}" Text="Choose a playlist to load its tracks."/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+                <Border x:Name="SpotifySourcePanel" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="18" Visibility="Collapsed">
                     <StackPanel>
                         <TextBlock Text="Spotify playlist" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -205,6 +224,23 @@
             </Grid>
             </Grid>
                 </ScrollViewer>
+                    <Border x:Name="LocalScanBar" Grid.Row="1" Grid.Column="1" Margin="0,0,8,8" Padding="10"
+                            HorizontalAlignment="Left" Width="{Binding ViewportWidth, ElementName=SourceScrollViewer}"
+                            Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
+                            BorderThickness="1" CornerRadius="8"
+                            Visibility="{Binding Visibility, ElementName=LocalSourcePanel}">
+                        <DockPanel>
+                            <Button x:Name="ScanButton" Content="Scan / Refresh" Click="OnScanClick" DockPanel.Dock="Right"
+                                    Margin="10,0,0,0" VerticalAlignment="Center"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Folder changes take effect after Scan / Refresh."
+                                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="ScanStatus" TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}"
+                                           Text="Add library folders in Settings and scan your tracks."/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </Grid>
             </TabItem>
             <TabItem x:Name="TrackFiltersTab" Header="Track filters">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

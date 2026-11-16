@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Microsoft.Win32;
 using TrackAttack.Data;
 using TrackAttack.Models;
 using TrackAttack.Services;
@@ -41,8 +42,11 @@ public partial class QuizSetupView : UserControl
     private List<SpotifyPlaylistChoice> _spotifyPlaylists = [];
     private bool _initialSetupLoaded;
     private string _setupProfileName = string.Empty;
+    private string _localPlaylistPath = string.Empty;
+    private bool _localPlaylistLoaded;
 
     private bool IsSpotifySource => _spotifyEnabled && SourceCombo.SelectedIndex == 1;
+    private bool IsLocalPlaylistSource => SourceCombo.SelectedIndex == 2;
     private bool IsSelectedSpotifyPlaylistDenied =>
         IsSpotifySource && SpotifyPlaylistCombo.SelectedItem is SpotifyPlaylistChoice { IsAccessDenied: true };
 
@@ -63,9 +67,11 @@ public partial class QuizSetupView : UserControl
         _initializing = true;
         InitializeComponent();
         UpdateClipStartInput();
-        SourceSelectorPanel.Visibility = spotifyEnabled ? Visibility.Visible : Visibility.Collapsed;
+        SpotifySourceOption.Visibility = spotifyEnabled ? Visibility.Visible : Visibility.Collapsed;
         if (spotifyEnabled && !Directory.Exists(AppSettings.Load().MusicDirectory))
             SourceCombo.SelectedIndex = 1;
+        else if (!spotifyEnabled && AppSettings.Load().GetMusicDirectories().Count == 0)
+            SourceCombo.SelectedIndex = 2;
         UpdateSourcePanels();
         GenreList.ItemsSource = _genres;
         DecadeList.ItemsSource = _decades;
@@ -115,7 +121,9 @@ public partial class QuizSetupView : UserControl
             }
             if (IsSpotifySource)
                 await LoadSpotifyPlaylistsAsync();
-            else if (_musicDirectories.Count > 0)
+            else if (IsLocalPlaylistSource && !string.IsNullOrWhiteSpace(_localPlaylistPath))
+                await ScanLocalPlaylistAsync();
+            else if (!IsLocalPlaylistSource && _musicDirectories.Count > 0)
                 await ScanAsync();
         };
     }
@@ -123,7 +131,8 @@ public partial class QuizSetupView : UserControl
     private void UpdateSourcePanels()
     {
         var spotify = IsSpotifySource;
-        LocalSourcePanel.Visibility = spotify ? Visibility.Collapsed : Visibility.Visible;
+        LocalSourcePanel.Visibility = spotify || IsLocalPlaylistSource ? Visibility.Collapsed : Visibility.Visible;
+        LocalPlaylistPanel.Visibility = IsLocalPlaylistSource ? Visibility.Visible : Visibility.Collapsed;
         SpotifySourcePanel.Visibility = spotify ? Visibility.Visible : Visibility.Collapsed;
         GenreFilterPanel.IsEnabled = !spotify;
         SpotifyGenreNotice.Visibility = spotify ? Visibility.Visible : Visibility.Collapsed;
@@ -324,7 +333,15 @@ public partial class QuizSetupView : UserControl
         if (countsChanged)
             PopulateFilters();
 
-        if (!IsSpotifySource && !previousFolders.SequenceEqual(_musicDirectories, StringComparer.OrdinalIgnoreCase))
+        var foldersChanged = !previousFolders.SequenceEqual(_musicDirectories, StringComparer.OrdinalIgnoreCase);
+        if (foldersChanged && (IsSpotifySource || IsLocalPlaylistSource))
+        {
+            _folderNodes = [];
+            _unavailableFolderRules = [];
+            MusicFolderTree.ItemsSource = null;
+            _folderSelectionDirty = true;
+        }
+        if (!IsSpotifySource && !IsLocalPlaylistSource && foldersChanged)
         {
             _folderNodes = [];
             _unavailableFolderRules = [];
@@ -362,7 +379,7 @@ public partial class QuizSetupView : UserControl
             return;
 
         _spotifyEnabled = enabled;
-        SourceSelectorPanel.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        SpotifySourceOption.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         if (enabled || SourceCombo.SelectedIndex != 1)
             return;
 
@@ -392,14 +409,25 @@ public partial class QuizSetupView : UserControl
         SpotifyPlaylistAccessHelp.Visibility = Visibility.Collapsed;
         _scannedSongs.Clear();
         _selectedSpotifyPlaylist = null;
+        _recentRequestVersion++;
         _recentQuizSongPaths.Clear();
         _recentQuizSongIdentities.Clear();
         if (IsSpotifySource)
             await LoadSpotifyPlaylistsAsync();
+        else if (IsLocalPlaylistSource && !string.IsNullOrWhiteSpace(_localPlaylistPath))
+            await ScanLocalPlaylistAsync();
+        else if (IsLocalPlaylistSource)
+        {
+            PopulateFilters();
+            UpdateMatchCount();
+        }
         else if (_musicDirectories.Count > 0)
             await ScanAsync();
         else
+        {
+            PopulateFilters();
             UpdateMatchCount();
+        }
     }
 
     private async Task<bool> EnsureSpotifyConnectedAsync()
@@ -650,6 +678,79 @@ public partial class QuizSetupView : UserControl
         _scannedSongs.Clear();
         ScanStatus.Text = "Folder selection changed. Scan / Refresh to update tracks.";
         UpdateMatchCount();
+    }
+
+    private async void OnBrowsePlaylistClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "M3U playlists (*.m3u;*.m3u8)|*.m3u;*.m3u8",
+            CheckFileExists = true,
+            Title = "Choose a local playlist"
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+        _localPlaylistPath = dialog.FileName;
+        LocalPlaylistPathText.Text = _localPlaylistPath;
+        await ScanLocalPlaylistAsync();
+    }
+
+    private async void OnRefreshLocalPlaylistClick(object sender, RoutedEventArgs e)
+        => await ScanLocalPlaylistAsync();
+
+    private async Task<bool> ScanLocalPlaylistAsync()
+    {
+        if (_busy)
+            return false;
+        if (string.IsNullOrWhiteSpace(_localPlaylistPath))
+        {
+            MessageBox.Show("Choose a local playlist first.", "Playlist required", MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _scanCompletion = completion;
+        SetBusy(true);
+        _localPlaylistLoaded = false;
+        LocalPlaylistStatus.Text = "Loading playlist tracks…";
+        try
+        {
+            Cursor = Cursors.Wait;
+            ForceCursor = true;
+            if (_musicSource is not LocalFileMusicSource local)
+                throw new InvalidOperationException("The selected source cannot scan local playlists.");
+            var scan = await Task.Run(() => local.ScanPlaylist(_localPlaylistPath));
+            _scannedSongs = scan.Songs.ToList();
+            _localPlaylistLoaded = scan.SourceAvailable;
+            PopulateFilters();
+            if (ExcludeRecentCheck.IsChecked == true)
+                await RefreshRecentSongsAsync();
+            UpdateMatchCount();
+            LocalPlaylistStatus.Text = scan.SourceAvailable
+                ? $"Loaded {_scannedSongs.Count:N0} readable tracks ({scan.CachedSongs:N0} cached); {scan.Issues.Count:N0} warning(s)."
+                : "Playlist could not be loaded.";
+            if (scan.Issues.Count > 0)
+                MessageBox.Show(LibraryScanIssueSummary.Format(scan.Issues),
+                    "Playlist scan warnings", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return scan.SourceAvailable;
+        }
+        catch (Exception ex)
+        {
+            _scannedSongs.Clear();
+            PopulateFilters();
+            UpdateMatchCount();
+            LocalPlaylistStatus.Text = "Playlist could not be loaded.";
+            MessageBox.Show($"Could not load this playlist:\n{ex.Message}", "Playlist scan failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
+        }
+        finally
+        {
+            ClearValue(CursorProperty);
+            ClearValue(ForceCursorProperty);
+            SetBusy(false);
+            _scanCompletion = null;
+            completion.SetResult();
+        }
     }
 
     private async Task<bool> ScanAsync(IReadOnlyList<MusicFolderRule>? savedRules = null)
@@ -943,7 +1044,7 @@ public partial class QuizSetupView : UserControl
             var sourceType = IsSpotifySource ? "Spotify" : "Local";
             var sourceDirectory = IsSpotifySource
                 ? _selectedSpotifyPlaylist?.Id ?? string.Empty
-                : _musicDirectories.FirstOrDefault() ?? string.Empty;
+                : IsLocalPlaylistSource ? _localPlaylistPath : _musicDirectories.FirstOrDefault() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(sourceDirectory))
             {
                 _recentHistoryLoaded = true;
@@ -1025,7 +1126,14 @@ public partial class QuizSetupView : UserControl
 
     private void StartQuiz()
     {
-        if (!IsSpotifySource && _folderSelectionDirty)
+        if (IsLocalPlaylistSource && !_localPlaylistLoaded)
+        {
+            SourceTab.IsSelected = true;
+            MessageBox.Show("Choose and load a local playlist before starting the quiz.",
+                "Playlist required", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (!IsSpotifySource && !IsLocalPlaylistSource && _folderSelectionDirty)
         {
             SourceTab.IsSelected = true;
             MessageBox.Show("Scan the selected folders before starting the quiz.",
@@ -1110,9 +1218,10 @@ public partial class QuizSetupView : UserControl
             SourceType = IsSpotifySource ? "Spotify" : "Local",
             SourceDirectory = IsSpotifySource
                 ? spotifyPlaylistId!
-                : _musicDirectories.FirstOrDefault() ?? string.Empty,
-            LocalMusicDirectories = IsSpotifySource ? null : [.. _musicDirectories],
-            LocalFolderRules = IsSpotifySource ? null : GetFolderRules(),
+                : IsLocalPlaylistSource ? _localPlaylistPath : _musicDirectories.FirstOrDefault() ?? string.Empty,
+            LocalPlaylistPath = IsLocalPlaylistSource ? _localPlaylistPath : null,
+            LocalMusicDirectories = IsSpotifySource || IsLocalPlaylistSource ? null : [.. _musicDirectories],
+            LocalFolderRules = IsSpotifySource || IsLocalPlaylistSource ? null : GetFolderRules(),
             SpotifyPlaylistId = IsSpotifySource ? spotifyPlaylistId! : string.Empty,
             FilterGenre = !IsSpotifySource && selectedGenres.Count > 0
                 ? string.Join(", ", selectedGenres)
@@ -1207,7 +1316,14 @@ public partial class QuizSetupView : UserControl
 
     private void OnSavePresetClick(object sender, RoutedEventArgs e)
     {
-        if (!IsSpotifySource && (_folderSelectionDirty || _folderNodes.Count == 0))
+        if (IsLocalPlaylistSource && !_localPlaylistLoaded)
+        {
+            SourceTab.IsSelected = true;
+            MessageBox.Show("Choose and load a local playlist before saving this setup.",
+                "Playlist required", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (!IsSpotifySource && !IsLocalPlaylistSource && (_folderSelectionDirty || _folderNodes.Count == 0))
         {
             SourceTab.IsSelected = true;
             MessageBox.Show("Scan the selected folders before saving this setup.",
@@ -1237,9 +1353,11 @@ public partial class QuizSetupView : UserControl
         var config = new QuizConfig
         {
             SourceType = IsSpotifySource ? "Spotify" : "Local",
-            SourceDirectory = IsSpotifySource ? _selectedSpotifyPlaylist?.Id ?? string.Empty : _musicDirectories.FirstOrDefault() ?? string.Empty,
-            LocalMusicDirectories = IsSpotifySource ? null : [.. _musicDirectories],
-            LocalFolderRules = IsSpotifySource ? null : GetFolderRules(),
+            SourceDirectory = IsSpotifySource ? _selectedSpotifyPlaylist?.Id ?? string.Empty
+                : IsLocalPlaylistSource ? _localPlaylistPath : _musicDirectories.FirstOrDefault() ?? string.Empty,
+            LocalPlaylistPath = IsLocalPlaylistSource ? _localPlaylistPath : null,
+            LocalMusicDirectories = IsSpotifySource || IsLocalPlaylistSource ? null : [.. _musicDirectories],
+            LocalFolderRules = IsSpotifySource || IsLocalPlaylistSource ? null : GetFolderRules(),
             SpotifyPlaylistId = IsSpotifySource ? _selectedSpotifyPlaylist?.Id ?? string.Empty : string.Empty,
             FilterGenre = !IsSpotifySource && _genres.Any(item => item.IsChecked)
                 ? string.Join(", ", _genres.Where(item => item.IsChecked).Select(item => item.Value))
@@ -1393,6 +1511,17 @@ public partial class QuizSetupView : UserControl
             SpotifyPlaylistCombo.SelectedItem = playlist;
             _loadingSpotifyPlaylists = false;
             await LoadSpotifyPlaylistAsync(playlist);
+            ApplyPreset(preset);
+        }
+        else if (!string.IsNullOrWhiteSpace(preset.Config.LocalPlaylistPath))
+        {
+            _initializing = true;
+            SourceCombo.SelectedIndex = 2;
+            UpdateSourcePanels();
+            _localPlaylistPath = preset.Config.LocalPlaylistPath;
+            LocalPlaylistPathText.Text = _localPlaylistPath;
+            _initializing = false;
+            await ScanLocalPlaylistAsync();
             ApplyPreset(preset);
         }
         else
@@ -1552,6 +1681,8 @@ public partial class QuizSetupView : UserControl
         SourceCombo.IsEnabled = !busy;
         MusicFolderTree.IsEnabled = !busy;
         ScanButton.IsEnabled = !busy;
+        BrowsePlaylistButton.IsEnabled = !busy;
+        RefreshLocalPlaylistButton.IsEnabled = !busy;
         SpotifyPlaylistCombo.IsEnabled = !busy;
         RefreshSpotifyPlaylistsButton.IsEnabled = !busy;
         CheckSpotifyButton.IsEnabled = !busy;

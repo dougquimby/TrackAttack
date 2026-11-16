@@ -3,8 +3,10 @@ namespace TrackAttack.Models;
 /// <summary>Describes the source, rules, scoring, and powers for a quiz.</summary>
 public class QuizConfig
 {
-    /// <summary>Gets or sets the primary library directory recorded with the quiz.</summary>
+    /// <summary>Gets or sets the primary library directory or playlist identifier recorded with the quiz.</summary>
     public string SourceDirectory { get; set; } = string.Empty;
+    /// <summary>Gets or sets the M3U playlist path, or null for a folder-based local quiz.</summary>
+    public string? LocalPlaylistPath { get; set; }
     /// <summary>Gets or sets all local library roots, when recorded.</summary>
     public List<string>? LocalMusicDirectories { get; set; }
     /// <summary>Gets or sets the local folder inclusion and exclusion rules.</summary>

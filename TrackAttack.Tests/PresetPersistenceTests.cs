@@ -102,6 +102,34 @@ public sealed class PresetPersistenceTests
     }
 
     [Fact]
+    public void PlaylistPresetRoundTripsWithoutLibraryFolders()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"TrackAttack-tests-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "settings.json");
+        try
+        {
+            var config = new QuizConfig
+            {
+                SourceType = "Local",
+                SourceDirectory = @"D:\Playlists\mix.m3u8",
+                LocalPlaylistPath = @"D:\Playlists\mix.m3u8"
+            };
+            new AppSettings { LocalQuizPresets = [new LocalQuizPreset { Name = "Mix", Config = config }] }.Save(path);
+            var restored = Assert.Single(AppSettings.Load(path).LocalQuizPresets).Config;
+            Assert.Equal("Local", restored.SourceType);
+            Assert.Equal(config.LocalPlaylistPath, restored.LocalPlaylistPath);
+            Assert.Equal(config.SourceDirectory, restored.SourceDirectory);
+            Assert.Null(restored.LocalMusicDirectories);
+            Assert.Null(restored.LocalFolderRules);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ClonedSetupDoesNotShareMutableSelections()
     {
         var original = new QuizConfig

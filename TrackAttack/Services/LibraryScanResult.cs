@@ -14,4 +14,6 @@ public sealed record LibraryScanResult(IReadOnlyList<Song> Songs, IReadOnlyList<
 {
     /// <summary>Gets the number of tracks reused from the metadata cache.</summary>
     public int CachedSongs { get; init; }
+    /// <summary>Gets whether the requested source itself was successfully opened.</summary>
+    public bool SourceAvailable { get; init; } = true;
 }

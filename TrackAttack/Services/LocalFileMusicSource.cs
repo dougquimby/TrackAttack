@@ -7,11 +7,19 @@ namespace TrackAttack.Services;
 public class LocalFileMusicSource : IMusicSource
 {
     private static readonly string[] SupportedExtensions = [".mp3", ".flac"];
+    private readonly string? _cacheDirectory;
     /// <summary>Identifies songs with missing genre or year metadata in filter lists.</summary>
     public const string UnknownMetadataOption = "! Unknown";
 
     /// <inheritdoc />
     public string SourceType => "Local";
+
+    /// <summary>Creates a source using the standard metadata cache.</summary>
+    public LocalFileMusicSource() { }
+
+    /// <summary>Creates a source using a metadata cache in the supplied directory.</summary>
+    /// <param name="cacheDirectory">The directory for the metadata cache.</param>
+    public LocalFileMusicSource(string cacheDirectory) => _cacheDirectory = Path.GetFullPath(cacheDirectory);
 
     /// <inheritdoc />
     public Task<IEnumerable<Song>> GetSongsAsync(QuizConfig config)
@@ -21,7 +29,16 @@ public class LocalFileMusicSource : IMusicSource
 
     private IEnumerable<Song> GetFilteredSongs(QuizConfig config)
     {
-        var songs = ScanSelectedDirectories(MusicFolderSelection.Roots(config), config.LocalFolderRules).ToList();
+        List<Song> songs;
+        if (!string.IsNullOrWhiteSpace(config.LocalPlaylistPath))
+        {
+            var scan = ScanPlaylist(config.LocalPlaylistPath);
+            if (scan.Issues.Count > 0)
+                throw new InvalidDataException(LibraryScanIssueSummary.Format(scan.Issues));
+            songs = scan.Songs.ToList();
+        }
+        else
+            songs = ScanSelectedDirectories(MusicFolderSelection.Roots(config), config.LocalFolderRules).ToList();
 
         if (!string.IsNullOrWhiteSpace(config.FilterGenre))
         {
@@ -91,7 +108,7 @@ public class LocalFileMusicSource : IMusicSource
         if (!Directory.Exists(directory))
             yield break;
 
-        using var cache = LocalLibraryMetadataCache.Open(null);
+        using var cache = LocalLibraryMetadataCache.Open(null, _cacheDirectory);
         foreach (var file in Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories))
         {
             if (!SupportedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
@@ -112,7 +129,7 @@ public class LocalFileMusicSource : IMusicSource
         IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules,
         ICollection<LibraryScanIssue>? issues = null)
     {
-        using var cache = LocalLibraryMetadataCache.Open(issues);
+        using var cache = LocalLibraryMetadataCache.Open(issues, _cacheDirectory);
         foreach (var song in ScanSelectedDirectoriesCore(roots, rules, issues, cache))
             yield return song;
     }
@@ -177,12 +194,46 @@ public class LocalFileMusicSource : IMusicSource
         var issues = new List<LibraryScanIssue>();
         Song[] songs;
         int cachedSongs;
-        using (var cache = LocalLibraryMetadataCache.Open(issues))
+        using (var cache = LocalLibraryMetadataCache.Open(issues, _cacheDirectory))
         {
             songs = ScanSelectedDirectoriesCore(roots, rules, issues, cache).ToArray();
             cachedSongs = cache?.Hits ?? 0;
         }
         return new LibraryScanResult(songs, issues) { CachedSongs = cachedSongs };
+    }
+
+    /// <summary>Scans the local files listed in an M3U or M3U8 playlist.</summary>
+    /// <param name="playlistPath">The playlist file to load.</param>
+    /// <returns>Readable tracks and warnings for invalid or unavailable entries.</returns>
+    public LibraryScanResult ScanPlaylist(string playlistPath)
+    {
+        var issues = new List<LibraryScanIssue>();
+        if (!M3uPlaylistReader.TryRead(playlistPath, issues, out var paths))
+            return new LibraryScanResult([], issues) { SourceAvailable = false };
+        var scan = ScanFiles(paths);
+        issues.AddRange(scan.Issues);
+        return new LibraryScanResult(scan.Songs, issues) { CachedSongs = scan.CachedSongs };
+    }
+
+    /// <summary>Scans explicit local audio paths without traversing their parent folders.</summary>
+    /// <param name="paths">The files to scan.</param>
+    /// <returns>The readable songs and any scan warnings.</returns>
+    public LibraryScanResult ScanFiles(IEnumerable<string> paths)
+    {
+        var issues = new List<LibraryScanIssue>();
+        var songs = new List<Song>();
+        var hits = 0;
+        using (var cache = LocalLibraryMetadataCache.Open(issues, _cacheDirectory))
+        {
+            foreach (var file in paths.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var song = cache is null ? ReadSong(file, issues) : cache.Read(file, () => ReadSong(file, issues));
+                if (song is not null)
+                    songs.Add(song);
+            }
+            hits = cache?.Hits ?? 0;
+        }
+        return new LibraryScanResult(songs, issues) { CachedSongs = hits };
     }
 
     private static string[]? GetEntries(string directory, bool directories, ICollection<LibraryScanIssue>? issues)

@@ -1,6 +1,7 @@
 <UserControl x:Class="TrackAttack.Views.MetadataView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:TrackAttack.Models">
     <UserControl.Resources>
         <Style x:Key="MetadataToolbarButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Height" Value="34"/>
@@ -53,6 +54,7 @@
                       VerticalAlignment="Center" Margin="0,5,12,0"/>
             <CheckBox x:Name="NeedsReviewCheck" Grid.Row="1" Grid.Column="4" Grid.ColumnSpan="2"
                       Content="Needs review only" IsChecked="True" VerticalAlignment="Center" Margin="0,5,0,0"
+                      ToolTip="Show only unreadable tracks, tracks with missing or invalid metadata, and tracks with staged edits or catalog matches. Uncheck to show all scanned tracks."
                       Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
             <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal"
                         VerticalAlignment="Center" Margin="0,5,0,0">
@@ -64,7 +66,18 @@
             </StackPanel>
         </Grid>
         <DataGrid x:Name="MetadataGrid" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False"
-                  SelectionMode="Extended" SelectionUnit="FullRow" RowEditEnding="OnRowEditEnding">
+                  SelectionMode="Extended" SelectionUnit="FullRow" RowEditEnding="OnRowEditEnding"
+                  PreviewMouseRightButtonDown="OnMetadataGridRightButtonDown">
+            <DataGrid.ContextMenu>
+                <ContextMenu Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}">
+                    <MenuItem Header="Lookup selected" Click="OnLookupSelectedClick"/>
+                    <Separator/>
+                    <MenuItem Header="Select all visible tracks" Click="OnSelectAllTracksClick"/>
+                    <MenuItem Header="Clear selection" Click="OnClearTrackSelectionClick"/>
+                    <MenuItem Header="Copy selected rows" Command="{x:Static ApplicationCommands.Copy}"
+                              CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Title" Binding="{Binding Title, UpdateSourceTrigger=PropertyChanged}" Width="1.5*"/>
                 <DataGridTextColumn Header="Artist" Binding="{Binding Artist, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
@@ -80,21 +93,31 @@
             <DockPanel LastChildFill="True">
                 <TextBlock x:Name="CandidateTargetText" DockPanel.Dock="Right" Foreground="{DynamicResource MutedTextBrush}"
                            TextTrimming="CharacterEllipsis" Margin="8,0,2,5"/>
-                <TextBlock Text="CATALOG CANDIDATES  ·  Select a result and choose fields to stage; staging never writes files."
+                <TextBlock Text="CATALOG CANDIDATES  ·  Choose one value per field; checked fields can come from different results."
                            FontSize="12" FontWeight="Bold" Foreground="{DynamicResource MutedTextBrush}" Margin="2,0,0,5"/>
             </DockPanel>
             <CheckBox x:Name="PropagateAlbumFieldsCheck" Grid.Row="1"
                       Content="Also stage checked Genre/Year to tracks with the same original album and artist"
                       ToolTip="This only stages changes for review. It does not write files; use Apply Changes when ready."
                       VerticalAlignment="Center" Margin="2,0,0,5"/>
-            <DataGrid x:Name="CandidatesGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="False" SelectionMode="Single">
+            <DataGrid x:Name="CandidatesGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="False" SelectionMode="Single"
+                      ContextMenuOpening="OnCandidateContextMenuOpening">
+                <DataGrid.ContextMenu>
+                    <ContextMenu Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}">
+                        <MenuItem x:Name="CheckCandidateRowMenu" Header="Check all fields in this row" Click="OnCheckCandidateRowClick"/>
+                        <MenuItem x:Name="UncheckCandidateRowMenu" Header="Uncheck all fields in this row" Click="OnUncheckCandidateRowClick"/>
+                        <Separator/>
+                        <MenuItem Header="Stage checked fields" Click="OnStageCandidateClick"/>
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Score" Binding="{Binding Suggestion.MatchScore}" IsReadOnly="True" Width="60"/>
                     <DataGridTemplateColumn Header="Title" MinWidth="150">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <DockPanel LastChildFill="True">
-                                    <CheckBox IsChecked="{Binding StageTitle, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                    <CheckBox IsChecked="{Binding StageTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Click="OnCandidateFieldCheckClick"
+                                              Tag="{x:Static models:MetadataSuggestionField.Title}"
                                               VerticalAlignment="Center" Margin="4,0,6,0"
                                               ToolTip="Stage title"/>
                                     <TextBlock Text="{Binding Suggestion.Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
@@ -106,7 +129,8 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <DockPanel LastChildFill="True">
-                                    <CheckBox IsChecked="{Binding StageArtist, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                    <CheckBox IsChecked="{Binding StageArtist, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Click="OnCandidateFieldCheckClick"
+                                              Tag="{x:Static models:MetadataSuggestionField.Artist}"
                                               VerticalAlignment="Center" Margin="4,0,6,0"
                                               ToolTip="Stage artist"/>
                                     <TextBlock Text="{Binding Suggestion.Artist}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
@@ -118,7 +142,8 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <DockPanel LastChildFill="True">
-                                    <CheckBox IsChecked="{Binding StageAlbum, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                    <CheckBox IsChecked="{Binding StageAlbum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Click="OnCandidateFieldCheckClick"
+                                              Tag="{x:Static models:MetadataSuggestionField.Album}"
                                               VerticalAlignment="Center" Margin="4,0,6,0"
                                               ToolTip="Stage album"/>
                                     <TextBlock Text="{Binding Suggestion.Album}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
@@ -130,7 +155,8 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <DockPanel LastChildFill="True">
-                                    <CheckBox IsChecked="{Binding StageGenre, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                    <CheckBox IsChecked="{Binding StageGenre, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Click="OnCandidateFieldCheckClick"
+                                              Tag="{x:Static models:MetadataSuggestionField.Genre}"
                                               VerticalAlignment="Center" Margin="4,0,6,0"
                                               ToolTip="Stage genre"/>
                                     <TextBlock Text="{Binding Suggestion.Genre}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
@@ -142,7 +168,8 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <DockPanel LastChildFill="True">
-                                    <CheckBox IsChecked="{Binding StageYear, Mode=TwoWay}" Click="OnCandidateFieldCheckClick"
+                                    <CheckBox IsChecked="{Binding StageYear, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Click="OnCandidateFieldCheckClick"
+                                              Tag="{x:Static models:MetadataSuggestionField.Year}"
                                               VerticalAlignment="Center" Margin="4,0,6,0"
                                               ToolTip="Stage year"/>
                                     <TextBlock Text="{Binding Suggestion.Year}" VerticalAlignment="Center"/>

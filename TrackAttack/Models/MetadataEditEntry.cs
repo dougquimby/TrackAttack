@@ -49,11 +49,14 @@ public sealed class MetadataEditEntry
 
     /// <summary>Gets whether any staged tag differs from the original scanned value.</summary>
     public bool IsModified =>
-        !string.Equals(Title.Trim(), OriginalTitle, StringComparison.Ordinal)
-        || !string.Equals(Artist.Trim(), OriginalArtist, StringComparison.Ordinal)
-        || !string.Equals(Album.Trim(), OriginalAlbum, StringComparison.Ordinal)
-        || !string.Equals(Genre.Trim(), OriginalGenre, StringComparison.Ordinal)
-        || !string.Equals(Year.Trim(), OriginalYear, StringComparison.Ordinal);
+        HasChanged(Title, OriginalTitle)
+        || HasChanged(Artist, OriginalArtist)
+        || HasChanged(Album, OriginalAlbum)
+        || HasChanged(Genre, OriginalGenre)
+        || HasChanged(Year, OriginalYear);
+
+    internal static bool HasChanged(string value, string original)
+        => !string.Equals(value.Trim(), original, StringComparison.Ordinal);
 
     /// <summary>Gets whether the entry is unreadable or has missing or invalid metadata.</summary>
     public bool HasMetadataIssues

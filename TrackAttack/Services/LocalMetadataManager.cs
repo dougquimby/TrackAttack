@@ -9,12 +9,26 @@ public sealed class LocalMetadataManager
 {
     private static readonly string[] SupportedExtensions = [".mp3", ".flac"];
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-    private static string BackupDirectory => Path.Combine(AppDataPaths.DirectoryPath, "MetadataBackups");
+    private readonly string _backupDirectory;
+
+    /// <summary>Creates a metadata manager using the application's recovery directory.</summary>
+    public LocalMetadataManager()
+        : this(Path.Combine(AppDataPaths.DirectoryPath, "MetadataBackups"))
+    {
+    }
+
+    /// <summary>Creates a metadata manager using the specified recovery directory.</summary>
+    /// <param name="backupDirectory">The directory for recovery snapshots.</param>
+    public LocalMetadataManager(string backupDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(backupDirectory);
+        _backupDirectory = backupDirectory;
+    }
 
     /// <summary>Gets whether a metadata recovery snapshot is available.</summary>
     public bool HasUndoAvailable =>
-        Directory.Exists(BackupDirectory)
-        && Directory.EnumerateFiles(BackupDirectory, "*.json").Any();
+        Directory.Exists(_backupDirectory)
+        && Directory.EnumerateFiles(_backupDirectory, "*.json").Any();
 
     /// <summary>Scans a directory recursively for editable MP3 and FLAC tags.</summary>
     /// <param name="directory">The directory to scan.</param>
@@ -52,6 +66,14 @@ public sealed class LocalMetadataManager
     /// <exception cref="InvalidOperationException">Writing failed; the exception describes the rollback outcome.</exception>
     public Task ApplyAsync(IReadOnlyCollection<MetadataEditEntry> entries)
         => Task.Run(() => Apply(entries));
+
+    /// <summary>Previews the modified tags without writing audio files or creating snapshots.</summary>
+    /// <param name="entries">The staged entries to review.</param>
+    /// <returns>The changed fields for every modified editable file.</returns>
+    /// <exception cref="InvalidDataException">An edited year is invalid.</exception>
+    /// <exception cref="FileNotFoundException">A selected file no longer exists.</exception>
+    public Task<IReadOnlyList<MetadataFileChange>> PreviewAsync(IReadOnlyCollection<MetadataEditEntry> entries)
+        => Task.Run<IReadOnlyList<MetadataFileChange>>(() => Preview(entries));
 
     /// <summary>Restores the most recent metadata recovery snapshot.</summary>
     /// <returns>A task that completes when the snapshot has been restored.</returns>
@@ -106,12 +128,9 @@ public sealed class LocalMetadataManager
     private static string? FirstNonBlank(string[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-    private static void Apply(IReadOnlyCollection<MetadataEditEntry> entries)
+    private static MetadataEditEntry[] ValidateChanges(IReadOnlyCollection<MetadataEditEntry> entries)
     {
         var changed = entries.Where(entry => entry.IsEditable && entry.IsModified).ToArray();
-        if (changed.Length == 0)
-            return;
-
         foreach (var entry in changed)
         {
             if (!File.Exists(entry.FilePath))
@@ -119,6 +138,38 @@ public sealed class LocalMetadataManager
             if (!MetadataEditEntry.IsValidYear(entry.Year))
                 throw new InvalidDataException($"Year must be blank or between 1000 and {DateTime.Now.Year + 1}: {entry.FilePath}");
         }
+        return changed;
+    }
+
+    private static IReadOnlyList<MetadataFileChange> Preview(IReadOnlyCollection<MetadataEditEntry> entries)
+    {
+        var previews = new List<MetadataFileChange>();
+        foreach (var entry in ValidateChanges(entries))
+        {
+            using var file = TagLib.File.Create(entry.FilePath);
+            var tag = file.Tag;
+            SetTagValues(tag, entry);
+            var changes = new List<MetadataFieldChange>();
+            if (MetadataEditEntry.HasChanged(entry.Title, entry.OriginalTitle))
+                changes.Add(new("Title", [entry.OriginalTitle], [tag.Title ?? string.Empty]));
+            if (MetadataEditEntry.HasChanged(entry.Artist, entry.OriginalArtist))
+                changes.Add(new("Artist (performers)", entry.OriginalPerformers, tag.Performers ?? []));
+            if (MetadataEditEntry.HasChanged(entry.Album, entry.OriginalAlbum))
+                changes.Add(new("Album", [entry.OriginalAlbum], [tag.Album ?? string.Empty]));
+            if (MetadataEditEntry.HasChanged(entry.Genre, entry.OriginalGenre))
+                changes.Add(new("Genre", entry.OriginalGenres, tag.Genres ?? []));
+            if (MetadataEditEntry.HasChanged(entry.Year, entry.OriginalYear))
+                changes.Add(new("Year", [entry.OriginalYear], [tag.Year == 0 ? string.Empty : tag.Year.ToString()]));
+            previews.Add(new MetadataFileChange(entry.FilePath, changes));
+        }
+        return previews;
+    }
+
+    private void Apply(IReadOnlyCollection<MetadataEditEntry> entries)
+    {
+        var changed = ValidateChanges(entries);
+        if (changed.Length == 0)
+            return;
 
         var snapshot = changed.Select(entry => ReadSnapshot(entry.FilePath)).ToArray();
         var snapshotByPath = snapshot.ToDictionary(item => item.FilePath, StringComparer.OrdinalIgnoreCase);
@@ -147,7 +198,7 @@ public sealed class LocalMetadataManager
         }
     }
 
-    private static void UndoLastApply()
+    private void UndoLastApply()
     {
         var backupPath = GetLatestBackupPath()
             ?? throw new InvalidOperationException("There is no metadata edit to undo.");
@@ -177,18 +228,22 @@ public sealed class LocalMetadataManager
     private static void WriteEntry(MetadataEditEntry entry)
     {
         using var file = TagLib.File.Create(entry.FilePath);
-        var tag = file.Tag;
-        if (!string.Equals(entry.Title.Trim(), entry.OriginalTitle, StringComparison.Ordinal))
-            tag.Title = entry.Title.Trim();
-        if (!string.Equals(entry.Artist.Trim(), entry.OriginalArtist, StringComparison.Ordinal))
-            tag.Performers = UpdateFirstValue(entry.OriginalPerformers, entry.Artist.Trim());
-        if (!string.Equals(entry.Album.Trim(), entry.OriginalAlbum, StringComparison.Ordinal))
-            tag.Album = entry.Album.Trim();
-        if (!string.Equals(entry.Genre.Trim(), entry.OriginalGenre, StringComparison.Ordinal))
-            tag.Genres = UpdateFirstValue(entry.OriginalGenres, entry.Genre.Trim());
-        if (!string.Equals(entry.Year.Trim(), entry.OriginalYear, StringComparison.Ordinal))
-            tag.Year = string.IsNullOrWhiteSpace(entry.Year) ? 0 : uint.Parse(entry.Year);
+        SetTagValues(file.Tag, entry);
         file.Save();
+    }
+
+    private static void SetTagValues(TagLib.Tag tag, MetadataEditEntry entry)
+    {
+        if (MetadataEditEntry.HasChanged(entry.Title, entry.OriginalTitle))
+            tag.Title = entry.Title.Trim();
+        if (MetadataEditEntry.HasChanged(entry.Artist, entry.OriginalArtist))
+            tag.Performers = UpdateFirstValue(entry.OriginalPerformers, entry.Artist.Trim());
+        if (MetadataEditEntry.HasChanged(entry.Album, entry.OriginalAlbum))
+            tag.Album = entry.Album.Trim();
+        if (MetadataEditEntry.HasChanged(entry.Genre, entry.OriginalGenre))
+            tag.Genres = UpdateFirstValue(entry.OriginalGenres, entry.Genre.Trim());
+        if (MetadataEditEntry.HasChanged(entry.Year, entry.OriginalYear))
+            tag.Year = string.IsNullOrWhiteSpace(entry.Year) ? 0 : uint.Parse(entry.Year);
     }
 
     private static string[] UpdateFirstValue(string[] originalValues, string value)
@@ -215,11 +270,11 @@ public sealed class LocalMetadataManager
             tag.Year);
     }
 
-    private static string SaveSnapshot(MetadataSnapshot[] snapshots)
+    private string SaveSnapshot(MetadataSnapshot[] snapshots)
     {
-        Directory.CreateDirectory(BackupDirectory);
+        Directory.CreateDirectory(_backupDirectory);
         var filename = $"{DateTime.UtcNow.Ticks:D19}-{Guid.NewGuid():N}.json";
-        var backupPath = Path.Combine(BackupDirectory, filename);
+        var backupPath = Path.Combine(_backupDirectory, filename);
         var temporaryPath = $"{backupPath}.tmp";
         try
         {
@@ -234,11 +289,11 @@ public sealed class LocalMetadataManager
         }
     }
 
-    private static string? GetLatestBackupPath()
+    private string? GetLatestBackupPath()
     {
-        if (!Directory.Exists(BackupDirectory))
+        if (!Directory.Exists(_backupDirectory))
             return null;
-        return Directory.EnumerateFiles(BackupDirectory, "*.json")
+        return Directory.EnumerateFiles(_backupDirectory, "*.json")
             .OrderByDescending(Path.GetFileName, StringComparer.Ordinal)
             .FirstOrDefault();
     }

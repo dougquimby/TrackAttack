@@ -190,15 +190,6 @@ public partial class MainWindow : Window
         if (!GuardNavigation())
             return;
         var settings = AppSettings.Load();
-        if (!settings.EnableSpotifyIntegration
-            && settings.GetMusicDirectories().Count == 0)
-        {
-            MessageBox.Show(this, "Choose a music folder in Settings before starting a quiz.",
-                "Music folder required", MessageBoxButton.OK, MessageBoxImage.Information);
-            ShowSettings();
-            return;
-        }
-
         var setup = new QuizSetupView(_musicSource, _history, settings.EnableSpotifyIntegration);
         setup.QuizRequested += OnQuizRequested;
         setup.SongsRequested += songs => Navigate(new SongsView(songs), "Songs matching filters");
@@ -299,19 +290,35 @@ public partial class MainWindow : Window
             {
                 if (_musicSource is not LocalFileMusicSource localSource)
                     throw new InvalidOperationException("The selected source cannot scan local music folders.");
-                var roots = MusicFolderSelection.Roots(config)
+                var playlistPath = config.LocalPlaylistPath;
+                var roots = (string.IsNullOrWhiteSpace(playlistPath) ? MusicFolderSelection.Roots(config) : [])
                     .Concat(AppSettings.Load().GetMusicDirectories())
                     .Where(path => !string.IsNullOrWhiteSpace(path))
                     .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
                 var scan = await Task.Run(() => localSource.ScanLibrary(roots, config.LocalFolderRules));
-                if (scan.Issues.Count > 0)
-                    MessageBox.Show(this, LibraryScanIssueSummary.Format(scan.Issues),
-                        "Some library items are unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+                var available = scan.Songs.ToList();
+                var issues = scan.Issues.ToList();
+                HashSet<string>? playlistPaths = null;
+                if (!string.IsNullOrWhiteSpace(playlistPath))
+                {
+                    var playlist = await Task.Run(() => localSource.ScanPlaylist(playlistPath));
+                    var originals = await Task.Run(() => localSource.ScanFiles(historySongs
+                        .Select(song => song.SourcePath).Where(path => !string.IsNullOrWhiteSpace(path))));
+                    playlistPaths = playlist.Songs.Select(song => song.SourcePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    available.InsertRange(0, originals.Songs.Concat(playlist.Songs));
+                    issues.AddRange(playlist.Issues);
+                    issues.AddRange(originals.Issues);
+                }
+                if (issues.Count > 0)
+                    MessageBox.Show(this, LibraryScanIssueSummary.Format(issues.DistinctBy(issue => issue.Path,
+                            StringComparer.OrdinalIgnoreCase).ToArray()),
+                        "Library scan warnings", MessageBoxButton.OK, MessageBoxImage.Warning);
                 IReadOnlyList<Song> recent = config.ExcludeRecentQuizSongs
                     ? await _history.GetRecentQuizSongsAsync(Math.Max(1, config.RecentQuizzesToExclude),
                         config.SourceType, config.SourceDirectory, AppSettings.Load().ActiveProfileName)
                     : [];
-                StartLocalReplay(session, config, historySongs, scan.Songs, recent);
+                StartLocalReplay(session, config, historySongs,
+                    available.DistinctBy(song => song.SourcePath, StringComparer.OrdinalIgnoreCase).ToArray(), recent, playlistPaths);
                 return;
             }
 
@@ -375,13 +382,13 @@ public partial class MainWindow : Window
 
     private void StartLocalReplay(
         QuizSession session, QuizConfig config, IReadOnlyList<Song> historySongs,
-        IReadOnlyList<Song> availableSongs, IReadOnlyList<Song> recentSongs)
+        IReadOnlyList<Song> availableSongs, IReadOnlyList<Song> recentSongs, IReadOnlySet<string>? playlistPaths = null)
     {
         var resolution = ReplayTrackResolver.Resolve(historySongs, availableSongs);
         var slots = resolution.Slots.ToArray();
         var missing = historySongs.Where((_, index) => slots[index] is null).ToArray();
         var candidates = GetLocalReplayCandidates(
-            config, availableSongs, slots.OfType<Song>().ToArray(), recentSongs, historySongs);
+            config, availableSongs, slots.OfType<Song>().ToArray(), recentSongs, historySongs, playlistPaths);
 
         if (missing.Length > 0)
         {
@@ -422,7 +429,7 @@ public partial class MainWindow : Window
                 "Replay tracks updated", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        var reserve = GetLocalReplayCandidates(config, availableSongs, resolvedSongs, recentSongs, historySongs)
+        var reserve = GetLocalReplayCandidates(config, availableSongs, resolvedSongs, recentSongs, historySongs, playlistPaths)
             .Take(config.MulliganCount).ToArray();
         config.SongCount = resolvedSongs.Length;
         config.MulliganCount = reserve.Length;
@@ -437,7 +444,7 @@ public partial class MainWindow : Window
 
     private static Song[] GetLocalReplayCandidates(
         QuizConfig config, IReadOnlyList<Song> availableSongs, IReadOnlyList<Song> selectedSongs,
-        IReadOnlyList<Song> recentSongs, IReadOnlyList<Song> originalSongs)
+        IReadOnlyList<Song> recentSongs, IReadOnlyList<Song> originalSongs, IReadOnlySet<string>? playlistPaths = null)
     {
         var selectedArtists = selectedSongs.Select(song => song.Artist.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var roots = MusicFolderSelection.Roots(config).Where(path => !string.IsNullOrWhiteSpace(path)).ToArray();
@@ -446,9 +453,11 @@ public partial class MainWindow : Window
         var recentIdentities = recentSongs.Select(SongIdentity.Key).OfType<string>()
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var candidates = availableSongs
-            .Where(song => Path.GetDirectoryName(song.SourcePath) is { } directory
-                && roots.Any(root => MusicFolderSelection.IsSameOrDescendant(directory, root))
-                && MusicFolderSelection.IsIncluded(directory, config.LocalFolderRules))
+            .Where(song => playlistPaths is not null
+                ? playlistPaths.Contains(song.SourcePath)
+                : Path.GetDirectoryName(song.SourcePath) is { } directory
+                    && roots.Any(root => MusicFolderSelection.IsSameOrDescendant(directory, root))
+                    && MusicFolderSelection.IsIncluded(directory, config.LocalFolderRules))
             .Where(song => MatchesReplayFilters(song, config))
             .Where(song => !config.UniqueArtistsOnly || !selectedArtists.Contains(song.Artist.Trim()))
             .Where(song => !recentPaths.Contains(song.SourcePath)
