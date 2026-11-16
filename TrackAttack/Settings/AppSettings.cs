@@ -51,17 +51,22 @@ public class AppSettings
         var filePath = FilePath;
         try
         {
-            if (File.Exists(filePath))
-            {
-                var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath)) ?? new AppSettings();
-                settings.EnsureProfiles();
-                return settings;
-            }
+            var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(filePath))
+                ?? throw new JsonException("The settings file contains no settings object.");
+            settings.EnsureProfiles();
+            return settings;
         }
-        catch { }
-        var defaults = new AppSettings();
-        defaults.EnsureProfiles();
-        return defaults;
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            var defaults = new AppSettings();
+            defaults.EnsureProfiles();
+            return defaults;
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            throw new SettingsLoadException(
+                $"Could not load settings from {filePath}:\n{exception.Message}\nThe file has not been changed.", exception);
+        }
     }
 
     public static void SaveAudioVolume(double volume)
@@ -245,7 +250,23 @@ public class AppSettings
     {
         EnsureProfiles(applyProfileSettings: false);
         StoreActiveProfileSettings();
-        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+        var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+        var filePath = FilePath;
+        var directory = Path.GetDirectoryName(filePath)!;
+        Directory.CreateDirectory(directory);
+        var temporaryPath = Path.Combine(directory, $".settings-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, filePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+        }
     }
 }
+
+public sealed class SettingsLoadException(string message, Exception innerException)
+    : IOException(message, innerException);

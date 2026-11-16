@@ -73,7 +73,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         cmd.CommandText = """
             SELECT Id, Date, SourceType, SourceDirectory, TotalSongs, CorrectCount, Percentage, DurationSeconds,
                    ConfigJson, MulligansUsed, ExtendersUsed, HintsUsed, ProfileName, ClipRerollsUsed
-            FROM QuizHistory ORDER BY Date DESC
+            FROM QuizHistory ORDER BY Date DESC, Id DESC
             """;
 
         var sessions = new List<QuizSession>();
@@ -179,7 +179,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         using var rc = connection.CreateCommand();
         rc.CommandText = """
             SELECT SongTitle, SongArtist, SongAlbum, SongYear, SongGenre, IsCorrect, UserGuess, ArtistGuess, ArtistCorrect, SongPath, PowerPenalty, MulliganSongsJson
-            FROM QuizSongResult WHERE QuizHistoryId = @Id
+            FROM QuizSongResult WHERE QuizHistoryId = @Id ORDER BY Id
             """;
         rc.Parameters.AddWithValue("@Id", id);
 

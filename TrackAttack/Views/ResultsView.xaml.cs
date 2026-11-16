@@ -91,8 +91,11 @@ public partial class ResultsView : UserControl
             number,
             result.Song.Title,
             result.Song.DisplayArtistYear,
-            result.IsCorrect ? result.UserGuess ?? string.Empty : string.Empty,
-            result.ArtistCorrect ? result.ArtistGuess ?? string.Empty : string.Empty,
+            result.IsCorrect && config.QuizMode != QuizMode.GuessArtist
+                ? result.UserGuess ?? string.Empty : string.Empty,
+            config.QuizMode == QuizMode.GuessArtist && result.IsCorrect
+                ? result.UserGuess ?? string.Empty
+                : result.ArtistCorrect ? result.ArtistGuess ?? string.Empty : string.Empty,
             $"{QuizSession.CalculatePoints(result, config):F1}",
             result.IsCorrect && (config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
                 ? "Correct"

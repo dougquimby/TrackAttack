@@ -31,6 +31,7 @@ public partial class QuizSetupView : UserControl
     private bool _initializing;
     private int _matchingSongCount;
     private bool _recentHistoryLoaded = true;
+    private long _recentRequestVersion;
     private bool _showSongCounts = true;
     private bool _loadingSpotifyPlaylists;
     private SpotifyMusicSource? _spotifySource;
@@ -285,24 +286,34 @@ public partial class QuizSetupView : UserControl
             await scan.Task;
 
         var settings = AppSettings.Load();
-        if (!string.Equals(_setupProfileName, settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase))
+        var profileChanged = !string.Equals(
+            _setupProfileName, settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase);
+        if (profileChanged)
         {
             _setupProfileName = settings.ActiveProfileName;
             _initialSetupLoaded = false;
         }
         var previousFolders = _musicDirectories;
+        var countsChanged = _showSongCounts != settings.ShowSongCountsInLists;
+        _showSongCounts = settings.ShowSongCountsInLists;
         _initializing = true;
         _musicDirectories = settings.GetMusicDirectories();
-        SecondsText.Text = settings.DefaultSecondsPerSong.ToString();
-        ClipDurationText.Text = settings.DefaultClipDurationSeconds.ToString();
-        FuzzyArtistCheck.IsChecked = settings.FuzzyArtistMatching;
-        FuzzyTitleCheck.IsChecked = settings.FuzzySongTitleMatching;
-        IgnorePunctuationCheck.IsChecked = settings.IgnorePunctuation;
-        SkipCorrectCheck.IsChecked = settings.SkipOnCorrectGuess;
-        ExcludeRecentCheck.IsChecked = settings.ExcludeRecentQuizSongs;
-        RecentQuizCountText.Text = settings.RecentQuizzesToExclude.ToString();
-        UpdateRecentCountInput();
+        if (profileChanged)
+        {
+            SecondsText.Text = settings.DefaultSecondsPerSong.ToString();
+            ClipDurationText.Text = settings.DefaultClipDurationSeconds.ToString();
+            FuzzyArtistCheck.IsChecked = settings.FuzzyArtistMatching;
+            FuzzyTitleCheck.IsChecked = settings.FuzzySongTitleMatching;
+            IgnorePunctuationCheck.IsChecked = settings.IgnorePunctuation;
+            SkipCorrectCheck.IsChecked = settings.SkipOnCorrectGuess;
+            ExcludeRecentCheck.IsChecked = settings.ExcludeRecentQuizSongs;
+            RecentQuizCountText.Text = settings.RecentQuizzesToExclude.ToString();
+            UpdateRecentCountInput();
+        }
         _initializing = false;
+
+        if (countsChanged)
+            PopulateFilters();
 
         if (!IsSpotifySource && !previousFolders.SequenceEqual(_musicDirectories, StringComparer.OrdinalIgnoreCase))
         {
@@ -328,6 +339,7 @@ public partial class QuizSetupView : UserControl
         }
         else
         {
+            _recentRequestVersion++;
             _recentQuizSongPaths.Clear();
             _recentQuizSongIdentities.Clear();
             _recentHistoryLoaded = true;
@@ -864,8 +876,16 @@ public partial class QuizSetupView : UserControl
         if (!_initializing) UpdateMatchCount();
     }
     private void OnUniqueArtistsChanged(object sender, RoutedEventArgs e) => UpdateMatchCount();
-    private void OnRecentCountChanged(object sender, TextChangedEventArgs e)
+    private async void OnRecentCountChanged(object sender, TextChangedEventArgs e)
     {
+        if (_initializing)
+            return;
+        if (ExcludeRecentCheck.IsChecked == true)
+        {
+            var refresh = RefreshRecentSongsAsync();
+            UpdateMatchCount();
+            await refresh;
+        }
         UpdateMatchCount();
     }
 
@@ -881,6 +901,7 @@ public partial class QuizSetupView : UserControl
     private async Task OnRecentOptionsChangedAsync()
     {
         if (_initializing) return;
+        _recentRequestVersion++;
         var settings = AppSettings.Load();
         settings.ExcludeRecentQuizSongs = ExcludeRecentCheck.IsChecked == true;
         settings.RecentQuizzesToExclude = Math.Max(1, ParseInt(RecentQuizCountText.Text));
@@ -889,7 +910,6 @@ public partial class QuizSetupView : UserControl
         {
             MessageBox.Show($"Could not save recent-quiz options:\n{ex.Message}", "Settings save failed",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
         }
         if (ExcludeRecentCheck.IsChecked == true)
             await RefreshRecentSongsAsync();
@@ -904,6 +924,7 @@ public partial class QuizSetupView : UserControl
 
     private async Task RefreshRecentSongsAsync()
     {
+        var requestVersion = ++_recentRequestVersion;
         _recentHistoryLoaded = false;
         _recentQuizSongPaths.Clear();
         _recentQuizSongIdentities.Clear();
@@ -921,6 +942,8 @@ public partial class QuizSetupView : UserControl
             }
             var profileName = AppSettings.Load().ActiveProfileName;
             var recent = await _history.GetRecentQuizSongsAsync(count, sourceType, sourceDirectory, profileName);
+            if (requestVersion != _recentRequestVersion || ExcludeRecentCheck.IsChecked != true)
+                return;
             foreach (var song in recent)
             {
                 if (!string.IsNullOrWhiteSpace(song.SourcePath))
@@ -935,6 +958,11 @@ public partial class QuizSetupView : UserControl
         }
         catch (Exception ex)
         {
+            if (requestVersion != _recentRequestVersion || ExcludeRecentCheck.IsChecked != true)
+            {
+                System.Diagnostics.Trace.TraceWarning("An outdated recent-history request failed: {0}", ex);
+                return;
+            }
             MessageBox.Show($"Could not load recently played songs:\n{ex.Message}", "History load failed",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
@@ -1281,8 +1309,7 @@ public partial class QuizSetupView : UserControl
         if (restoringLastSetup)
         {
             _initializing = true;
-            PresetCombo.SelectedItem = PresetCombo.Items.Cast<LocalQuizPreset>()
-                .FirstOrDefault(item => string.Equals(item.Name, preset.Name, StringComparison.OrdinalIgnoreCase));
+            PresetCombo.SelectedItem = null;
             PresetNameText.Text = preset.Name;
             _initializing = false;
             UpdatePresetSaveButton();
@@ -1367,9 +1394,9 @@ public partial class QuizSetupView : UserControl
 
     private void UpdatePresetSaveButton()
     {
-        var updatesSelectedPreset = PresetCombo.SelectedItem is LocalQuizPreset preset
-            && string.Equals(PresetNameText.Text.Trim(), preset.Name, StringComparison.OrdinalIgnoreCase);
-        SavePresetButton.Content = updatesSelectedPreset ? "Update preset" : "Save as new";
+        var updatesExistingPreset = PresetCombo.Items.Cast<LocalQuizPreset>().Any(preset =>
+            string.Equals(PresetNameText.Text.Trim(), preset.Name, StringComparison.OrdinalIgnoreCase));
+        SavePresetButton.Content = updatesExistingPreset ? "Update preset" : "Save as new";
     }
 
     private void ApplyPreset(LocalQuizPreset preset)

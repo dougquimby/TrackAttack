@@ -11,6 +11,18 @@ namespace TrackAttack
     /// </summary>
     public partial class App : Application
     {
+        public App()
+        {
+            DispatcherUnhandledException += (_, e) =>
+            {
+                if (e.Exception is not SettingsLoadException)
+                    return;
+
+                MessageBox.Show(e.Exception.Message, "Settings load failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                e.Handled = true;
+            };
+        }
+
         static App()
         {
             ToolTipService.InitialShowDelayProperty.OverrideMetadata(
@@ -21,7 +33,16 @@ namespace TrackAttack
 
         protected override void OnStartup(StartupEventArgs e)
         {
-            ThemeManager.Apply(AppSettings.Load().DarkModeEnabled);
+            try
+            {
+                ThemeManager.Apply(AppSettings.Load().DarkModeEnabled);
+            }
+            catch (SettingsLoadException exception)
+            {
+                MessageBox.Show(exception.Message, "Settings load failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown(-1);
+                return;
+            }
             base.OnStartup(e);
         }
     }

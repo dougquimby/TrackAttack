@@ -89,9 +89,11 @@ public partial class HistoryView : UserControl
                 : _activeProfileName;
             _initializingProfileFilter = true;
             ProfileFilterCombo.ItemsSource = filters;
-            ProfileFilterCombo.SelectedItem = filters.FirstOrDefault(filter =>
-                !filter.IsAll && string.Equals(filter.Name, selectedName, StringComparison.OrdinalIgnoreCase))
-                ?? filters[0];
+            ProfileFilterCombo.SelectedItem = currentFilter?.IsAll == true
+                ? filters[0]
+                : filters.FirstOrDefault(filter =>
+                    !filter.IsAll && string.Equals(filter.Name, selectedName, StringComparison.OrdinalIgnoreCase))
+                    ?? filters[0];
             _initializingProfileFilter = false;
             ApplyProfileFilter();
         }
@@ -165,8 +167,11 @@ public partial class HistoryView : UserControl
             number,
             result.Song.Title,
             result.Song.DisplayArtistYear,
-            result.IsCorrect ? result.UserGuess ?? string.Empty : string.Empty,
-            result.ArtistCorrect ? result.ArtistGuess ?? string.Empty : string.Empty,
+            result.IsCorrect && session.Config.QuizMode != QuizMode.GuessArtist
+                ? result.UserGuess ?? string.Empty : string.Empty,
+            session.Config.QuizMode == QuizMode.GuessArtist && result.IsCorrect
+                ? result.UserGuess ?? string.Empty
+                : result.ArtistCorrect ? result.ArtistGuess ?? string.Empty : string.Empty,
             $"{QuizSession.CalculatePoints(result, session.Config):F1}",
             result.IsCorrect && (session.Config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
                 ? "Correct"

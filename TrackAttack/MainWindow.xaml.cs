@@ -371,7 +371,8 @@ public partial class MainWindow : Window
         var resolution = ReplayTrackResolver.Resolve(historySongs, availableSongs);
         var slots = resolution.Slots.ToArray();
         var missing = historySongs.Where((_, index) => slots[index] is null).ToArray();
-        var candidates = GetLocalReplayCandidates(config, availableSongs, slots.OfType<Song>().ToArray(), recentSongs);
+        var candidates = GetLocalReplayCandidates(
+            config, availableSongs, slots.OfType<Song>().ToArray(), recentSongs, historySongs);
 
         if (missing.Length > 0)
         {
@@ -412,7 +413,7 @@ public partial class MainWindow : Window
                 "Replay tracks updated", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        var reserve = GetLocalReplayCandidates(config, availableSongs, resolvedSongs, recentSongs)
+        var reserve = GetLocalReplayCandidates(config, availableSongs, resolvedSongs, recentSongs, historySongs)
             .Take(config.MulliganCount).ToArray();
         config.SongCount = resolvedSongs.Length;
         config.MulliganCount = reserve.Length;
@@ -427,7 +428,7 @@ public partial class MainWindow : Window
 
     private static Song[] GetLocalReplayCandidates(
         QuizConfig config, IReadOnlyList<Song> availableSongs, IReadOnlyList<Song> selectedSongs,
-        IReadOnlyList<Song> recentSongs)
+        IReadOnlyList<Song> recentSongs, IReadOnlyList<Song> originalSongs)
     {
         var selectedArtists = selectedSongs.Select(song => song.Artist.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var roots = MusicFolderSelection.Roots(config).Where(path => !string.IsNullOrWhiteSpace(path)).ToArray();
@@ -445,7 +446,7 @@ public partial class MainWindow : Window
                 && (SongIdentity.Key(song) is not { } key || !recentIdentities.Contains(key)))
             .ToArray();
         Random.Shared.Shuffle(candidates);
-        var distinctCandidates = SongIdentity.Distinct(candidates, selectedSongs);
+        var distinctCandidates = SongIdentity.Distinct(candidates, selectedSongs.Concat(originalSongs));
         return config.UniqueArtistsOnly
             ? distinctCandidates.DistinctBy(song => song.Artist.Trim(), StringComparer.OrdinalIgnoreCase).ToArray()
             : distinctCandidates.ToArray();
