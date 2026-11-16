@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-        <Border Grid.Row="0" Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
                 CornerRadius="8" Padding="12" Margin="0,0,0,12">
         <Grid>
             <Grid.ColumnDefinitions>
@@ -19,7 +19,7 @@
             <TextBox x:Name="SearchText" Grid.Column="1" Margin="0,0,8,0" MinWidth="180" Height="30" VerticalContentAlignment="Center"
                      KeyDown="OnSearchKeyDown"/>
             <Button Grid.Column="2" Content="Search" Click="OnSearchClick" Margin="0,0,8,0"/>
-            <TextBlock x:Name="CountText" Grid.Column="3" VerticalAlignment="Center" Foreground="#65738A"/>
+            <TextBlock x:Name="CountText" Grid.Column="3" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}"/>
         </Grid>
         </Border>
         <DataGrid x:Name="SongsGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True">

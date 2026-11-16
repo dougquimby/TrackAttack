@@ -2,41 +2,36 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:TrackAttack.Views">
+    <UserControl.Resources>
+        <StreamGeometry x:Key="ExpandAllIcon">M 2,3 L 8,9 L 14,3 M 2,8 L 8,14 L 14,8</StreamGeometry>
+        <StreamGeometry x:Key="CollapseAllIcon">M 2,13 L 8,7 L 14,13 M 2,8 L 8,2 L 14,8</StreamGeometry>
+        <StreamGeometry x:Key="SelectAllIcon">M 2,2 L 14,2 L 14,14 L 2,14 Z M 4,8 L 7,11 L 12,5</StreamGeometry>
+        <StreamGeometry x:Key="SelectNoneIcon">M 2,2 L 14,2 L 14,14 L 2,14 Z</StreamGeometry>
+        <Style x:Key="SelectionIconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Margin" Value="1,0"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <Path Data="{Binding}" Width="16" Height="16" Stretch="Uniform"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid Grid.Row="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <Border Background="#EEF3FA" BorderBrush="#DCE4EF" BorderThickness="1"
-                    CornerRadius="8" Padding="5,4" Margin="0,0,0,8"
-                    VerticalAlignment="Top">
-                <DockPanel LastChildFill="True">
-                    <TextBlock Text="JUMP TO" FontSize="10" FontWeight="Bold" Foreground="#65738A"
-                               VerticalAlignment="Center" Margin="4,0,8,0"/>
-                    <WrapPanel>
-                        <Button Content="Source &amp; library" Tag="SourceSection"
-                                Click="OnSectionNavigationClick" Height="27" MinHeight="27"
-                                Padding="8,2" FontSize="12" Margin="0,0,4,0"/>
-                        <Button Content="Track filters" Tag="TrackFiltersSection"
-                                Click="OnSectionNavigationClick" Height="27" MinHeight="27"
-                                Padding="8,2" FontSize="12" Margin="0,0,4,0"/>
-                        <Button Content="Quiz rules" Tag="QuizRulesSection"
-                                Click="OnSectionNavigationClick" Height="27" MinHeight="27"
-                                Padding="8,2" FontSize="12" Margin="0,0,4,0"/>
-                        <Button Content="Powers &amp; scoring" Tag="PowersSection"
-                                Click="OnSectionNavigationClick" Height="27" MinHeight="27"
-                                Padding="8,2" FontSize="12" Margin="0"/>
-                    </WrapPanel>
-                </DockPanel>
-            </Border>
-            <ScrollViewer x:Name="SetupScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="0,0,0,14">
-            <Border Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,12">
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,12">
                 <Grid VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -57,13 +52,17 @@
                     <Button Grid.Column="4" Content="Delete preset" Height="32" Padding="10,4"
                             Click="OnDeletePresetClick"/>
                 </Grid>
-            </Border>
-            <Grid x:Name="SourceSection" Margin="0,0,0,12">
+        </Border>
+        <TabControl x:Name="SetupTabs" Grid.Row="1" Margin="0,0,0,8">
+            <TabItem x:Name="SourceTab" Header="Music library">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+            <Grid x:Name="SourceSection" Margin="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Border x:Name="SourceSelectorPanel" Grid.Column="0" Background="White" BorderBrush="#E0E5EC"
+                <Border x:Name="SourceSelectorPanel" Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,12,0"
                         VerticalAlignment="Stretch" Visibility="Collapsed">
                     <StackPanel VerticalAlignment="Top">
@@ -76,83 +75,214 @@
                         </ComboBox>
                     </StackPanel>
                 </Border>
-                <Border x:Name="LocalSourcePanel" Grid.Column="1" Background="White" BorderBrush="#E0E5EC"
+                <Border x:Name="LocalSourcePanel" Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="18">
-                    <StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
                         <TextBlock Text="Music library" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <DockPanel>
-                            <Button x:Name="BrowseLibraryButton" Content="Browse…" Click="OnBrowseClick" DockPanel.Dock="Right" Margin="8,0,0,0"/>
-                            <TextBox x:Name="FolderText" Height="30" VerticalContentAlignment="Center"
-                                     TextChanged="OnLocalFolderTextChanged"/>
+                        <DockPanel Grid.Row="1" Margin="0,0,0,4">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource SelectionIconButton}" Content="{StaticResource ExpandAllIcon}"
+                                        ToolTip="Expand all folders" AutomationProperties.Name="Expand all folders" Click="OnExpandFoldersClick"/>
+                                <Button Style="{StaticResource SelectionIconButton}" Content="{StaticResource CollapseAllIcon}"
+                                        ToolTip="Collapse all folders" AutomationProperties.Name="Collapse all folders" Click="OnCollapseFoldersClick"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Choose folders to include" Foreground="{DynamicResource MutedTextBrush}"/>
+                                <TextBlock Text="Add or remove library folders in Settings." Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
                         </DockPanel>
-                        <TextBlock Text="Choose folders to include" Foreground="#65738A" Margin="0,10,0,4"/>
-                        <TreeView x:Name="MusicFolderTree" Height="160"
+                        <TreeView x:Name="MusicFolderTree" Grid.Row="2" MinHeight="160"
                                   ToolTip="Directory junctions and symbolic links are not traversed."
-                                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  PreviewMouseWheel="OnTreePreviewMouseWheel">
                             <TreeView.Resources>
+                                <Style TargetType="{x:Type TreeViewItem}">
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                </Style>
                                 <HierarchicalDataTemplate DataType="{x:Type local:MusicFolderNode}"
                                                           ItemsSource="{Binding Children}">
-                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                    <CheckBox Content="{Binding DisplayName}" IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                              IsEnabled="{Binding IsAvailable}"
                                               ToolTip="{Binding Path}"/>
                                 </HierarchicalDataTemplate>
                             </TreeView.Resources>
                         </TreeView>
-                        <TextBlock Text="Folder changes take effect after Scan / Refresh."
-                                   Foreground="#65738A" FontSize="11" Margin="0,4,0,0"/>
-                        <DockPanel Margin="0,8,0,0">
+                        <TextBlock Grid.Row="3" Text="Folder changes take effect after Scan / Refresh."
+                                   Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,4,0,0"/>
+                        <DockPanel Grid.Row="4" Margin="0,8,0,0">
                             <Button x:Name="ScanButton" Content="Scan / Refresh" Click="OnScanClick" DockPanel.Dock="Left"/>
                             <TextBlock x:Name="ScanStatus" VerticalAlignment="Center" Margin="10,0"
-                                       Foreground="#65738A" Text="Choose a folder and scan your tracks."/>
+                                       TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}" Text="Add library folders in Settings and scan your tracks."/>
                         </DockPanel>
-                    </StackPanel>
+                    </Grid>
                 </Border>
-                <Border x:Name="SpotifySourcePanel" Grid.Column="1" Background="White" BorderBrush="#E0E5EC"
+                <Border x:Name="SpotifySourcePanel" Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource AlternateBorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="18" Visibility="Collapsed">
                     <StackPanel>
                         <TextBlock Text="Spotify playlist" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <DockPanel>
                             <Button x:Name="RefreshSpotifyPlaylistsButton" Content="Refresh playlists"
                                     Click="OnRefreshSpotifyPlaylistsClick" DockPanel.Dock="Right" Margin="8,0,0,0"/>
-                            <ComboBox x:Name="SpotifyPlaylistCombo" Height="30" DisplayMemberPath="Name"
-                                      SelectionChanged="OnSpotifyPlaylistChanged"/>
+                            <ComboBox x:Name="SpotifyPlaylistCombo" Height="30" SelectionChanged="OnSpotifyPlaylistChanged">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsAccessDenied}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource DeniedTextBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                         </DockPanel>
                         <TextBlock x:Name="SpotifyStatus" VerticalAlignment="Center" Margin="0,8,0,0"
-                                   Foreground="#65738A" Text="Save playlists to your Spotify account, then refresh this list."/>
+                                   TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}" Text="Save playlists to your Spotify account, then refresh this list."/>
+                        <TextBlock x:Name="SpotifyReadinessText" Margin="0,12,0,0" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource MutedTextBrush}" Text="Checking Spotify connection and playback device..."/>
+                        <Button x:Name="CheckSpotifyButton" Content="Check Spotify connection"
+                                Click="OnCheckSpotifyClick" HorizontalAlignment="Left" Margin="0,8,0,0"/>
+                        <Border x:Name="SpotifyPlaylistAccessHelp" Visibility="Collapsed" Margin="0,18,0,0"
+                                Background="{DynamicResource ErrorSurfaceBrush}" BorderBrush="{DynamicResource ErrorBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="14">
+                            <StackPanel>
+                                <TextBlock Text="Playlist access denied — quiz cannot start" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource ErrorTextBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                                           Text="Spotify only allows TrackAttack to read playlists you own or collaborate on. Saving someone else's playlist to your library does not grant access."/>
+                                <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                                           Text="To make your own copy in the Spotify desktop app:"/>
+                                <WrapPanel Margin="0,6,0,0">
+                                    <Border Width="240" Margin="0,0,10,10" Padding="10" Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="4">
+                                        <StackPanel>
+                                            <TextBlock Text="1. Search for the playlist and click its three-dot menu." TextWrapping="Wrap"/>
+                                            <Image Source="/TrackAttack;component/Assets/SpotifyHelp/more-menu.png" Margin="0,8,0,0"
+                                                   HorizontalAlignment="Left" Stretch="None"
+                                                   AutomationProperties.Name="Spotify playlist three-dot menu"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Width="240" Margin="0,0,10,10" Padding="10" Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="4">
+                                        <StackPanel>
+                                            <TextBlock Text="2. Choose Add to other playlist." TextWrapping="Wrap"/>
+                                            <Image Source="/TrackAttack;component/Assets/SpotifyHelp/add-to-other-playlist.png" Margin="0,8,0,0"
+                                                   HorizontalAlignment="Left" MaxWidth="218" Stretch="Uniform"
+                                                   AutomationProperties.Name="Spotify Add to other playlist menu item"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Width="240" Margin="0,0,0,10" Padding="10" Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="4">
+                                        <StackPanel>
+                                            <TextBlock Text="3. Choose New playlist to create your copy." TextWrapping="Wrap"/>
+                                            <Image Source="/TrackAttack;component/Assets/SpotifyHelp/new-playlist.png" Margin="0,8,0,0"
+                                                   HorizontalAlignment="Left" MaxWidth="218" Stretch="Uniform"
+                                                   AutomationProperties.Name="Spotify New playlist menu item"/>
+                                        </StackPanel>
+                                    </Border>
+                                </WrapPanel>
+                                <TextBlock Text="4. Return here, click Refresh playlists, and select your new playlist."
+                                           TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
+                                <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}"
+                                           Text="You can also ask the owner to add you as a collaborator. If you already own or collaborate on this playlist, check that the correct Spotify account is connected and that you still have access."/>
+                                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}"
+                                           Text="After access changes, refresh playlists to retry."/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
             </Grid>
-
-            <Grid Margin="0,14,0,0">
-                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                <Border x:Name="TrackFiltersSection" Grid.Column="0" Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="18">
-                    <StackPanel>
+            </Grid>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem x:Name="TrackFiltersTab" Header="Track filters">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" MinHeight="480" MinWidth="560">
+                <Border x:Name="TrackFiltersSection" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="18" Margin="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
                         <TextBlock x:Name="TrackFiltersHeading" Text="Track filters" FontSize="17"
                                    FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <StackPanel x:Name="GenreFilterPanel">
-                        <Grid Margin="0,4">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Text="Genres (none selected includes all)" Foreground="#65738A" VerticalAlignment="Center"/>
-                            <Button Grid.Column="1" Content="All" Padding="7,2" Margin="2,0" Click="OnSelectAllGenresClick"/>
-                            <Button Grid.Column="2" Content="None" Padding="7,2" Margin="2,0" Click="OnSelectNoGenresClick"/>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="GenreColumn" Width="2*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Margin="0,0,12,0">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Grid x:Name="GenreFilterPanel" Grid.RowSpan="2">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                <Grid Margin="0,4">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Genres (none selected includes all)" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                    <Button Grid.Column="1" Style="{StaticResource SelectionIconButton}" Content="{StaticResource SelectAllIcon}"
+                                            ToolTip="Select all genres" AutomationProperties.Name="Select all genres" Click="OnSelectAllGenresClick"/>
+                                    <Button Grid.Column="2" Style="{StaticResource SelectionIconButton}" Content="{StaticResource SelectNoneIcon}"
+                                            ToolTip="Clear genre selections (no selection includes all genres)" AutomationProperties.Name="Clear genre selections" Click="OnSelectNoGenresClick"/>
+                                </Grid>
+                                <ListBox x:Name="GenreList" Grid.Row="1" MinHeight="160"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                    <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                    <ListBox.ItemContainerStyle><Style TargetType="{x:Type ListBoxItem}"><Setter Property="Width" Value="180"/></Style></ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" ToolTip="{Binding Display}"
+                                                      Checked="OnFilterCheckedChanged" Unchecked="OnFilterCheckedChanged">
+                                                <TextBlock Text="{Binding Display}" MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                            </CheckBox>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                </Grid>
+                                <TextBlock x:Name="SpotifyGenreNotice" Grid.Row="2" Visibility="Collapsed"
+                                           Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedTextBrush}"
+                                           Text="Genre filtering is unavailable for Spotify playlists."/>
+                            </Grid>
+                            <Grid Grid.Column="1">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                <Grid Margin="0,4">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Decades / years (none selected includes all)" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Style="{StaticResource SelectionIconButton}" Content="{StaticResource SelectAllIcon}"
+                                                ToolTip="Select all years" AutomationProperties.Name="Select all years" Click="OnSelectAllDecadesClick"/>
+                                        <Button Style="{StaticResource SelectionIconButton}" Content="{StaticResource SelectNoneIcon}"
+                                                ToolTip="Clear year selections (no selection includes all years)" AutomationProperties.Name="Clear year selections" Click="OnSelectNoDecadesClick"/>
+                                        <Button Style="{StaticResource SelectionIconButton}" Content="{StaticResource ExpandAllIcon}"
+                                                ToolTip="Expand all decades" AutomationProperties.Name="Expand all decades" Click="OnExpandDecadesClick"/>
+                                        <Button Style="{StaticResource SelectionIconButton}" Content="{StaticResource CollapseAllIcon}"
+                                                ToolTip="Collapse all decades" AutomationProperties.Name="Collapse all decades" Click="OnCollapseDecadesClick"/>
+                                    </StackPanel>
+                                </Grid>
+                                <TreeView x:Name="DecadeList" Grid.Row="1" MinHeight="160" PreviewMouseWheel="OnTreePreviewMouseWheel">
+                                    <TreeView.Resources>
+                                        <Style TargetType="{x:Type TreeViewItem}">
+                                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                        </Style>
+                                        <HierarchicalDataTemplate DataType="{x:Type local:YearFilterNode}" ItemsSource="{Binding Children}">
+                                            <CheckBox Content="{Binding Display}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        </HierarchicalDataTemplate>
+                                    </TreeView.Resources>
+                                </TreeView>
+                            </Grid>
                         </Grid>
-                        <ListBox x:Name="GenreList" Height="150">
-                            <ListBox.ItemTemplate><DataTemplate><CheckBox Content="{Binding Display}" IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                Checked="OnFilterCheckedChanged" Unchecked="OnFilterCheckedChanged"/></DataTemplate></ListBox.ItemTemplate>
-                        </ListBox>
-                        </StackPanel>
-                        <Grid Margin="0,10,0,4">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Text="Decades / years (none selected includes all)" Foreground="#65738A" VerticalAlignment="Center"/>
-                            <Button Grid.Column="1" Content="All" Padding="7,2" Margin="2,0" Click="OnSelectAllDecadesClick"/>
-                            <Button Grid.Column="2" Content="None" Padding="7,2" Margin="2,0" Click="OnSelectNoDecadesClick"/>
-                        </Grid>
-                        <TreeView x:Name="DecadeList" Height="150">
-                            <TreeView.Resources>
-                                <HierarchicalDataTemplate DataType="{x:Type local:YearFilterNode}" ItemsSource="{Binding Children}">
-                                    <CheckBox Content="{Binding Display}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
-                                </HierarchicalDataTemplate>
-                            </TreeView.Resources>
-                        </TreeView>
+                        <StackPanel Grid.Row="2">
                         <CheckBox x:Name="UniqueArtistsCheck" Content="Use no more than one song per artist" Margin="0,12,0,0"
                                   Checked="OnUniqueArtistsChanged" Unchecked="OnUniqueArtistsChanged"/>
                         <CheckBox x:Name="ExcludeRecentCheck" Content="Exclude songs from recent quizzes" Margin="0,6,0,0"
@@ -165,25 +295,45 @@
                             <StackPanel Margin="0,0,12,0"><TextBlock Text="Min track length (sec)"/><TextBox x:Name="MinLengthText" Text="60" Width="115" TextChanged="OnFiltersChanged"/></StackPanel>
                             <StackPanel><TextBlock Text="Max track length (sec)"/><TextBox x:Name="MaxLengthText" Text="3540" Width="115" TextChanged="OnFiltersChanged"/></StackPanel>
                         </WrapPanel>
-                    </StackPanel>
+                        </StackPanel>
+                    </Grid>
                 </Border>
-                <Border x:Name="QuizRulesSection" Grid.Column="2" Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="18">
+                </Grid>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem x:Name="QuizRulesTab" Header="Quiz rules">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Border x:Name="QuizRulesSection" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="18" Margin="8">
                     <StackPanel>
                         <TextBlock x:Name="QuizRulesHeading" Text="Quiz rules" FontSize="17"
                                    FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="SpotifyPreviewNotice" Visibility="Collapsed" Foreground="{DynamicResource MutedTextBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"
+                                   Text="Spotify previews are limited to the available 30-second clip, so start positions, clip length, and extenders may be limited. Spotify Connect uses the full track."/>
+                        <StackPanel HorizontalAlignment="Left" Margin="0,0,0,6">
+                            <TextBlock Text="Timer mode"/>
+                            <ComboBox x:Name="TimerModeCombo" Width="180" SelectionChanged="OnQuizTimerModeChanged">
+                                <ComboBoxItem Content="Per song"/><ComboBoxItem Content="Total quiz"/>
+                            </ComboBox>
+                        </StackPanel>
+                        <TextBlock x:Name="TimerModeDescription" Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                         <WrapPanel>
-                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Songs"/><TextBox x:Name="SongCountText" Text="20" Width="80"/></StackPanel>
-                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Seconds per song"/><TextBox x:Name="SecondsText" Text="30" Width="110"/></StackPanel>
+                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Songs"/><TextBox x:Name="SongCountText" Text="20" Width="80" TextChanged="OnQuizTimeInputChanged"/></StackPanel>
+                            <StackPanel Margin="0,0,18,8"><TextBlock Text="Seconds per song"/><TextBox x:Name="SecondsText" Text="30" Width="110" TextChanged="OnQuizTimeInputChanged"/></StackPanel>
+                        </WrapPanel>
+                        <TextBlock x:Name="QuizTimeText" Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        <WrapPanel>
                             <StackPanel Margin="0,0,18,8"><TextBlock Text="Clip duration (sec)"/><TextBox x:Name="ClipDurationText" Text="15" Width="120"/></StackPanel>
-                            <StackPanel x:Name="ClipStartPanel" Margin="0,0,18,8">
-                                <TextBlock Text="Fixed clip start (sec)"/>
-                                <TextBox x:Name="ClipStartText" Text="30" Width="130"/>
+                            <StackPanel Margin="0,0,18,8">
+                                <StackPanel x:Name="ClipStartPanel" HorizontalAlignment="Left" Margin="0,0,0,4">
+                                    <TextBlock Text="Fixed clip start (sec)"/>
+                                    <TextBox x:Name="ClipStartText" Text="30" Width="130"/>
+                                </StackPanel>
+                                <CheckBox x:Name="RandomClipCheck" Content="Choose a random clip start point" IsChecked="True"
+                                          Checked="OnRandomClipCheckChanged" Unchecked="OnRandomClipCheckChanged"/>
                             </StackPanel>
                         </WrapPanel>
                         <WrapPanel Margin="0,2,0,8">
-                            <StackPanel Margin="0,0,16,0"><TextBlock Text="Timer mode"/><ComboBox x:Name="TimerModeCombo" Width="180">
-                                <ComboBoxItem Content="Per song"/><ComboBoxItem Content="Total quiz"/>
-                            </ComboBox></StackPanel>
                             <StackPanel><TextBlock Text="Grid columns"/><ComboBox x:Name="GridColumnsCombo" Width="160">
                                 <ComboBoxItem Content="Auto"/><ComboBoxItem Content="One"/><ComboBoxItem Content="Two"/>
                                 <ComboBoxItem Content="Three"/><ComboBoxItem Content="Four"/>
@@ -208,8 +358,6 @@
                                 <TextBox x:Name="ArtistPointsText" Text="0.5" Width="130"/>
                             </StackPanel>
                         </WrapPanel>
-                        <CheckBox x:Name="RandomClipCheck" Content="Choose a random clip start point" IsChecked="True"
-                                  Checked="OnRandomClipCheckChanged" Unchecked="OnRandomClipCheckChanged"/>
                         <CheckBox x:Name="FuzzyArtistCheck" Content="Allow fuzzy artist matching" IsChecked="True"
                                   ToolTip="Accept an exact match or a guess containing any whole, significant word from the artist name. This does not correct misspellings."/>
                         <CheckBox x:Name="FuzzyTitleCheck" Content="Allow fuzzy song-title matching" IsChecked="True"
@@ -218,53 +366,92 @@
                         <CheckBox x:Name="SkipCorrectCheck" Content="Advance immediately after a correct guess" IsChecked="True"/>
                     </StackPanel>
                 </Border>
-            </Grid>
-            <Border x:Name="PowersSection" Background="White" BorderBrush="#DCE4EF" BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,14,0,0">
+                </ScrollViewer>
+            </TabItem>
+            <TabItem x:Name="PowersTab" Header="Powers &amp; scoring">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Border x:Name="PowersSection" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="18" Margin="8">
                 <StackPanel>
                     <TextBlock x:Name="PowersHeading" Text="Powers and scoring" FontSize="17"
                                FontWeight="SemiBold" Margin="0,0,0,10"/>
-                    <UniformGrid Columns="4">
-                        <GroupBox Header="Mulligans" Margin="0,0,8,8">
-                            <Grid Margin="4">
-                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,6,0"><TextBlock Text="Count"/><TextBox x:Name="MulliganCountText" Text="0"/></StackPanel>
-                                <StackPanel Grid.Column="1"><TextBlock Text="Penalty"/><TextBox x:Name="MulliganPenaltyText" Text="0"/></StackPanel>
-                            </Grid>
-                        </GroupBox>
-                        <GroupBox Header="Extenders" Margin="0,0,8,8">
-                            <Grid Margin="4">
-                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,6,0"><TextBlock Text="Count"/><TextBox x:Name="ExtenderCountText" Text="0"/></StackPanel>
-                                <StackPanel Grid.Column="1"><TextBlock Text="Penalty"/><TextBox x:Name="ExtenderPenaltyText" Text="0"/></StackPanel>
-                            </Grid>
-                        </GroupBox>
-                        <GroupBox Header="Hints" Margin="0,0,8,8">
-                            <Grid Margin="4">
-                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                <StackPanel Margin="0,0,6,0"><TextBlock Text="Count"/><TextBox x:Name="HintCountText" Text="0"/></StackPanel>
-                                <StackPanel Grid.Column="1"><TextBlock Text="Penalty"/><TextBox x:Name="HintPenaltyText" Text="0"/></StackPanel>
-                            </Grid>
-                        </GroupBox>
-                        <GroupBox Header="Maximum penalty per song" Margin="0,0,0,8">
-                            <StackPanel Margin="4"><TextBlock Text="Maximum"/><TextBox x:Name="MaxPenaltyText" Text="1"/></StackPanel>
-                        </GroupBox>
-                    </UniformGrid>
-                    <Grid Margin="0,4,0,5">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="Hint types available to the hint power:" Foreground="#65738A" VerticalAlignment="Center"/>
-                        <Button Grid.Column="1" Content="All" Padding="7,2" Margin="2,0" Click="OnSelectAllHintsClick"/>
-                        <Button Grid.Column="2" Content="None" Padding="7,2" Margin="2,0" Click="OnSelectNoHintsClick"/>
+                    <TextBlock Text="Hover over power names and scoring labels for details."
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,0,0,10"/>
+                    <WrapPanel>
+                    <StackPanel Width="390" Margin="0,0,24,12">
+                    <Grid HorizontalAlignment="Left" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="140"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Power" FontWeight="SemiBold" Margin="0,0,8,4"/>
+                        <TextBlock Grid.Column="1" Text="Count" FontWeight="SemiBold" Margin="0,0,8,4"
+                                   ToolTip="Number of uses available for the entire quiz."/>
+                        <TextBlock x:Name="PowerPenaltyLabel" Grid.Column="2" Text="Penalty per use" FontWeight="SemiBold" Margin="0,0,0,4"
+                                   ToolTip="Points deducted from the song's score for each use.&#10;Penalties add together, up to the per-song maximum."/>
+                        <TextBlock x:Name="MulliganLabel" Grid.Row="1" Text="Mulligans" VerticalAlignment="Center"
+                                   ToolTip="Replace the current song with an eligible reserve track.&#10;Partial answers are lost; existing penalties carry over."/>
+                        <TextBox x:Name="MulliganCountText" Grid.Row="1" Grid.Column="1" Text="0" Margin="0,0,8,4" AutomationProperties.Name="Mulligan count"
+                                 ToolTip="{Binding ToolTip, ElementName=MulliganLabel}" AutomationProperties.HelpText="{Binding ToolTip, ElementName=MulliganLabel}"/>
+                        <TextBox x:Name="MulliganPenaltyText" Grid.Row="1" Grid.Column="2" Text="0" Margin="0,0,0,4" AutomationProperties.Name="Mulligan penalty per use"
+                                 ToolTip="{Binding ToolTip, ElementName=PowerPenaltyLabel}" AutomationProperties.HelpText="{Binding ToolTip, ElementName=PowerPenaltyLabel}"/>
+                        <TextBlock x:Name="ExtenderLabel" Grid.Row="2" Text="Extenders" VerticalAlignment="Center"
+                                   ToolTip="Double the current song's clip length without restarting it.&#10;Usable once per song; it does not add quiz time."/>
+                        <TextBox x:Name="ExtenderCountText" Grid.Row="2" Grid.Column="1" Text="0" Margin="0,0,8,4" AutomationProperties.Name="Extender count"
+                                 ToolTip="{Binding ToolTip, ElementName=ExtenderLabel}" AutomationProperties.HelpText="{Binding ToolTip, ElementName=ExtenderLabel}"/>
+                        <TextBox x:Name="ExtenderPenaltyText" Grid.Row="2" Grid.Column="2" Text="0" Margin="0,0,0,4" AutomationProperties.Name="Extender penalty per use"
+                                 ToolTip="{Binding ToolTip, ElementName=PowerPenaltyLabel}" AutomationProperties.HelpText="{Binding ToolTip, ElementName=PowerPenaltyLabel}"/>
+                        <TextBlock x:Name="ClipRerollLabel" Grid.Row="3" Text="Clip rerolls" VerticalAlignment="Center"
+                                   ToolTip="Play the current song from a different random start point."/>
+                        <TextBox x:Name="ClipRerollCountText" Grid.Row="3" Grid.Column="1" Text="0" Margin="0,0,8,4"
+                                 AutomationProperties.Name="Clip reroll count" ToolTip="{Binding ToolTip, ElementName=ClipRerollLabel}"
+                                 AutomationProperties.HelpText="{Binding ToolTip, ElementName=ClipRerollLabel}"/>
+                        <TextBox x:Name="ClipRerollPenaltyText" Grid.Row="3" Grid.Column="2" Text="0" Margin="0,0,0,4"
+                                 AutomationProperties.Name="Clip reroll penalty per use" ToolTip="{Binding ToolTip, ElementName=PowerPenaltyLabel}"
+                                 AutomationProperties.HelpText="{Binding ToolTip, ElementName=PowerPenaltyLabel}"/>
+                        <TextBlock x:Name="HintPowerLabel" Grid.Row="4" Text="Hints" VerticalAlignment="Center"
+                                   ToolTip="Reveal a random enabled, applicable clue for the current song.&#10;Each clue type can be revealed once per song."/>
+                        <TextBox x:Name="HintCountText" Grid.Row="4" Grid.Column="1" Text="0" Margin="0,0,8,0" AutomationProperties.Name="Hint count"
+                                 ToolTip="{Binding ToolTip, ElementName=HintPowerLabel}" AutomationProperties.HelpText="{Binding ToolTip, ElementName=HintPowerLabel}"/>
+                        <TextBox x:Name="HintPenaltyText" Grid.Row="4" Grid.Column="2" Text="0" AutomationProperties.Name="Hint penalty per use"
+                                 ToolTip="{Binding ToolTip, ElementName=PowerPenaltyLabel}" AutomationProperties.HelpText="{Binding ToolTip, ElementName=PowerPenaltyLabel}"/>
                     </Grid>
-                    <UniformGrid x:Name="HintTypesPanel" Columns="3"/>
-                    <CheckBox x:Name="ScrambleHintsPerWordCheck"
-                              Content="Scramble each word independently"
-                              IsChecked="True" Margin="4,8,4,0"/>
+                    <StackPanel Margin="0,0,0,10" HorizontalAlignment="Left">
+                        <TextBlock x:Name="MaxPenaltyLabel" Text="Maximum penalty per song"
+                                   ToolTip="Caps the combined power penalties applied to one song.&#10;A song's score cannot fall below zero."/>
+                        <TextBox x:Name="MaxPenaltyText" Text="1" Width="140" HorizontalAlignment="Left"
+                                 AutomationProperties.Name="Maximum penalty per song"
+                                 ToolTip="{Binding ToolTip, ElementName=MaxPenaltyLabel}" AutomationProperties.HelpText="{Binding ToolTip, ElementName=MaxPenaltyLabel}"/>
+                    </StackPanel>
+                    </StackPanel>
+                    <StackPanel Width="235" Margin="0,0,0,12">
+                    <Grid Margin="0,0,0,5">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Hint types" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"
+                                   ToolTip="Choose which types of clues can be revealed when using a hint."/>
+                        <Button Grid.Column="1" Style="{StaticResource SelectionIconButton}" Content="{StaticResource SelectAllIcon}"
+                                ToolTip="Select all hint types" AutomationProperties.Name="Select all hint types" Click="OnSelectAllHintsClick"/>
+                        <Button Grid.Column="2" Style="{StaticResource SelectionIconButton}" Content="{StaticResource SelectNoneIcon}"
+                                ToolTip="Clear all hint types" AutomationProperties.Name="Clear all hint types" Click="OnSelectNoHintsClick"/>
+                    </Grid>
+                    <StackPanel x:Name="HintTypesPanel"/>
+                    <CheckBox x:Name="ScrambleHintsPerWordCheck" IsChecked="True" Margin="4,8,4,0"
+                              ToolTip="Scramble letters within each word. When unchecked, scramble letters across the whole title or artist."
+                              AutomationProperties.HelpText="Scramble letters within each word. When unchecked, scramble letters across the whole title or artist.">
+                        <TextBlock Text="Scramble each word independently" TextWrapping="Wrap"/>
+                    </CheckBox>
+                    </StackPanel>
+                    </WrapPanel>
                 </StackPanel>
             </Border>
-            </StackPanel>
-            </ScrollViewer>
-        </Grid>
-        <Border Grid.Row="1" Background="White" BorderBrush="#DCE4EF" BorderThickness="1,1,1,0"
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1,1,1,0"
                 Padding="12,8">
             <DockPanel LastChildFill="True">
                 <Button x:Name="StartQuizButton" Content="Start Quiz" Style="{StaticResource ActionButton}"
@@ -272,7 +459,7 @@
                         FontWeight="SemiBold" Click="OnStartQuizClick"/>
                 <Button x:Name="ViewSongsButton" Content="View matching songs"
                         DockPanel.Dock="Left" VerticalAlignment="Center" Click="OnViewSongsClick"/>
-                <TextBlock x:Name="MatchCountText" VerticalAlignment="Center" Foreground="#65738A"
+                <TextBlock x:Name="MatchCountText" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}"
                            Margin="12,0" Text="0 matching tracks"/>
             </DockPanel>
         </Border>

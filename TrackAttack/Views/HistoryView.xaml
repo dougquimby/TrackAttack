@@ -10,7 +10,7 @@
         <DockPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center"
                         Margin="0,0,0,16">
-                <TextBlock Text="PROFILE" Foreground="#65738A" FontSize="10" FontWeight="Bold"
+                <TextBlock Text="PROFILE" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" FontWeight="Bold"
                            VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <ComboBox x:Name="ProfileFilterCombo" Width="190" Height="30"
                           SelectionChanged="OnProfileFilterChanged"/>
@@ -24,7 +24,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="12"
-                       Foreground="#65738A" FontWeight="Bold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource MutedTextBrush}" FontWeight="Bold" VerticalAlignment="Center"
                        TextTrimming="CharacterEllipsis"/>
             <Button x:Name="ToggleSpoilersButton" Grid.Column="1" Content="◉"
                     ToolTip="Blur song titles and artists" AutomationProperties.Name="Toggle song title and artist spoilers"
@@ -50,7 +50,7 @@
                 <Grid Grid.Column="0">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <TextBlock Text="COMPLETED QUIZZES" FontSize="12" FontWeight="Bold"
-                               Foreground="#65738A" Height="30" VerticalAlignment="Center"
+                               Foreground="{DynamicResource MutedTextBrush}" Height="30" VerticalAlignment="Center"
                                Margin="0,0,0,10"/>
                     <DataGrid x:Name="HistoryGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
                               ScrollViewer.HorizontalScrollBarVisibility="Visible"
@@ -95,11 +95,12 @@
                 <Grid Grid.Column="2">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="1.2*" MinHeight="80"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="*" MinHeight="80"/>
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="QUIZ ANSWERS" FontSize="12" FontWeight="Bold"
-                               Foreground="#65738A" Height="30" VerticalAlignment="Center"
+                               Foreground="{DynamicResource MutedTextBrush}" Height="30" VerticalAlignment="Center"
                                Margin="0,0,0,10"/>
                     <DataGrid x:Name="DetailGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
                               ScrollViewer.HorizontalScrollBarVisibility="Visible"
@@ -108,22 +109,27 @@
                         <Style TargetType="DataGridRow">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Status}" Value="Correct">
-                                    <Setter Property="Background" Value="#E1F2E8"/>
-                                    <Setter Property="Foreground" Value="#245B38"/>
+                                    <Setter Property="Background" Value="{DynamicResource CorrectSurfaceBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource CorrectTextBrush}"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="Partial">
-                                    <Setter Property="Background" Value="#FFF2D6"/>
-                                    <Setter Property="Foreground" Value="#74520A"/>
+                                    <Setter Property="Background" Value="{DynamicResource PartialSurfaceBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource PartialTextBrush}"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="Missed">
-                                    <Setter Property="Background" Value="#FCE6E8"/>
-                                    <Setter Property="Foreground" Value="#8A3540"/>
+                                    <Setter Property="Background" Value="{DynamicResource MissedSurfaceBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource MissedTextBrush}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="Mulligan">
+                                    <Setter Property="Background" Value="{DynamicResource MulliganSurfaceBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource MulliganTextBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="40"/>
+                        <DataGridTextColumn Header="Result" Binding="{Binding Status}" Width="90"/>
                         <DataGridTemplateColumn Header="Title" Width="150">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
@@ -207,21 +213,43 @@
                         <DataGridTextColumn Header="Points" Binding="{Binding Points}" Width="70"/>
                     </DataGrid.Columns>
                     </DataGrid>
-                    <TabControl Grid.Row="2" Margin="0,10,0,0" MaxHeight="260">
+                    <GridSplitter x:Name="HistoryDetailsSplitter" Grid.Row="2"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                  ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Cursor="SizeNS"
+                                  Background="{DynamicResource SplitterBrush}" ToolTip="Drag to resize answers and quiz details"
+                                  AutomationProperties.Name="Resize quiz answers and details">
+                        <GridSplitter.Template>
+                            <ControlTemplate TargetType="GridSplitter">
+                                <Border x:Name="SplitterTrack" Background="{TemplateBinding Background}" CornerRadius="3">
+                                    <Border Width="44" Height="2" Background="#8798AE" CornerRadius="1"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="SplitterTrack" Property="Background" Value="#BFD8F0"/>
+                                    </Trigger>
+                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                        <Setter TargetName="SplitterTrack" Property="Background" Value="#BFD8F0"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </GridSplitter.Template>
+                    </GridSplitter>
+                    <TabControl x:Name="HistoryDetailsTabs" Grid.Row="3">
                         <TabItem Header="Quiz settings">
-                            <Border Background="#F4F6FA" BorderBrush="#DCE4EF" BorderThickness="1"
+                            <Border Background="{DynamicResource SubtleSurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
                                     Padding="12">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                                               HorizontalScrollBarVisibility="Disabled">
                                     <StackPanel x:Name="SettingsSummaryPanel">
                                         <TextBlock Text="Select a quiz to see its settings and power usage."
-                                                   Foreground="#34445C" FontSize="12" TextWrapping="Wrap"/>
+                                                   Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </ScrollViewer>
                             </Border>
                         </TabItem>
                         <TabItem Header="Leaderboard">
-                            <Grid Background="#F4F6FA">
+                            <Grid Background="{DynamicResource SubtleSurfaceBrush}">
                                 <DataGrid x:Name="LeaderboardGrid" AutoGenerateColumns="False"
                                           IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
                                           Visibility="Collapsed"
@@ -236,8 +264,8 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                                 <TextBlock x:Name="LeaderboardEmptyText"
-                                           Text="Play this same quiz with another profile to compare results."
-                                           Foreground="#65738A" TextWrapping="Wrap" TextAlignment="Center"
+                                           Text="Select a quiz to see its leaderboard."
+                                           Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" TextAlignment="Center"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Margin="20" IsHitTestVisible="False"/>
                             </Grid>

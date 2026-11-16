@@ -1,0 +1,73 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#111923"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#1D2938"/>
+    <SolidColorBrush x:Key="SubtleSurfaceBrush" Color="#263548"/>
+    <SolidColorBrush x:Key="HintSurfaceBrush" Color="#293A4E"/>
+    <SolidColorBrush x:Key="IconSurfaceBrush" Color="#263F55"/>
+    <SolidColorBrush x:Key="SplitterBrush" Color="#3C5066"/>
+    <SolidColorBrush x:Key="ProgressTrackBrush" Color="#40536A"/>
+    <SolidColorBrush x:Key="ErrorSurfaceBrush" Color="#472B30"/>
+    <SolidColorBrush x:Key="ErrorBorderBrush" Color="#A75C62"/>
+    <SolidColorBrush x:Key="ErrorTextBrush" Color="#FFB7B7"/>
+    <SolidColorBrush x:Key="DeniedTextBrush" Color="#FFB7B7"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#E6EDF5"/>
+    <SolidColorBrush x:Key="StrongTextBrush" Color="#F4F7FA"/>
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#DAE4F0"/>
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#B6C5D6"/>
+    <SolidColorBrush x:Key="FaintTextBrush" Color="#A9BACC"/>
+    <SolidColorBrush x:Key="FooterTextBrush" Color="#A9BACC"/>
+    <SolidColorBrush x:Key="AccentTextBrush" Color="#80C3FF"/>
+    <SolidColorBrush x:Key="AccentStrongTextBrush" Color="#80C3FF"/>
+    <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#405168"/>
+    <SolidColorBrush x:Key="AlternateBorderBrush" Color="#405168"/>
+    <SolidColorBrush x:Key="InputBorderBrush" Color="#536981"/>
+    <SolidColorBrush x:Key="ButtonBorderBrush" Color="#536981"/>
+    <SolidColorBrush x:Key="ButtonSurfaceBrush" Color="#304258"/>
+    <SolidColorBrush x:Key="GridLineBrush" Color="#35465A"/>
+    <SolidColorBrush x:Key="AlternateRowBrush" Color="#243244"/>
+    <SolidColorBrush x:Key="SelectedSurfaceBrush" Color="#355878"/>
+    <SolidColorBrush x:Key="SelectedHoverBrush" Color="#426D93"/>
+    <SolidColorBrush x:Key="CorrectSurfaceBrush" Color="#214635"/>
+    <SolidColorBrush x:Key="CorrectTextBrush" Color="#BAEBD0"/>
+    <SolidColorBrush x:Key="PartialSurfaceBrush" Color="#554524"/>
+    <SolidColorBrush x:Key="PartialTextBrush" Color="#FFE2A0"/>
+    <SolidColorBrush x:Key="MissedSurfaceBrush" Color="#542F38"/>
+    <SolidColorBrush x:Key="MissedTextBrush" Color="#FFC4CB"/>
+    <SolidColorBrush x:Key="MulliganSurfaceBrush" Color="#3A414D"/>
+    <SolidColorBrush x:Key="MulliganTextBrush" Color="#D0DBE8"/>
+    <SolidColorBrush x:Key="PowerMulliganSurfaceBrush" Color="#453651"/>
+    <SolidColorBrush x:Key="PowerMulliganBorderBrush" Color="#765E89"/>
+    <SolidColorBrush x:Key="PowerMulliganTextBrush" Color="#E4CBF3"/>
+    <SolidColorBrush x:Key="PowerExtenderSurfaceBrush" Color="#294536"/>
+    <SolidColorBrush x:Key="PowerExtenderBorderBrush" Color="#5B8269"/>
+    <SolidColorBrush x:Key="PowerExtenderTextBrush" Color="#C1E8CC"/>
+    <SolidColorBrush x:Key="PowerRerollSurfaceBrush" Color="#50412F"/>
+    <SolidColorBrush x:Key="PowerRerollBorderBrush" Color="#887052"/>
+    <SolidColorBrush x:Key="PowerRerollTextBrush" Color="#FFE0AF"/>
+    <SolidColorBrush x:Key="PowerHintSurfaceBrush" Color="#294353"/>
+    <SolidColorBrush x:Key="PowerHintBorderBrush" Color="#587D90"/>
+    <SolidColorBrush x:Key="PowerHintTextBrush" Color="#BFE6FA"/>
+    <SolidColorBrush x:Key="QuizCorrectSurfaceBrush" Color="#28543B"/>
+    <SolidColorBrush x:Key="QuizCorrectTextBrush" Color="#D6F8DC"/>
+    <SolidColorBrush x:Key="QuizTitleSurfaceBrush" Color="#5E4B20"/>
+    <SolidColorBrush x:Key="QuizTitleTextBrush" Color="#FFEAA7"/>
+    <SolidColorBrush x:Key="QuizArtistSurfaceBrush" Color="#2E4C60"/>
+    <SolidColorBrush x:Key="QuizArtistTextBrush" Color="#C6E9FF"/>
+    <SolidColorBrush x:Key="QuizPlayingSurfaceBrush" Color="#304D70"/>
+    <SolidColorBrush x:Key="QuizPlayingTextBrush" Color="#D5E9FF"/>
+    <SolidColorBrush x:Key="QuizMissedSurfaceBrush" Color="#61323C"/>
+    <SolidColorBrush x:Key="QuizMissedTextBrush" Color="#FFD2D6"/>
+    <SolidColorBrush x:Key="ResultPerfectBrush" Color="#F8D36D"/>
+    <SolidColorBrush x:Key="ResultGreatBrush" Color="#87D9A2"/>
+    <SolidColorBrush x:Key="ResultGoodBrush" Color="#9DDCAD"/>
+    <SolidColorBrush x:Key="ResultMixedBrush" Color="#F5CD7A"/>
+    <SolidColorBrush x:Key="ResultLowBrush" Color="#FFAA90"/>
+    <SolidColorBrush x:Key="ResultVeryLowBrush" Color="#FF9DA5"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#1D2938"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#E6EDF5"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#263548"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#E6EDF5"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#355878"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#F4F7FA"/>
+</ResourceDictionary>

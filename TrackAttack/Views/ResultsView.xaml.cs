@@ -63,6 +63,7 @@ public partial class ResultsView : UserControl
     ];
 
     public event Action? PlayAgainRequested;
+    public event Action? HistoryRequested;
 
     public ResultsView(QuizSession session, IQuizHistoryRepository history)
     {
@@ -71,41 +72,52 @@ public partial class ResultsView : UserControl
             ? $"{session.TotalPoints:F1} / {session.MaxPoints:F1} pts"
             : $"{session.Score} / {session.Results.Count}";
         PercentText.Text = $"{session.Percentage:F0}%";
-        var (message, color) = GetPerformanceMessage(session);
+        var (message, colorResource) = GetPerformanceMessage(session);
         PerformanceMessageText.Text = message;
-        PerformanceMessageText.Foreground = color;
-        PercentText.Foreground = color;
-        ScoreText.Foreground = color;
+        PerformanceMessageText.SetResourceReference(TextBlock.ForegroundProperty, colorResource);
+        PercentText.SetResourceReference(TextBlock.ForegroundProperty, colorResource);
+        ScoreText.SetResourceReference(TextBlock.ForegroundProperty, colorResource);
         DurationText.Text = $"Time: {(int)session.Duration.TotalMinutes}:{session.Duration.Seconds:D2}";
-        ResultsGrid.ItemsSource = session.Results.Select((result, index) => new ResultsRow(
-            index + 1,
+        ResultsGrid.ItemsSource = session.Results
+            .SelectMany((result, index) => CreateRows(result, session.Config, index + 1)).ToArray();
+    }
+
+    private static IEnumerable<ResultsRow> CreateRows(SongResult result, QuizConfig config, int number)
+    {
+        foreach (var song in result.MulliganSongs)
+            yield return new ResultsRow(number, song.Title, song.DisplayArtistYear, "", "", "", "Mulligan");
+
+        yield return new ResultsRow(
+            number,
             result.Song.Title,
             result.Song.DisplayArtistYear,
             result.IsCorrect ? result.UserGuess ?? string.Empty : string.Empty,
             result.ArtistCorrect ? result.ArtistGuess ?? string.Empty : string.Empty,
-            $"{QuizSession.CalculatePoints(result, session.Config):F1}",
-            result.IsCorrect && (session.Config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
+            $"{QuizSession.CalculatePoints(result, config):F1}",
+            result.IsCorrect && (config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
                 ? "Correct"
-                : result.IsCorrect || result.ArtistCorrect ? "Partial" : "Missed")).ToArray();
+                : result.IsCorrect || result.ArtistCorrect ? "Partial" : "Missed");
     }
 
     private void OnPlayAgainClick(object sender, System.Windows.RoutedEventArgs e)
         => PlayAgainRequested?.Invoke();
 
-    private static (string Message, System.Windows.Media.Brush Color) GetPerformanceMessage(QuizSession session)
+    private void OnHistoryClick(object sender, System.Windows.RoutedEventArgs e)
+        => HistoryRequested?.Invoke();
+
+    private static (string Message, string ColorResource) GetPerformanceMessage(QuizSession session)
     {
         var percentage = session.Percentage;
         var (messages, color) = percentage switch
         {
-            >= 100 => (PerfectMessages, "#C28A00"),
-            >= 80 => (GreatMessages, "#16803C"),
-            >= 60 => (GoodMessages, "#378348"),
-            >= 40 => (MixedMessages, "#A16A00"),
-            >= 20 => (LowMessages, "#C04A28"),
-            _ => (VeryLowMessages, "#C62828")
+            >= 100 => (PerfectMessages, "ResultPerfectBrush"),
+            >= 80 => (GreatMessages, "ResultGreatBrush"),
+            >= 60 => (GoodMessages, "ResultGoodBrush"),
+            >= 40 => (MixedMessages, "ResultMixedBrush"),
+            >= 20 => (LowMessages, "ResultLowBrush"),
+            _ => (VeryLowMessages, "ResultVeryLowBrush")
         };
         var message = messages[Random.Shared.Next(messages.Length)];
-        return (message, new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color)));
+        return (message, color);
     }
 }

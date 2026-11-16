@@ -10,6 +10,12 @@ public static class AnswerMatcher
     private static readonly Regex CombiningMarksRegex = new(@"\p{M}", RegexOptions.Compiled);
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
     private static readonly Regex WhitespaceParenRegex = new(@"\s+\([^()]*\)", RegexOptions.Compiled);
+    private static readonly Regex OptionalTitleVersionRegex =
+        new(@"\(\s*(?:remix|new(?:\s+version)?)\s*\)", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex AttachedLeadingNApostropheRegex =
+        new(@"(?<=\p{L})['\u2018\u2019](?=n(?:['\u2018\u2019]|(?![\p{L}\p{N}])))", RegexOptions.Compiled);
+    private static readonly Regex AttachedTrailingNApostropheRegex =
+        new(@"(?<![\p{L}\p{N}])n['\u2018\u2019](?=\p{L})", RegexOptions.Compiled);
     private static readonly string[] LeadingArticles = ["the ", "a ", "an "];
     private static readonly HashSet<string> FuzzyStopWords =
         new(["the", "a", "an", "and", "or", "of", "in", "at", "to", "for", "with", "feat", "ft", "vs"]);
@@ -19,18 +25,40 @@ public static class AnswerMatcher
     public static bool IsMatch(string input, string target) =>
         IsMatch(input, target, GuessMatchingOptions.Default);
 
-    public static bool IsMatch(string input, string target, GuessMatchingOptions options) =>
-        Normalize(input, options, options.IgnorePunctuation)
-            == Normalize(target, options, options.IgnorePunctuation);
+    public static bool IsMatch(string input, string target, GuessMatchingOptions options)
+    {
+        if (IsMatch(input, target, options, false, false))
+            return true;
+        var hasAmpersand = input.Contains('&') || target.Contains('&');
+        var hasApostrophe = HasApostrophe(input) || HasApostrophe(target);
+        return (hasAmpersand && IsMatch(input, target, options, true, false))
+            || (hasApostrophe && IsMatch(input, target, options, false, true))
+            || (hasAmpersand && hasApostrophe && IsMatch(input, target, options, true, true));
+    }
+
+    private static bool IsMatch(string input, string target, GuessMatchingOptions options, bool expandAmpersand, bool separateElidedN)
+        => Normalize(input, options, options.IgnorePunctuation, expandAmpersand, separateElidedN)
+            == Normalize(target, options, options.IgnorePunctuation, expandAmpersand, separateElidedN);
 
     public static bool IsSongTitleMatch(string input, string target, bool fuzzy, GuessMatchingOptions options)
     {
         if (IsMatch(input, target, options))
             return true;
+
+        var titleInput = RemoveOptionalTitleVersions(input);
+        var titleTarget = RemoveOptionalTitleVersions(target);
+        if (IsMatch(titleInput, titleTarget, options))
+            return true;
         if (!fuzzy)
             return false;
 
-        return HasMatchingSignificantWord(input, target, options);
+        return HasMatchingSignificantWord(titleInput, titleTarget, options);
+    }
+
+    private static string RemoveOptionalTitleVersions(string title)
+    {
+        var stripped = OptionalTitleVersionRegex.Replace(title, "");
+        return stripped.Any(char.IsLetterOrDigit) ? stripped : title;
     }
 
     // Exact match first; if fuzzy=true, also accept any significant word from input appearing in target
@@ -47,8 +75,24 @@ public static class AnswerMatcher
 
     private static bool HasMatchingSignificantWord(string input, string target, GuessMatchingOptions options)
     {
-        var normalizedInput = Normalize(input, options, ignoreWhitespace: false);
-        var normalizedTarget = Normalize(target, options, ignoreWhitespace: false);
+        if (HasMatchingSignificantWord(input, target, options, false, false))
+            return true;
+        var hasAmpersand = input.Contains('&') || target.Contains('&');
+        var hasApostrophe = HasApostrophe(input) || HasApostrophe(target);
+        return (hasAmpersand && HasMatchingSignificantWord(input, target, options, true, false))
+            || (hasApostrophe && HasMatchingSignificantWord(input, target, options, false, true))
+            || (hasAmpersand && hasApostrophe && HasMatchingSignificantWord(input, target, options, true, true));
+    }
+
+    private static bool HasApostrophe(string value)
+        => value.Contains('\'') || value.Contains('\u2018') || value.Contains('\u2019')
+            || value.Contains('\u02BC') || value.Contains('\uFF07');
+
+    private static bool HasMatchingSignificantWord(
+        string input, string target, GuessMatchingOptions options, bool expandAmpersand, bool separateElidedN)
+    {
+        var normalizedInput = Normalize(input, options, ignoreWhitespace: false, expandAmpersand, separateElidedN);
+        var normalizedTarget = Normalize(target, options, ignoreWhitespace: false, expandAmpersand, separateElidedN);
         var inputWords = normalizedInput.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(word => word.Length >= 2 && !FuzzyStopWords.Contains(word));
         if (!inputWords.Any())
@@ -57,10 +101,12 @@ public static class AnswerMatcher
         return inputWords.Any(targetWords.Contains);
     }
 
-    private static string Normalize(string value, GuessMatchingOptions options, bool ignoreWhitespace)
+    private static string Normalize(
+        string value, GuessMatchingOptions options, bool ignoreWhitespace, bool expandAmpersand, bool separateElidedN)
     {
         var s = CombiningMarksRegex.Replace(
-            value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD),
+            value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD)
+                .Replace('\u02BC', '\'').Replace('\uFF07', '\''),
             "");
 
         if (options.IgnorePunctuation)
@@ -78,6 +124,15 @@ public static class AnswerMatcher
             }
             // If the whole value was a paren group, keep the original text.
             s = noParens.Trim().Length > 0 ? noParens : s;
+        }
+
+        if (expandAmpersand)
+            s = s.Replace("&", " and ", StringComparison.Ordinal);
+        if (separateElidedN)
+        {
+            // Separate elided 'n' from adjacent words without splitting contractions like "don't".
+            s = AttachedLeadingNApostropheRegex.Replace(s, " ");
+            s = AttachedTrailingNApostropheRegex.Replace(s, "n ");
         }
 
         // Loose mode keeps Unicode letters and digits (so "U.R." and "UR" both

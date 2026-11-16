@@ -11,11 +11,18 @@ namespace TrackAttack.Views;
 
 public partial class SettingsView : UserControl
 {
-    private readonly AppSettings _settings = AppSettings.Load();
+    private AppSettings _settings = AppSettings.Load();
     private readonly IQuizHistoryRepository _history;
     private bool _isInitializingAudioVolume = true;
     private bool _isInitializingProfiles = true;
-    private readonly ObservableCollection<string> _additionalFolders = [];
+    private int _folderCheckVersion;
+    private readonly ObservableCollection<string> _musicFolders = [];
+    private Dictionary<Control, object?> _savedInputs = [];
+    private string[] _savedMusicFolders = [];
+    private static readonly HashSet<string> ProfileInputNames =
+    [
+        "AudioVolumeSlider", "DarkModeCheck"
+    ];
 
     public event Action? SettingsSaved;
     public event Action? ProfileChanged;
@@ -29,19 +36,13 @@ public partial class SettingsView : UserControl
             string.Equals(profile.Name, _settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase));
         UpdateProfileIconPreview(ProfileCombo.SelectedItem as QuizProfile);
         ProfileNameText.Text = _settings.ActiveProfileName;
-        FolderText.Text = _settings.MusicDirectory;
-        AdditionalFoldersList.ItemsSource = _additionalFolders;
-        LoadAdditionalFolders();
-        SecondsText.Text = _settings.DefaultSecondsPerSong.ToString();
-        ClipDurationText.Text = _settings.DefaultClipDurationSeconds.ToString();
+        MusicFoldersList.ItemsSource = _musicFolders;
+        LoadMusicFolders();
         AudioVolumeSlider.Value = GetNormalizedAudioVolume(_settings.AudioVolume);
         UpdateAudioVolumeLabel(AudioVolumeSlider.Value);
         _isInitializingAudioVolume = false;
-        FuzzyArtistCheck.IsChecked = _settings.FuzzyArtistMatching;
-        FuzzyTitleCheck.IsChecked = _settings.FuzzySongTitleMatching;
-        IgnorePunctuationCheck.IsChecked = _settings.IgnorePunctuation;
-        SkipCorrectCheck.IsChecked = _settings.SkipOnCorrectGuess;
         ShowCountsCheck.IsChecked = _settings.ShowSongCountsInLists;
+        DarkModeCheck.IsChecked = _settings.DarkModeEnabled;
         EnableSpotifyCheck.IsChecked = _settings.EnableSpotifyIntegration;
         SpotifyClientIdText.Text = _settings.SpotifyClientId;
         SpotifyConnectionStatus.Text = SpotifyService.IsConnected
@@ -53,14 +54,77 @@ public partial class SettingsView : UserControl
         PathsText.Text = $"Settings: {AppSettings.FilePath}{Environment.NewLine}"
             + $"Quiz history: {DatabaseInitializer.DatabasePath}";
         _isInitializingProfiles = false;
+        RememberSavedInputs();
+        Loaded += (_, _) =>
+        {
+            var storedSettings = AppSettings.Load();
+            var profileChanged = !string.Equals(
+                _settings.ActiveProfileName, storedSettings.ActiveProfileName, StringComparison.OrdinalIgnoreCase);
+            var themeChanged = _settings.DarkModeEnabled != storedSettings.DarkModeEnabled;
+            var volumeChanged = _settings.AudioVolume != storedSettings.AudioVolume;
+            _settings = storedSettings;
+            RefreshProfileChoices(_settings.ActiveProfileName);
+            if (profileChanged)
+            {
+                PopulateProfileSettings();
+                RememberSavedInputs(profileOnly: true);
+            }
+            else
+            {
+                if (themeChanged)
+                {
+                    DarkModeCheck.IsChecked = _settings.DarkModeEnabled;
+                    _savedInputs[DarkModeCheck] = DarkModeCheck.IsChecked;
+                }
+                if (volumeChanged)
+                {
+                    _isInitializingAudioVolume = true;
+                    AudioVolumeSlider.Value = GetNormalizedAudioVolume(_settings.AudioVolume);
+                    UpdateAudioVolumeLabel(AudioVolumeSlider.Value);
+                    _isInitializingAudioVolume = false;
+                    _savedInputs[AudioVolumeSlider] = AudioVolumeSlider.Value;
+                }
+            }
+        };
+        Unloaded += (_, _) => _folderCheckVersion++;
     }
 
-    private void OnBrowseClick(object sender, RoutedEventArgs e)
+    private static IEnumerable<Control> GetSettingsInputs(DependencyObject parent)
     {
-        var dialog = new OpenFolderDialog { Title = "Select your music library", FolderName = FolderText.Text };
-        if (dialog.ShowDialog() == true)
-            FolderText.Text = dialog.FolderName;
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            if (child is Control control && !string.IsNullOrEmpty(control.Name)
+                && control.Name != "ProfileNameText"
+                && control is TextBox or CheckBox or ComboBox or Slider)
+                yield return control;
+
+            foreach (var input in GetSettingsInputs(child))
+                yield return input;
+        }
     }
+
+    private static object? GetInputValue(Control input) => input switch
+    {
+        TextBox textBox => textBox.Text,
+        CheckBox checkBox => checkBox.IsChecked,
+        ComboBox comboBox => comboBox.SelectedItem,
+        Slider slider => slider.Value,
+        _ => throw new InvalidOperationException("Unsupported settings input.")
+    };
+
+    private void RememberSavedInputs(bool profileOnly = false)
+    {
+        foreach (var input in GetSettingsInputs(SettingsTabs))
+        {
+            if (!profileOnly || ProfileInputNames.Contains(input.Name))
+                _savedInputs[input] = GetInputValue(input);
+        }
+        _savedMusicFolders = _musicFolders.ToArray();
+    }
+
+    public bool HasUnsavedChanges()
+        => !_savedMusicFolders.SequenceEqual(_musicFolders)
+           || _savedInputs.Any(entry => !Equals(entry.Value, GetInputValue(entry.Key)));
 
     private void OnAddMusicFolderClick(object sender, RoutedEventArgs e)
     {
@@ -69,27 +133,108 @@ public partial class SettingsView : UserControl
             return;
 
         var path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dialog.FolderName));
-        if (string.Equals(path, Path.TrimEndingDirectorySeparator(FolderText.Text.Trim()), StringComparison.OrdinalIgnoreCase)
-            || _additionalFolders.Contains(path, StringComparer.OrdinalIgnoreCase))
+        var overlappingFolder = _musicFolders.FirstOrDefault(folder =>
+            MusicFolderSelection.IsSameOrDescendant(path, folder)
+            || MusicFolderSelection.IsSameOrDescendant(folder, path));
+        if (overlappingFolder is not null)
         {
-            MessageBox.Show("This folder is already in the music library.", "Folder already added",
+            MessageBox.Show($"Library folders cannot overlap.\n\n{path}\n{overlappingFolder}",
+                "Overlapping folders",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        _additionalFolders.Add(path);
+        _musicFolders.Add(path);
     }
 
     private void OnRemoveMusicFolderClick(object sender, RoutedEventArgs e)
     {
-        if (AdditionalFoldersList.SelectedItem is string folder)
-            _additionalFolders.Remove(folder);
+        if (MusicFoldersList.SelectedItem is string folder)
+            _musicFolders.Remove(folder);
     }
 
-    private void LoadAdditionalFolders()
+    private async void OnRemoveMissingMusicFoldersClick(object sender, RoutedEventArgs e)
     {
-        _additionalFolders.Clear();
-        foreach (var folder in _settings.AdditionalMusicDirectories)
-            _additionalFolders.Add(folder);
+        var folders = _musicFolders.ToArray();
+        var profileName = _settings.ActiveProfileName;
+        var checkVersion = _folderCheckVersion;
+        RemoveMissingFoldersButton.IsEnabled = false;
+        try
+        {
+            var (missing, errors) = await Task.Run(() => FindMissingMusicFolders(folders));
+            if (checkVersion != _folderCheckVersion)
+                return;
+            if (!string.Equals(profileName, _settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("The active profile changed while folders were being checked. No folders were removed.",
+                    "Folder check canceled", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (errors.Count > 0)
+                MessageBox.Show("These folders could not be checked and will not be removed:\n\n"
+                    + FormatFolderList(errors), "Folder check incomplete", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+            var toRemove = missing.Where(_musicFolders.Contains).ToArray();
+            if (toRemove.Length == 0)
+            {
+                if (errors.Count == 0)
+                    MessageBox.Show("No missing music folders were found.", "Music folders",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (MessageBox.Show($"{toRemove.Length} music folder(s) are missing or unavailable:\n\n"
+                    + FormatFolderList(toRemove)
+                    + "\n\nOffline drives or network folders may become available again. Remove these folders from the list?"
+                    + "\nReview the list and save Settings to keep the change.",
+                    "Remove missing folders", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+                != MessageBoxResult.Yes)
+                return;
+
+            foreach (var folder in toRemove)
+                _musicFolders.Remove(folder);
+        }
+        finally
+        {
+            RemoveMissingFoldersButton.IsEnabled = true;
+        }
+    }
+
+    private static (List<string> Missing, List<string> Errors) FindMissingMusicFolders(IEnumerable<string> folders)
+    {
+        var missing = new List<string>();
+        var errors = new List<string>();
+        foreach (var folder in folders)
+        {
+            try
+            {
+                if ((File.GetAttributes(folder) & FileAttributes.Directory) == 0)
+                    missing.Add(folder);
+            }
+            catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+            {
+                missing.Add(folder);
+            }
+            catch (Exception exception) when (LocalFileMusicSource.IsFileAccessFailure(exception)
+                                               || exception is ArgumentException or NotSupportedException)
+            {
+                errors.Add($"{folder}\n  {exception.Message}");
+            }
+        }
+        return (missing, errors);
+    }
+
+    private static string FormatFolderList(IReadOnlyCollection<string> folders)
+    {
+        var remaining = folders.Count > 10 ? $"\n...and {folders.Count - 10} more." : string.Empty;
+        return string.Join("\n", folders.Take(10)) + remaining;
+    }
+
+    private void LoadMusicFolders()
+    {
+        _musicFolders.Clear();
+        foreach (var folder in _settings.GetMusicDirectories())
+            _musicFolders.Add(folder);
     }
 
     private void OnProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -98,11 +243,7 @@ public partial class SettingsView : UserControl
             || string.Equals(profile.Name, _settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase))
             return;
 
-        if (!TryCaptureProfileSettings())
-        {
-            SelectActiveProfile();
-            return;
-        }
+        CaptureProfileSettings();
 
         try
         {
@@ -110,6 +251,7 @@ public partial class SettingsView : UserControl
             _settings.ActivateProfile(profile.Name);
             RefreshProfileChoices(_settings.ActiveProfileName);
             PopulateProfileSettings();
+            RememberSavedInputs(profileOnly: true);
             SettingsSaved?.Invoke();
             ProfileChanged?.Invoke();
         }
@@ -251,14 +393,14 @@ public partial class SettingsView : UserControl
 
     private void OnAddProfileClick(object sender, RoutedEventArgs e)
     {
-        if (!TryCaptureProfileSettings())
-            return;
+        CaptureProfileSettings();
         try
         {
             var profile = _settings.AddProfile(ProfileNameText.Text);
             RefreshProfileChoices(profile.Name);
             ProfileNameText.Text = profile.Name;
             PopulateProfileSettings();
+            RememberSavedInputs(profileOnly: true);
             SettingsSaved?.Invoke();
         }
         catch (Exception exception)
@@ -270,13 +412,14 @@ public partial class SettingsView : UserControl
 
     private void OnRenameProfileClick(object sender, RoutedEventArgs e)
     {
-        if (!TryCaptureProfileSettings())
-            return;
+        CaptureProfileSettings();
         try
         {
             _settings.RenameActiveProfile(ProfileNameText.Text);
+            ThemeManager.Apply(_settings.DarkModeEnabled);
             ProfileNameText.Text = _settings.ActiveProfileName;
             RefreshProfileChoices(_settings.ActiveProfileName);
+            RememberSavedInputs(profileOnly: true);
             SettingsSaved?.Invoke();
         }
         catch (Exception exception)
@@ -299,8 +442,7 @@ public partial class SettingsView : UserControl
             != MessageBoxResult.Yes)
             return;
 
-        if (!TryCaptureProfileSettings())
-            return;
+        CaptureProfileSettings();
         var deletedProfile = _settings.Profiles.First(profile =>
             string.Equals(profile.Name, _settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase));
         try
@@ -309,6 +451,7 @@ public partial class SettingsView : UserControl
             RefreshProfileChoices(_settings.ActiveProfileName);
             ProfileNameText.Text = _settings.ActiveProfileName;
             PopulateProfileSettings();
+            RememberSavedInputs(profileOnly: true);
             SettingsSaved?.Invoke();
             ProfileChanged?.Invoke();
         }
@@ -330,42 +473,22 @@ public partial class SettingsView : UserControl
         }
     }
 
-    private bool TryCaptureProfileSettings()
+    private void CaptureProfileSettings()
     {
-        if (!int.TryParse(SecondsText.Text, out var seconds) || seconds is < 10 or > 600
-            || !int.TryParse(ClipDurationText.Text, out var clipDuration) || clipDuration is < 3 or > 120)
-        {
-            MessageBox.Show("Seconds per song must be 10–600 and clip duration must be 3–120.",
-                "Invalid settings", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return false;
-        }
-
-        _settings.MusicDirectory = FolderText.Text.Trim();
-        _settings.AdditionalMusicDirectories = [.. _additionalFolders];
-        _settings.DefaultSecondsPerSong = seconds;
-        _settings.DefaultClipDurationSeconds = clipDuration;
+        _settings.SetMusicDirectories(_musicFolders);
         _settings.AudioVolume = AudioVolumeSlider.Value;
-        _settings.FuzzyArtistMatching = FuzzyArtistCheck.IsChecked == true;
-        _settings.FuzzySongTitleMatching = FuzzyTitleCheck.IsChecked == true;
-        _settings.IgnorePunctuation = IgnorePunctuationCheck.IsChecked == true;
-        _settings.SkipOnCorrectGuess = SkipCorrectCheck.IsChecked == true;
-        return true;
+        _settings.DarkModeEnabled = DarkModeCheck.IsChecked == true;
     }
 
     private void PopulateProfileSettings()
     {
-        FolderText.Text = _settings.MusicDirectory;
-        LoadAdditionalFolders();
-        SecondsText.Text = _settings.DefaultSecondsPerSong.ToString();
-        ClipDurationText.Text = _settings.DefaultClipDurationSeconds.ToString();
+        LoadMusicFolders();
         _isInitializingAudioVolume = true;
         AudioVolumeSlider.Value = GetNormalizedAudioVolume(_settings.AudioVolume);
         UpdateAudioVolumeLabel(AudioVolumeSlider.Value);
         _isInitializingAudioVolume = false;
-        FuzzyArtistCheck.IsChecked = _settings.FuzzyArtistMatching;
-        FuzzyTitleCheck.IsChecked = _settings.FuzzySongTitleMatching;
-        IgnorePunctuationCheck.IsChecked = _settings.IgnorePunctuation;
-        SkipCorrectCheck.IsChecked = _settings.SkipOnCorrectGuess;
+        DarkModeCheck.IsChecked = _settings.DarkModeEnabled;
+        ThemeManager.Apply(_settings.DarkModeEnabled);
         ProfileNameText.Text = _settings.ActiveProfileName;
         UpdateProfileIconPreview(ProfileCombo.SelectedItem as QuizProfile);
     }
@@ -389,24 +512,13 @@ public partial class SettingsView : UserControl
     }
 
     private void OnSaveClick(object sender, RoutedEventArgs e)
-    {
-        if (!int.TryParse(SecondsText.Text, out var seconds) || seconds is < 10 or > 600
-            || !int.TryParse(ClipDurationText.Text, out var clipDuration) || clipDuration is < 3 or > 120)
-        {
-            MessageBox.Show("Seconds per song must be 10–600 and clip duration must be 3–120.",
-                "Invalid settings", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
+        => TrySaveSettings(showConfirmation: true);
 
-        _settings.MusicDirectory = FolderText.Text.Trim();
-        _settings.AdditionalMusicDirectories = [.. _additionalFolders];
-        _settings.DefaultSecondsPerSong = seconds;
-        _settings.DefaultClipDurationSeconds = clipDuration;
-        _settings.FuzzyArtistMatching = FuzzyArtistCheck.IsChecked == true;
-        _settings.FuzzySongTitleMatching = FuzzyTitleCheck.IsChecked == true;
-        _settings.IgnorePunctuation = IgnorePunctuationCheck.IsChecked == true;
-        _settings.SkipOnCorrectGuess = SkipCorrectCheck.IsChecked == true;
+    public bool TrySaveSettings(bool showConfirmation = false)
+    {
+        _settings.SetMusicDirectories(_musicFolders);
         _settings.ShowSongCountsInLists = ShowCountsCheck.IsChecked == true;
+        _settings.DarkModeEnabled = DarkModeCheck.IsChecked == true;
         _settings.EnableSpotifyIntegration = EnableSpotifyCheck.IsChecked == true;
         _settings.SpotifyClientId = SpotifyClientIdText.Text.Trim();
         RefreshSpotifyCredentials();
@@ -416,13 +528,18 @@ public partial class SettingsView : UserControl
         try
         {
             _settings.Save();
+            ThemeManager.Apply(_settings.DarkModeEnabled);
+            RememberSavedInputs();
             SettingsSaved?.Invoke();
-            MessageBox.Show("Settings saved.", "Settings", MessageBoxButton.OK, MessageBoxImage.Information);
+            if (showConfirmation)
+                MessageBox.Show("Settings saved.", "Settings", MessageBoxButton.OK, MessageBoxImage.Information);
+            return true;
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Could not save settings:\n{ex.Message}", "Settings save failed",
                 MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
         }
     }
 
@@ -436,6 +553,7 @@ public partial class SettingsView : UserControl
         try
         {
             AppSettings.SaveAudioVolume(e.NewValue);
+            _savedInputs[AudioVolumeSlider] = e.NewValue;
         }
         catch (Exception exception)
         {

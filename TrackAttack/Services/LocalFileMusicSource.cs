@@ -96,7 +96,8 @@ public class LocalFileMusicSource : IMusicSource
     }
 
     public IEnumerable<Song> ScanSelectedDirectories(
-        IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules)
+        IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules,
+        ICollection<LibraryScanIssue>? issues = null)
     {
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var directories = new Stack<string>(roots.Select(Path.GetFullPath));
@@ -106,29 +107,71 @@ public class LocalFileMusicSource : IMusicSource
             if (!visited.Add(directory))
                 continue;
             if (!Directory.Exists(directory))
-                throw new DirectoryNotFoundException($"The music folder does not exist: {directory}");
+            {
+                ReportIssue(issues, directory, new DirectoryNotFoundException("The folder is unavailable."));
+                continue;
+            }
 
             if (MusicFolderSelection.IsIncluded(directory, rules))
             {
-                foreach (var file in Directory.EnumerateFiles(directory))
+                foreach (var file in GetEntries(directory, false, issues))
                 {
                     if (!SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
                         continue;
-                    var song = ReadSong(file);
+                    var song = ReadSong(file, issues);
                     if (song is not null)
                         yield return song;
                 }
             }
 
-            foreach (var child in Directory.EnumerateDirectories(directory))
+            foreach (var child in GetEntries(directory, true, issues))
             {
-                if ((System.IO.File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
-                    directories.Push(child);
+                bool isLink;
+                try
+                {
+                    isLink = (System.IO.File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0;
+                }
+                catch (Exception exception) when (IsFileAccessFailure(exception))
+                {
+                    ReportIssue(issues, child, exception);
+                    continue;
+                }
+                if (!isLink) directories.Push(child);
             }
         }
     }
 
-    private static Song? ReadSong(string filePath)
+    public LibraryScanResult ScanLibrary(IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules)
+    {
+        var issues = new List<LibraryScanIssue>();
+        var songs = ScanSelectedDirectories(roots, rules, issues).ToArray();
+        return new LibraryScanResult(songs, issues);
+    }
+
+    private static string[] GetEntries(string directory, bool directories, ICollection<LibraryScanIssue>? issues)
+    {
+        try
+        {
+            return (directories ? Directory.EnumerateDirectories(directory) : Directory.EnumerateFiles(directory)).ToArray();
+        }
+        catch (Exception exception) when (IsFileAccessFailure(exception))
+        {
+            ReportIssue(issues, directory, exception);
+            return [];
+        }
+    }
+
+    internal static bool IsFileAccessFailure(Exception exception)
+        => exception is IOException or UnauthorizedAccessException or System.Security.SecurityException;
+
+    internal static void ReportIssue(ICollection<LibraryScanIssue>? issues, string path, Exception exception)
+    {
+        if (issues is null)
+            throw exception;
+        issues.Add(new LibraryScanIssue(path, exception.Message));
+    }
+
+    private static Song? ReadSong(string filePath, ICollection<LibraryScanIssue>? issues = null)
     {
         try
         {
@@ -161,8 +204,11 @@ public class LocalFileMusicSource : IMusicSource
                 SourceType = "Local"
             };
         }
-        catch
+        catch (Exception exception) when (IsFileAccessFailure(exception)
+            || exception is TagLib.CorruptFileException or TagLib.UnsupportedFormatException
+                or NotSupportedException or FormatException or ArgumentException or OverflowException)
         {
+            issues?.Add(new LibraryScanIssue(filePath, exception.Message));
             return null;
         }
     }

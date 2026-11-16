@@ -14,6 +14,16 @@ public static class SpotifyService
     public static bool IsConnected => Client is not null;
     public static string? DisplayName { get; private set; }
 
+    public static async Task<Device?> GetAvailablePlaybackDeviceAsync(SpotifyClient client)
+    {
+        var response = await client.Player.GetAvailableDevices();
+        var devices = response.Devices
+            ?? throw new InvalidOperationException("Spotify did not return a playback device list.");
+        return devices.FirstOrDefault(device => device.IsActive && !device.IsRestricted
+                && !string.IsNullOrWhiteSpace(device.Id))
+            ?? devices.FirstOrDefault(device => !device.IsRestricted && !string.IsNullOrWhiteSpace(device.Id));
+    }
+
     public static async Task<bool> TryReconnectAsync()
     {
         var settings = AppSettings.Load();

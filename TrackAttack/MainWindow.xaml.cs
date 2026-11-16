@@ -33,7 +33,15 @@ public partial class MainWindow : Window
         ShowHome(pushHistory: false);
         RefreshQuizSetupSources();
         StateChanged += OnWindowStateChanged;
-        Closing += (_, _) => SaveWindowPlacement();
+        Closing += (_, e) =>
+        {
+            if (!CanLeaveSettings())
+            {
+                e.Cancel = true;
+                return;
+            }
+            SaveWindowPlacement();
+        };
         Closed += (_, _) => _activeQuiz?.Dispose();
     }
 
@@ -167,7 +175,7 @@ public partial class MainWindow : Window
 
     private void OnHomeClick(object sender, RoutedEventArgs e)
     {
-        if (GuardActiveQuiz())
+        if (GuardNavigation())
         {
             _viewHistory.Clear();
             ShowHome(pushHistory: false);
@@ -176,11 +184,11 @@ public partial class MainWindow : Window
 
     private void OnNewQuizClick(object sender, RoutedEventArgs e)
     {
-        if (!GuardActiveQuiz())
+        if (!GuardNavigation())
             return;
         var settings = AppSettings.Load();
         if (!settings.EnableSpotifyIntegration
-            && (string.IsNullOrWhiteSpace(settings.MusicDirectory) || !Directory.Exists(settings.MusicDirectory)))
+            && settings.GetMusicDirectories().Count == 0)
         {
             MessageBox.Show(this, "Choose a music folder in Settings before starting a quiz.",
                 "Music folder required", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -196,6 +204,9 @@ public partial class MainWindow : Window
 
     private void OnQuizRequested(QuizConfig config, IReadOnlyList<Song> songs, IReadOnlyList<Song> reserve)
     {
+        if (!CanLeaveSettings())
+            return;
+
         IPlaybackService playback;
         if (string.Equals(config.SourceType, "Spotify", StringComparison.OrdinalIgnoreCase))
         {
@@ -218,6 +229,7 @@ public partial class MainWindow : Window
             _activeQuiz = null;
             var results = new ResultsView(session, _history);
             results.PlayAgainRequested += OnNewQuizClickFromHome;
+            results.HistoryRequested += OnHistoryClickFromHome;
             Navigate(results, "Quiz Results", pushHistory: false);
         };
         Navigate(_activeQuiz, config.QuizTitle);
@@ -225,13 +237,13 @@ public partial class MainWindow : Window
 
     private void OnMetadataClick(object sender, RoutedEventArgs e)
     {
-        if (GuardActiveQuiz())
+        if (GuardNavigation())
             Navigate(new MetadataView(), "Fix Library Metadata");
     }
 
     private void OnHistoryClick(object sender, RoutedEventArgs e)
     {
-        if (GuardActiveQuiz())
+        if (GuardNavigation())
         {
             var historyView = new HistoryView(_history);
             historyView.ReplayRequested += OnReplayQuizRequested;
@@ -241,7 +253,7 @@ public partial class MainWindow : Window
 
     private async void OnReplayQuizRequested(QuizSession session)
     {
-        if (_replayingHistoryQuiz || !GuardActiveQuiz())
+        if (_replayingHistoryQuiz || !GuardNavigation())
             return;
 
         _replayingHistoryQuiz = true;
@@ -278,8 +290,20 @@ public partial class MainWindow : Window
             {
                 if (_musicSource is not LocalFileMusicSource localSource)
                     throw new InvalidOperationException("The selected source cannot scan local music folders.");
-                availableSongs = await Task.Run(() => localSource.ScanSelectedDirectories(
-                    MusicFolderSelection.Roots(config), config.LocalFolderRules).ToArray());
+                var roots = MusicFolderSelection.Roots(config)
+                    .Concat(AppSettings.Load().GetMusicDirectories())
+                    .Where(path => !string.IsNullOrWhiteSpace(path))
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                var scan = await Task.Run(() => localSource.ScanLibrary(roots, config.LocalFolderRules));
+                if (scan.Issues.Count > 0)
+                    MessageBox.Show(this, LibraryScanIssueSummary.Format(scan.Issues),
+                        "Some library items are unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+                IReadOnlyList<Song> recent = config.ExcludeRecentQuizSongs
+                    ? await _history.GetRecentQuizSongsAsync(Math.Max(1, config.RecentQuizzesToExclude),
+                        config.SourceType, config.SourceDirectory, AppSettings.Load().ActiveProfileName)
+                    : [];
+                StartLocalReplay(session, config, historySongs, scan.Songs, recent);
+                return;
             }
 
             var resolvedSongs = new List<Song>(historySongs.Length);
@@ -338,6 +362,93 @@ public partial class MainWindow : Window
         {
             _replayingHistoryQuiz = false;
         }
+    }
+
+    private void StartLocalReplay(
+        QuizSession session, QuizConfig config, IReadOnlyList<Song> historySongs,
+        IReadOnlyList<Song> availableSongs, IReadOnlyList<Song> recentSongs)
+    {
+        var resolution = ReplayTrackResolver.Resolve(historySongs, availableSongs);
+        var slots = resolution.Slots.ToArray();
+        var missing = historySongs.Where((_, index) => slots[index] is null).ToArray();
+        var candidates = GetLocalReplayCandidates(config, availableSongs, slots.OfType<Song>().ToArray(), recentSongs);
+
+        if (missing.Length > 0)
+        {
+            var availableCount = slots.Length - missing.Length;
+            if (availableCount == 0 && candidates.Length < missing.Length)
+            {
+                MessageBox.Show(this,
+                    $"None of the original tracks are available, and only {candidates.Length} eligible replacement track(s) were found. {missing.Length} are needed.",
+                    "Replay unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var dialog = new ReplayMissingTracksWindow(missing, availableCount, candidates.Length) { Owner = this };
+            if (dialog.ShowDialog() != true)
+                return;
+            if (dialog.Choice == MissingTrackChoice.Replace)
+            {
+                var replacementIndex = 0;
+                for (var index = 0; index < slots.Length; index++)
+                    if (slots[index] is null)
+                        slots[index] = candidates[replacementIndex++];
+            }
+        }
+
+        var resolvedSongs = slots.OfType<Song>().ToArray();
+        var currentByPath = availableSongs.ToDictionary(song => song.SourcePath, StringComparer.OrdinalIgnoreCase);
+        var changedMetadata = resolvedSongs.Count(song =>
+            currentByPath.TryGetValue(song.SourcePath, out var current)
+            && (!string.Equals(song.Title, current.Title, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(song.Artist, current.Artist, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(song.Album, current.Album, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(song.Genre, current.Genre, StringComparison.OrdinalIgnoreCase)
+                || song.Year != current.Year));
+        if (resolution.RelocatedCount > 0 || changedMetadata > 0)
+        {
+            MessageBox.Show(this,
+                $"{resolution.RelocatedCount} original track(s) were found at new locations; {changedMetadata} have changed metadata. Original quiz metadata is retained for these tracks.",
+                "Replay tracks updated", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        var reserve = GetLocalReplayCandidates(config, availableSongs, resolvedSongs, recentSongs)
+            .Take(config.MulliganCount).ToArray();
+        config.SongCount = resolvedSongs.Length;
+        config.MulliganCount = reserve.Length;
+        if (reserve.Length < session.Config.MulliganCount)
+        {
+            MessageBox.Show(this,
+                $"Only {reserve.Length} eligible reserve track(s) are currently available; the replay will use that many mulligan(s).",
+                "Replay reserve changed", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        OnQuizRequested(config, resolvedSongs, reserve);
+    }
+
+    private static Song[] GetLocalReplayCandidates(
+        QuizConfig config, IReadOnlyList<Song> availableSongs, IReadOnlyList<Song> selectedSongs,
+        IReadOnlyList<Song> recentSongs)
+    {
+        var selectedArtists = selectedSongs.Select(song => song.Artist.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var roots = MusicFolderSelection.Roots(config).Where(path => !string.IsNullOrWhiteSpace(path)).ToArray();
+        var recentPaths = recentSongs.Where(song => !string.IsNullOrWhiteSpace(song.SourcePath))
+            .Select(song => song.SourcePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var recentIdentities = recentSongs.Select(SongIdentity.Key).OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var candidates = availableSongs
+            .Where(song => Path.GetDirectoryName(song.SourcePath) is { } directory
+                && roots.Any(root => MusicFolderSelection.IsSameOrDescendant(directory, root))
+                && MusicFolderSelection.IsIncluded(directory, config.LocalFolderRules))
+            .Where(song => MatchesReplayFilters(song, config))
+            .Where(song => !config.UniqueArtistsOnly || !selectedArtists.Contains(song.Artist.Trim()))
+            .Where(song => !recentPaths.Contains(song.SourcePath)
+                && (SongIdentity.Key(song) is not { } key || !recentIdentities.Contains(key)))
+            .ToArray();
+        Random.Shared.Shuffle(candidates);
+        var distinctCandidates = SongIdentity.Distinct(candidates, selectedSongs);
+        return config.UniqueArtistsOnly
+            ? distinctCandidates.DistinctBy(song => song.Artist.Trim(), StringComparer.OrdinalIgnoreCase).ToArray()
+            : distinctCandidates.ToArray();
     }
 
     private static Song CreateReplaySong(Song historySong, Song sourceSong)
@@ -399,18 +510,21 @@ public partial class MainWindow : Window
 
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
-        if (GuardActiveQuiz())
+        if (_currentView is not SettingsView && GuardNavigation())
             ShowSettings();
     }
 
     private void ShowSettings()
+        => Navigate(CreateSettingsView(), "Settings");
+
+    private SettingsView CreateSettingsView()
     {
         var view = new SettingsView(_history);
         view.SettingsSaved += RefreshQuizSetupSources;
         view.SettingsSaved += RefreshQuizSetupProfileSettings;
         view.SettingsSaved += RefreshNavigationProfile;
         view.ProfileChanged += OnHomeProfileChanged;
-        Navigate(view, "Settings");
+        return view;
     }
 
     private void RefreshNavigationProfile()
@@ -451,8 +565,27 @@ public partial class MainWindow : Window
             _ = setup.RefreshProfileSettingsAsync();
     }
 
-    private bool GuardActiveQuiz()
+    private bool CanLeaveSettings()
     {
+        if (_currentView is not SettingsView settings || !settings.HasUnsavedChanges())
+            return true;
+
+        var choice = MessageBox.Show(this, "Save your changes to Settings before leaving?",
+            "Unsaved settings", MessageBoxButton.YesNoCancel, MessageBoxImage.Question,
+            MessageBoxResult.Cancel);
+        if (choice == MessageBoxResult.Cancel)
+            return false;
+        if (choice == MessageBoxResult.Yes)
+            return settings.TrySaveSettings();
+
+        _currentView = CreateSettingsView();
+        return true;
+    }
+
+    private bool GuardNavigation()
+    {
+        if (!CanLeaveSettings())
+            return false;
         if (_activeQuiz is null)
             return true;
         if (MessageBox.Show(this, "A quiz is in progress. Abandon it and continue?",
@@ -468,7 +601,7 @@ public partial class MainWindow : Window
 
     private void OnBackClick(object sender, RoutedEventArgs e)
     {
-        if (!GuardActiveQuiz() || _viewHistory.Count == 0)
+        if (_viewHistory.Count == 0 || !GuardNavigation())
             return;
         var (view, title) = _viewHistory.Pop();
         _currentView = view;

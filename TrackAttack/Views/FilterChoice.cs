@@ -21,7 +21,7 @@ public sealed class FilterChoice(string value, int count, bool showSongCount = t
             OnPropertyChanged();
         }
     }
-    public string Display => ShowSongCount ? $"{Value} ({Count})" : Value;
+    public string Display => Count == 0 ? $"{Value} (no tracks)" : ShowSongCount ? $"{Value} ({Count})" : Value;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

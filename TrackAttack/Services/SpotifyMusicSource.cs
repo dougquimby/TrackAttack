@@ -1,7 +1,11 @@
+using System.Net;
 using SpotifyAPI.Web;
 using TrackAttack.Models;
 
 namespace TrackAttack.Services;
+
+public sealed class SpotifyPlaylistAccessException(string message, Exception innerException)
+    : InvalidOperationException(message, innerException);
 
 public sealed class SpotifyMusicSource
 {
@@ -26,14 +30,26 @@ public sealed class SpotifyMusicSource
             return cached;
 
         var songs = new List<Song>();
-        var page = await _client.Playlists.GetPlaylistItems(
-            playlistId, new PlaylistGetItemsRequest { Limit = 50 });
-        await foreach (var playlistItem in _client.Paginate(page))
+        try
         {
-            if ((playlistItem.Item ?? playlistItem.Track) is FullTrack track
-                && track.IsPlayable != false
-                && !string.IsNullOrWhiteSpace(track.Uri ?? track.Id))
-                songs.Add(MapTrack(track));
+            var page = await _client.Playlists.GetPlaylistItems(
+                playlistId, new PlaylistGetItemsRequest { Limit = 50 });
+            await foreach (var playlistItem in _client.Paginate(page))
+            {
+                if ((playlistItem.Item ?? playlistItem.Track) is FullTrack track
+                    && track.IsPlayable != false
+                    && !string.IsNullOrWhiteSpace(track.Uri ?? track.Id))
+                    songs.Add(MapTrack(track));
+            }
+        }
+        catch (APIException exception) when (exception.Response?.StatusCode == HttpStatusCode.Forbidden)
+        {
+            throw new SpotifyPlaylistAccessException(
+                "Spotify denied access to this playlist's tracks (403 Forbidden). Spotify's Web API only allows reading playlists you own or collaborate on.\n\n" +
+                "To use a saved playlist owned by someone else, copy its tracks into a new playlist in Spotify, then refresh playlists and select your copy. " +
+                "Alternatively, ask the owner to make you a collaborator.\n\n" +
+                "If you already own or collaborate on this playlist, check that the correct Spotify account is connected and that you still have access.",
+                exception);
         }
 
         var distinctSongs = songs

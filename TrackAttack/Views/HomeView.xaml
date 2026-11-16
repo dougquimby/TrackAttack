@@ -3,15 +3,52 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
         <Style x:Key="HomeActionCard" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#172338"/>
-            <Setter Property="BorderBrush" Value="#DCE4EF"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource StrongTextBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="16"/>
             <Setter Property="Margin" Value="0,0,12,12"/>
             <Setter Property="Height" Value="104"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="RecentSessionCard" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/>
+                            <Border x:Name="HoverOverlay" Background="#33000000" CornerRadius="5"
+                                    Opacity="0" IsHitTestVisible="False"/>
+                            <Border x:Name="FocusOutline" BorderBrush="#1677C8" BorderThickness="2"
+                                    CornerRadius="5" Opacity="0" IsHitTestVisible="False"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsEnabled" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="HoverOverlay" Property="Opacity" Value="1"/>
+                            </MultiTrigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="HoverOverlay" Property="Opacity" Value="1"/>
+                                <Setter TargetName="HoverOverlay" Property="Background" Value="#55000000"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="FocusOutline" Property="Opacity" Value="1"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.48"/>
+                                <Setter TargetName="HoverOverlay" Property="Opacity" Value="0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -57,13 +94,13 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="YOUR CONTROL ROOM" Foreground="#253248"
+                    <TextBlock Text="YOUR CONTROL ROOM" Foreground="{DynamicResource TextBrush}"
                                FontSize="18" FontWeight="Bold"/>
                     <TextBlock Text="Manage your library and review your progress."
-                               Foreground="#65738A" Margin="0,4,0,0"/>
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <TextBlock Text="PLAYING AS" Foreground="#65738A" FontSize="10"
+                    <TextBlock Text="PLAYING AS" Foreground="{DynamicResource MutedTextBrush}" FontSize="10"
                                FontWeight="Bold" Margin="0,0,0,4"/>
                     <ComboBox x:Name="ProfileCombo" Width="190" Height="30"
                               SelectionChanged="OnProfileSelectionChanged"/>
@@ -73,40 +110,40 @@
             <UniformGrid Columns="3" Rows="1" Margin="0,0,0,8">
                 <Button Style="{StaticResource HomeActionCard}" Click="OnMetadataClick">
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="✎  LIBRARY TOOLS" Foreground="#1677C8"
+                        <TextBlock Text="✎  LIBRARY TOOLS" Foreground="{DynamicResource AccentTextBrush}"
                                    FontSize="10" FontWeight="Bold"/>
                         <TextBlock Text="Fix library metadata" FontSize="16" FontWeight="SemiBold"
                                    Margin="0,8,0,0"/>
-                        <TextBlock Text="Clean up track details" Foreground="#65738A" FontSize="12"
+                        <TextBlock Text="Clean up track details" Foreground="{DynamicResource MutedTextBrush}" FontSize="12"
                                    Margin="0,3,0,0"/>
                     </StackPanel>
                 </Button>
                 <Button Style="{StaticResource HomeActionCard}" Click="OnHistoryClick">
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="◷  YOUR RECORD" Foreground="#1677C8"
+                        <TextBlock Text="◷  YOUR RECORD" Foreground="{DynamicResource AccentTextBrush}"
                                    FontSize="10" FontWeight="Bold"/>
                         <TextBlock Text="Quiz history" FontSize="16" FontWeight="SemiBold"
                                    Margin="0,8,0,0"/>
-                        <TextBlock Text="Scores and past rounds" Foreground="#65738A" FontSize="12"
+                        <TextBlock Text="Scores and past rounds" Foreground="{DynamicResource MutedTextBrush}" FontSize="12"
                                    Margin="0,3,0,0"/>
                     </StackPanel>
                 </Button>
                 <Button Style="{StaticResource HomeActionCard}" Margin="0,0,0,12" Click="OnSettingsClick">
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="⚙  PREFERENCES" Foreground="#1677C8"
+                        <TextBlock Text="⚙  PREFERENCES" Foreground="{DynamicResource AccentTextBrush}"
                                    FontSize="10" FontWeight="Bold"/>
                         <TextBlock Text="Settings" FontSize="16" FontWeight="SemiBold"
                                    Margin="0,8,0,0"/>
-                        <TextBlock Text="Tune your experience" Foreground="#65738A" FontSize="12"
+                        <TextBlock Text="Tune your experience" Foreground="{DynamicResource MutedTextBrush}" FontSize="12"
                                    Margin="0,3,0,0"/>
                     </StackPanel>
                 </Button>
             </UniformGrid>
 
-            <Button Background="Transparent" BorderThickness="0" Padding="0"
+            <Button Style="{StaticResource RecentSessionCard}" Background="Transparent" BorderThickness="0" Padding="0"
                     HorizontalContentAlignment="Stretch" Cursor="Hand"
                     AutomationProperties.Name="Open quiz history" Click="OnHistoryClick">
-                <Border Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
+                <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="20" Margin="0,10,0,16">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -114,19 +151,19 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Border Width="42" Height="42" CornerRadius="21" Background="#EAF4FD"
+                        <Border Width="42" Height="42" CornerRadius="21" Background="{DynamicResource IconSurfaceBrush}"
                                 VerticalAlignment="Center" Margin="0,0,14,0">
-                            <TextBlock Text="♫" Foreground="#1677C8" FontSize="22"
+                            <TextBlock Text="♫" Foreground="{DynamicResource AccentTextBrush}" FontSize="22"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="RECENT SESSION" Foreground="#8290A3"
+                            <TextBlock Text="RECENT SESSION" Foreground="{DynamicResource FaintTextBrush}"
                                        FontSize="10" FontWeight="Bold"/>
                             <TextBlock x:Name="LastQuizText" Text="Your quiz history will appear here after your first game."
-                                       Foreground="#253248" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextBrush}" FontSize="14" FontWeight="SemiBold"
                                        TextWrapping="Wrap" Margin="0,5,0,0"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="2" Text="LATEST" Foreground="#1677C8"
+                        <TextBlock Grid.Column="2" Text="LATEST" Foreground="{DynamicResource AccentTextBrush}"
                                    FontSize="10" FontWeight="Bold" VerticalAlignment="Center"
                                    Margin="16,0,0,0"/>
                     </Grid>

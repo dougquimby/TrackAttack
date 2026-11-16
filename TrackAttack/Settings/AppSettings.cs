@@ -30,8 +30,21 @@ public class AppSettings
     public bool WindowRestored { get; set; }
     public Rectangle WindowBounds { get; set; }
     public bool NavigationCollapsed { get; set; }
+    public bool DarkModeEnabled { get; set; }
 
     public static string FilePath => Path.Combine(AppDataPaths.DirectoryPath, "settings.json");
+
+    public List<string> GetMusicDirectories()
+        => new[] { MusicDirectory }.Concat(AdditionalMusicDirectories ?? [])
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    public void SetMusicDirectories(IEnumerable<string> directories)
+    {
+        var folders = directories.ToList();
+        MusicDirectory = folders.FirstOrDefault() ?? string.Empty;
+        AdditionalMusicDirectories = folders.Skip(1).ToList();
+    }
 
     public static AppSettings Load()
     {
@@ -138,6 +151,7 @@ public class AppSettings
                 FuzzySongTitleMatching = FuzzySongTitleMatching,
                 IgnorePunctuation = IgnorePunctuation,
                 SkipOnCorrectGuess = SkipOnCorrectGuess,
+                DarkModeEnabled = DarkModeEnabled,
                 ExcludeRecentQuizSongs = ExcludeRecentQuizSongs,
                 RecentQuizzesToExclude = RecentQuizzesToExclude
             });
@@ -149,6 +163,9 @@ public class AppSettings
             .ToList();
         if (Profiles.Count == 0)
             Profiles.Add(new QuizProfile());
+
+        foreach (var profile in Profiles)
+            profile.DarkModeEnabled ??= DarkModeEnabled;
 
         var activeProfile = Profiles.FirstOrDefault(profile =>
             string.Equals(profile.Name, ActiveProfileName, StringComparison.OrdinalIgnoreCase));
@@ -162,6 +179,10 @@ public class AppSettings
         => Profiles.First(profile =>
             string.Equals(profile.Name, ActiveProfileName, StringComparison.OrdinalIgnoreCase));
 
+    public LocalQuizPreset? GetLastQuizSetup() => GetActiveProfile().LastQuizSetup;
+
+    public void SetLastQuizSetup(LocalQuizPreset setup) => GetActiveProfile().LastQuizSetup = setup;
+
     private void StoreActiveProfileSettings()
     {
         var profile = GetActiveProfile();
@@ -174,6 +195,7 @@ public class AppSettings
         profile.FuzzySongTitleMatching = FuzzySongTitleMatching;
         profile.IgnorePunctuation = IgnorePunctuation;
         profile.SkipOnCorrectGuess = SkipOnCorrectGuess;
+        profile.DarkModeEnabled = DarkModeEnabled;
         profile.ExcludeRecentQuizSongs = ExcludeRecentQuizSongs;
         profile.RecentQuizzesToExclude = RecentQuizzesToExclude;
     }
@@ -189,6 +211,7 @@ public class AppSettings
         FuzzySongTitleMatching = profile.FuzzySongTitleMatching;
         IgnorePunctuation = profile.IgnorePunctuation;
         SkipOnCorrectGuess = profile.SkipOnCorrectGuess;
+        DarkModeEnabled = profile.DarkModeEnabled ?? DarkModeEnabled;
         ExcludeRecentQuizSongs = profile.ExcludeRecentQuizSongs;
         RecentQuizzesToExclude = profile.RecentQuizzesToExclude;
     }
@@ -207,6 +230,7 @@ public class AppSettings
             FuzzySongTitleMatching = profile.FuzzySongTitleMatching,
             IgnorePunctuation = profile.IgnorePunctuation,
             SkipOnCorrectGuess = profile.SkipOnCorrectGuess,
+            DarkModeEnabled = profile.DarkModeEnabled,
             ExcludeRecentQuizSongs = profile.ExcludeRecentQuizSongs,
             RecentQuizzesToExclude = profile.RecentQuizzesToExclude
         };

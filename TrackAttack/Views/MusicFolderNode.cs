@@ -8,13 +8,27 @@ namespace TrackAttack.Views;
 internal sealed class MusicFolderNode : INotifyPropertyChanged
 {
     private bool _included;
+    private bool _isExpanded;
 
     public string Path { get; }
     public string Name { get; }
+    public string DisplayName => IsAvailable ? Name : $"{Name} (unavailable)";
+    public bool IsAvailable { get; private set; } = true;
     public List<MusicFolderNode> Children { get; } = [];
     public MusicFolderNode? Parent { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
     public event Action? SelectionChanged;
+
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            OnPropertyChanged();
+        }
+    }
 
     public bool? IsChecked
     {
@@ -37,25 +51,43 @@ internal sealed class MusicFolderNode : INotifyPropertyChanged
         _included = MusicFolderSelection.IsIncluded(path, rules);
     }
 
-    public static MusicFolderNode Create(string path, IReadOnlyList<MusicFolderRule>? rules)
+    public static MusicFolderNode Create(string path, IReadOnlyList<MusicFolderRule>? rules,
+        ICollection<LibraryScanIssue> issues)
     {
         var fullPath = System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(path));
-        if (!Directory.Exists(fullPath))
-            throw new DirectoryNotFoundException($"The music folder does not exist: {fullPath}");
-        return CreateNode(fullPath, null, rules);
+        return CreateNode(fullPath, null, rules, issues);
     }
 
     private static MusicFolderNode CreateNode(
-        string path, MusicFolderNode? parent, IReadOnlyList<MusicFolderRule>? rules)
+        string path, MusicFolderNode? parent, IReadOnlyList<MusicFolderRule>? rules,
+        ICollection<LibraryScanIssue> issues)
     {
         var node = new MusicFolderNode(path, parent, rules);
-        foreach (var child in Directory.EnumerateDirectories(path).OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
+        try
         {
-            if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
-                node.Children.Add(CreateNode(child, node, rules));
+            foreach (var child in Directory.EnumerateDirectories(path).OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
+                        node.Children.Add(CreateNode(child, node, rules, issues));
+                }
+                catch (Exception exception) when (LocalFileMusicSource.IsFileAccessFailure(exception))
+                {
+                    issues.Add(new LibraryScanIssue(child, exception.Message));
+                }
+            }
+        }
+        catch (Exception exception) when (LocalFileMusicSource.IsFileAccessFailure(exception))
+        {
+            node.IsAvailable = false;
+            issues.Add(new LibraryScanIssue(path, exception.Message));
         }
         return node;
     }
+
+    public IEnumerable<string> Paths()
+        => new[] { Path }.Concat(Children.SelectMany(child => child.Paths()));
 
     public void AddRules(List<MusicFolderRule> rules, bool inherited = true)
     {

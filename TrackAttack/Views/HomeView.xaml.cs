@@ -68,7 +68,7 @@ public partial class HomeView : UserControl
         => config.QuizMode == QuizMode.GuessBoth
             || config.SongTitlePoints.HasValue || config.ArtistPoints.HasValue
             || config.MulliganPenalty > 0
-            || config.ExtenderPenalty > 0 || config.HintPenalty > 0;
+            || config.ExtenderPenalty > 0 || config.ClipRerollPenalty > 0 || config.HintPenalty > 0;
 
     private void OnNewQuizClick(object sender, RoutedEventArgs e) => NewQuizRequested?.Invoke();
     private void OnMetadataClick(object sender, RoutedEventArgs e) => MetadataRequested?.Invoke();
@@ -84,6 +84,7 @@ public partial class HomeView : UserControl
         try
         {
             _settings.ActivateProfile(profile.Name);
+            ThemeManager.Apply(_settings.DarkModeEnabled);
             _ = LoadLastQuizAsync();
             ProfileChanged?.Invoke();
         }

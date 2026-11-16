@@ -9,6 +9,7 @@ public class QuizSession
     public List<SongResult> Results { get; set; } = [];
     public int? MulligansUsed { get; set; }
     public int? ExtendersUsed { get; set; }
+    public int? ClipRerollsUsed { get; set; }
     public int? HintsUsed { get; set; }
     public int Score => Results.Count(r => r.IsCorrect);
     public double TotalPoints => Results.Sum(result => CalculatePoints(result, Config));

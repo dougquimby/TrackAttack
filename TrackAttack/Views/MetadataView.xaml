@@ -56,7 +56,7 @@
                       Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
             <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal"
                         VerticalAlignment="Center" Margin="0,5,0,0">
-                <TextBlock Text="Minimum score to auto-stage (0–100)" Foreground="#65738A"
+                <TextBlock Text="Minimum score to auto-stage (0–100)" Foreground="{DynamicResource MutedTextBrush}"
                            VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBox x:Name="MinimumMatchScoreText" Text="90" Width="52" Height="28"
                          VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
@@ -78,10 +78,10 @@
         <Grid Grid.Row="2" Margin="0,10,0,6">
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
             <DockPanel LastChildFill="True">
-                <TextBlock x:Name="CandidateTargetText" DockPanel.Dock="Right" Foreground="#65738A"
+                <TextBlock x:Name="CandidateTargetText" DockPanel.Dock="Right" Foreground="{DynamicResource MutedTextBrush}"
                            TextTrimming="CharacterEllipsis" Margin="8,0,2,5"/>
                 <TextBlock Text="CATALOG CANDIDATES  ·  Select a result and choose fields to stage; staging never writes files."
-                           FontSize="12" FontWeight="Bold" Foreground="#65738A" Margin="2,0,0,5"/>
+                           FontSize="12" FontWeight="Bold" Foreground="{DynamicResource MutedTextBrush}" Margin="2,0,0,5"/>
             </DockPanel>
             <CheckBox x:Name="PropagateAlbumFieldsCheck" Grid.Row="1"
                       Content="Also stage checked Genre/Year to tracks with the same original album and artist"
@@ -159,7 +159,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="#65738A"
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}"
                        Text="Scan a folder to review its metadata." TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button x:Name="StageCandidateButton" Content="Stage checked fields"
@@ -169,7 +169,7 @@
                         Click="OnUndoClick"/>
             </StackPanel>
         </Grid>
-        <TextBlock x:Name="SummaryText" Grid.Row="4" Margin="0,6,0,0" Foreground="#65738A"
+        <TextBlock x:Name="SummaryText" Grid.Row="4" Margin="0,6,0,0" Foreground="{DynamicResource MutedTextBrush}"
                    Text="0 audio file(s) scanned; 0 need review; 0 change(s) staged."/>
     </Grid>
 </UserControl>

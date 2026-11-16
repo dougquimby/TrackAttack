@@ -13,8 +13,11 @@ public sealed class QuizProfile
     public bool FuzzySongTitleMatching { get; set; } = true;
     public bool IgnorePunctuation { get; set; } = true;
     public bool SkipOnCorrectGuess { get; set; } = true;
+    // Null identifies profiles saved before appearance became profile-specific.
+    public bool? DarkModeEnabled { get; set; }
     public bool ExcludeRecentQuizSongs { get; set; }
     public int RecentQuizzesToExclude { get; set; } = 5;
+    public LocalQuizPreset? LastQuizSetup { get; set; }
 
     public override string ToString() => Name;
 }

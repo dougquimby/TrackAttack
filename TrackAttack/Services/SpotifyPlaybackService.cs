@@ -273,10 +273,7 @@ public sealed class SpotifyPlaybackService : IPlaybackService
 
     private async Task<SpotifyAPI.Web.Device> GetDeviceAsync()
     {
-        var response = await _spotify.Player.GetAvailableDevices();
-        var device = response.Devices.FirstOrDefault(item => item.IsActive && !item.IsRestricted)
-            ?? response.Devices.FirstOrDefault(item => !item.IsRestricted);
-        return device is { Id: not null } ? device : throw new InvalidOperationException(
+        return await SpotifyService.GetAvailablePlaybackDeviceAsync(_spotify) ?? throw new InvalidOperationException(
             "No Spotify playback device is available. Open Spotify on a device and try again.");
     }
 

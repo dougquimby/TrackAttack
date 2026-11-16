@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Microsoft.Win32;
 using TrackAttack.Models;
 using TrackAttack.Services;
@@ -64,12 +65,7 @@ public partial class MetadataView : UserControl
         try
         {
             var progress = new Progress<int>(count => StatusText.Text = $"Scanning… {count:N0} files checked");
-            var scanned = await _manager.ScanAsync(folder, progress);
-            _entries.Clear();
-            foreach (var entry in scanned)
-                _entries.Add(entry);
-            ApplyFilter();
-            UpdateSummary();
+            await ScanFolderAsync(folder, progress);
             StatusText.Text = $"Scan complete: {_entries.Count:N0} audio files. Edits and suggestions remain staged until Apply Changes.";
         }
         catch (Exception ex)
@@ -260,7 +256,7 @@ public partial class MetadataView : UserControl
         {
             await _manager.ApplyAsync(changed);
             StatusText.Text = $"Applied metadata changes to {changed.Length} file(s).";
-            await ScanCurrentFolderAsync();
+            await ScanFolderAsync(FolderText.Text.Trim());
         }
         catch (Exception ex)
         {
@@ -285,7 +281,7 @@ public partial class MetadataView : UserControl
         try
         {
             await _manager.UndoLastApplyAsync();
-            await ScanCurrentFolderAsync();
+            await ScanFolderAsync(FolderText.Text.Trim());
             StatusText.Text = "Previous metadata changes were restored.";
         }
         catch (Exception ex)
@@ -337,13 +333,24 @@ public partial class MetadataView : UserControl
         UpdateSummary();
     }
 
-    private async Task ScanCurrentFolderAsync()
+    private async Task ScanFolderAsync(string folder, IProgress<int>? progress = null)
     {
-        var scanned = await _manager.ScanAsync(FolderText.Text.Trim());
-        _entries.Clear();
-        foreach (var entry in scanned) _entries.Add(entry);
-        ApplyFilter();
-        UpdateSummary();
+        Cursor = Cursors.Wait;
+        ForceCursor = true;
+        try
+        {
+            var scanned = await _manager.ScanAsync(folder, progress);
+            _entries.Clear();
+            foreach (var entry in scanned)
+                _entries.Add(entry);
+            ApplyFilter();
+            UpdateSummary();
+        }
+        finally
+        {
+            ClearValue(CursorProperty);
+            ClearValue(ForceCursorProperty);
+        }
     }
 
     private void UpdateSummary()

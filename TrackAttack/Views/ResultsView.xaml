@@ -8,11 +8,13 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <DockPanel>
-            <Button Content="Play Again" DockPanel.Dock="Right" Style="{StaticResource ActionButton}"
-                    MinWidth="130" Click="OnPlayAgainClick"/>
-        </DockPanel>
-        <Border Grid.Row="1" Background="White" BorderBrush="#DCE4EF" BorderThickness="1"
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,12">
+            <Button Content="Quiz History" MinWidth="120" Height="36" Margin="0,0,8,0"
+                    Click="OnHistoryClick"/>
+            <Button Content="Play Again" Style="{StaticResource ActionButton}"
+                    MinWidth="120" Height="36" FontWeight="SemiBold" Click="OnPlayAgainClick"/>
+        </StackPanel>
+        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1"
                 CornerRadius="8" Padding="18" Margin="0,0,0,10">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -28,32 +30,37 @@
                 <TextBlock x:Name="PerformanceMessageText" Grid.Column="2" FontSize="21" FontWeight="Bold"
                            VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,16,0"/>
                 <TextBlock x:Name="DurationText" Grid.Column="3" FontSize="14" VerticalAlignment="Center"
-                           Foreground="#65738A" TextAlignment="Right"/>
+                           Foreground="{DynamicResource MutedTextBrush}" TextAlignment="Right"/>
             </Grid>
         </Border>
         <TextBlock Grid.Row="2" Text="SONG-BY-SONG RESULTS" FontSize="12" FontWeight="Bold"
-                   Foreground="#253248" Margin="0,0,0,8"/>
+                   Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"/>
         <DataGrid x:Name="ResultsGrid" Grid.Row="3" AutoGenerateColumns="False" IsReadOnly="True">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding Status}" Value="Correct">
-                            <Setter Property="Background" Value="#E1F2E8"/>
-                            <Setter Property="Foreground" Value="#245B38"/>
+                            <Setter Property="Background" Value="{DynamicResource CorrectSurfaceBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource CorrectTextBrush}"/>
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Status}" Value="Partial">
-                            <Setter Property="Background" Value="#FFF2D6"/>
-                            <Setter Property="Foreground" Value="#74520A"/>
+                            <Setter Property="Background" Value="{DynamicResource PartialSurfaceBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource PartialTextBrush}"/>
                         </DataTrigger>
                         <DataTrigger Binding="{Binding Status}" Value="Missed">
-                            <Setter Property="Background" Value="#FCE6E8"/>
-                            <Setter Property="Foreground" Value="#8A3540"/>
+                            <Setter Property="Background" Value="{DynamicResource MissedSurfaceBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource MissedTextBrush}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Status}" Value="Mulligan">
+                            <Setter Property="Background" Value="{DynamicResource MulliganSurfaceBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource MulliganTextBrush}"/>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="45"/>
+                <DataGridTextColumn Header="Result" Binding="{Binding Status}" Width="90"/>
                 <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
                 <DataGridTextColumn Header="Artist" Binding="{Binding Artist}" Width="*"/>
                 <DataGridTextColumn Header="Your title guess" Binding="{Binding Guess}" Width="*"/>

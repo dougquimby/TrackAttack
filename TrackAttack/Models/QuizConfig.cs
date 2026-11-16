@@ -12,6 +12,9 @@ public class QuizConfig
     public TimeSpan? MinSongDuration { get; set; }
     public TimeSpan? MaxSongDuration { get; set; }
     public int SongCount { get; set; } = 20;
+    public bool UniqueArtistsOnly { get; set; }
+    public bool ExcludeRecentQuizSongs { get; set; }
+    public int RecentQuizzesToExclude { get; set; } = 5;
     public TimerMode TimerMode { get; set; } = TimerMode.TotalQuiz;
     public TimeSpan TotalTime { get; set; } = TimeSpan.FromMinutes(10);
     public TimeSpan TimePerSong { get; set; } = TimeSpan.FromSeconds(30);
@@ -35,11 +38,13 @@ public class QuizConfig
     public bool SkipOnCorrectGuess { get; set; } = true;
     public int MulliganCount { get; set; } = 0;
     public int ExtenderCount { get; set; } = 0;
+    public int ClipRerollCount { get; set; }
     public int HintCount { get; set; } = 0;
     public List<HintType> EnabledHintTypes { get; set; } = Enum.GetValues<HintType>().ToList();
     public bool ScrambleHintsPerWord { get; set; } = true;
     public double MulliganPenalty { get; set; }
     public double ExtenderPenalty { get; set; }
+    public double ClipRerollPenalty { get; set; }
     public double HintPenalty { get; set; }
     public double MaxPowerPenaltyPerSong { get; set; } = 1;
 

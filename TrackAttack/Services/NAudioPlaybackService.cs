@@ -20,8 +20,12 @@ public class NAudioPlaybackService : IPlaybackService
     private int _clipTimerGeneration;
     private TimeSpan _positionAnchor;
     private long _positionClockStarted;
+    private (Song Song, TimeSpan Start, TimeSpan Duration, ClipPlaybackMode Mode)? _failedClip;
+    private (Song Song, TimeSpan Start, TimeSpan Duration, ClipPlaybackMode Mode)? _playingClip;
 
     public event EventHandler? ClipEnded;
+    public event Action<Song, string>? PlaybackFailed;
+    public event Action<Song>? PlaybackStarted;
 
     // Engine sets this after a correct guess when SkipOnCorrectGuess is false,
     // so the clip finishes its current cycle and fires ClipEnded instead of looping.
@@ -63,28 +67,70 @@ public class NAudioPlaybackService : IPlaybackService
         lock (_lock)
         {
             StopInternal();
+            _failedClip = null;
+            try
+            {
+                if (!Uri.TryCreate(song.SourcePath, UriKind.Absolute, out var uri)
+                    || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                {
+                    if (!File.Exists(song.SourcePath))
+                        throw new FileNotFoundException("The audio file is unavailable.");
+                }
+                _reader = OpenAudioFile(song.SourcePath);
 
-            _reader = OpenAudioFile(song.SourcePath);
+                if (startTime + duration > _reader.TotalTime)
+                    startTime = _reader.TotalTime > duration ? _reader.TotalTime - duration : TimeSpan.Zero;
 
-            // Clamp start time so the clip fits within the file
-            if (startTime + duration > _reader.TotalTime)
-                startTime = _reader.TotalTime > duration ? _reader.TotalTime - duration : TimeSpan.Zero;
+                _reader.CurrentTime = startTime;
+                _clipStart = startTime;
+                _clipDuration = duration;
+                _playbackMode = mode;
+                ShouldStopLooping = false;
+                _positionAnchor = TimeSpan.Zero;
 
-            _reader.CurrentTime = startTime;
-            _clipStart = startTime;
-            _clipDuration = duration;
-            _playbackMode = mode;
-            ShouldStopLooping = false;
-            _positionAnchor = TimeSpan.Zero;
-
-            _output = new WaveOut();
-            _volumeStream = new WaveChannel32(_reader) { Volume = _volume };
-            _output.Init(_volumeStream);
-            _output.Play();
-            _positionClockStarted = Stopwatch.GetTimestamp();
-
-            StartClipTimer(duration);
+                _output = new WaveOut();
+                _output.PlaybackStopped += OnPlaybackStopped;
+                _volumeStream = new WaveChannel32(_reader) { Volume = _volume };
+                _output.Init(_volumeStream);
+                _playingClip = (song, startTime, duration, mode);
+                _output.Play();
+                _positionClockStarted = Stopwatch.GetTimestamp();
+                StartClipTimer(duration);
+            }
+            catch (Exception exception) when (LocalFileMusicSource.IsFileAccessFailure(exception)
+                || exception is NotSupportedException or System.Runtime.InteropServices.COMException)
+            {
+                StopInternal();
+                if (PlaybackFailed is null)
+                    throw;
+                _failedClip = (song, startTime, duration, mode);
+                PlaybackFailed.Invoke(song, "The track could not be played. It may have moved or become inaccessible.");
+                return;
+            }
+            PlaybackStarted?.Invoke(song);
         }
+    }
+
+    private void OnPlaybackStopped(object? sender, StoppedEventArgs e)
+    {
+        if (e.Exception is null)
+            return;
+
+        Song song;
+        lock (_lock)
+        {
+            if (!ReferenceEquals(sender, _output) || _playingClip is not { } clip)
+                return;
+            _clipTimerGeneration++;
+            _clipTimer?.Stop();
+            _failedClip = clip;
+            _playingClip = null;
+            song = clip.Song;
+        }
+        if (PlaybackFailed is { } handler)
+            handler(song, "Playback stopped unexpectedly. The track may have become inaccessible.");
+        else
+            Trace.TraceError($"Playback stopped unexpectedly: {e.Exception}");
     }
 
     private void StartClipTimer(TimeSpan duration)
@@ -147,7 +193,13 @@ public class NAudioPlaybackService : IPlaybackService
     {
         lock (_lock)
         {
-            if (_reader == null || _output == null) return;
+            if (_failedClip is { } clip)
+            {
+                PlayClip(clip.Song, clip.Start, clip.Duration, clip.Mode);
+                return;
+            }
+            if (_reader == null || _output == null)
+                return;
             _clipTimer?.Stop();
             _clipTimer?.Dispose();
             _reader.CurrentTime = _clipStart;
@@ -193,6 +245,8 @@ public class NAudioPlaybackService : IPlaybackService
             var currentPosition = GetCurrentPosition();
             if (newDuration <= currentPosition) return;
             _clipDuration = newDuration;
+            if (_playingClip is { } clip)
+                _playingClip = (clip.Song, clip.Start, newDuration, clip.Mode);
             if (_output.PlaybackState == PlaybackState.Playing)
             {
                 var remaining = newDuration - currentPosition;
@@ -208,16 +262,20 @@ public class NAudioPlaybackService : IPlaybackService
         lock (_lock)
         {
             StopInternal();
+            _failedClip = null;
         }
     }
 
     private void StopInternal()
     {
+        _playingClip = null;
         _clipTimer?.Stop();
         _clipTimer?.Dispose();
         _clipTimer = null;
         _clipTimerGeneration++;
 
+        if (_output is not null)
+            _output.PlaybackStopped -= OnPlaybackStopped;
         _output?.Stop();
         _output?.Dispose();
         _output = null;

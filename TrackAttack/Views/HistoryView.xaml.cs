@@ -66,6 +66,7 @@ public partial class HistoryView : UserControl
         _history = history;
         _activeProfileName = AppSettings.Load().ActiveProfileName;
         InitializeComponent();
+        UpdateSpoilerToggle();
         Loaded += async (_, _) => await LoadAsync();
     }
 
@@ -112,12 +113,10 @@ public partial class HistoryView : UserControl
             ReplayQuizButton.IsEnabled = false;
             DeleteQuizButton.IsEnabled = false;
             ToggleSpoilersButton.IsEnabled = false;
-            _spoilerMode = SpoilerMode.BlurAll;
             UpdateSpoilerToggle();
             return;
         }
 
-        _spoilerMode = SpoilerMode.BlurAll;
         DetailHeading.Text = $"{row.Title} — {row.Score} ({row.Percentage})";
         DetailGrid.ItemsSource = CreateDetailRows(row.Session);
         UpdateLeaderboard(row.Session);
@@ -149,38 +148,39 @@ public partial class HistoryView : UserControl
     }
 
     private HistoryDetailRow[] CreateDetailRows(QuizSession session)
-        => session.Results.Select((result, index) =>
-        {
-            var titleGuessed = session.Config.QuizMode != QuizMode.GuessArtist && result.IsCorrect;
-            var artistGuessed = session.Config.QuizMode == QuizMode.GuessArtist
-                ? result.IsCorrect
-                : result.ArtistCorrect;
+        => session.Results.SelectMany((result, index) => CreateDetailRows(session, result, index + 1)).ToArray();
 
-            return new HistoryDetailRow(
-                index + 1,
-                result.Song.Title,
-                result.Song.DisplayArtistYear,
-                result.IsCorrect ? result.UserGuess ?? string.Empty : string.Empty,
-                result.ArtistCorrect ? result.ArtistGuess ?? string.Empty : string.Empty,
-                $"{QuizSession.CalculatePoints(result, session.Config):F1}",
-                result.IsCorrect && (session.Config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
-                    ? "Correct"
-                    : result.IsCorrect || result.ArtistCorrect ? "Partial" : "Missed",
-                ShouldBlur(titleGuessed),
-                ShouldBlur(artistGuessed),
-                _spoilerMode == SpoilerMode.BlurAll
-                    && !string.Equals(session.ProfileName, _activeProfileName, StringComparison.OrdinalIgnoreCase));
-        }).ToArray();
+    private IEnumerable<HistoryDetailRow> CreateDetailRows(QuizSession session, SongResult result, int number)
+    {
+        foreach (var song in result.MulliganSongs)
+            yield return new HistoryDetailRow(number, song.Title, song.DisplayArtistYear, "", "", "", "Mulligan",
+                ShouldBlur(false), ShouldBlur(false), false);
+
+        var titleGuessed = session.Config.QuizMode != QuizMode.GuessArtist && result.IsCorrect;
+        var artistGuessed = session.Config.QuizMode == QuizMode.GuessArtist
+            ? result.IsCorrect
+            : result.ArtistCorrect;
+
+        yield return new HistoryDetailRow(
+            number,
+            result.Song.Title,
+            result.Song.DisplayArtistYear,
+            result.IsCorrect ? result.UserGuess ?? string.Empty : string.Empty,
+            result.ArtistCorrect ? result.ArtistGuess ?? string.Empty : string.Empty,
+            $"{QuizSession.CalculatePoints(result, session.Config):F1}",
+            result.IsCorrect && (session.Config.QuizMode != QuizMode.GuessBoth || result.ArtistCorrect)
+                ? "Correct"
+                : result.IsCorrect || result.ArtistCorrect ? "Partial" : "Missed",
+            ShouldBlur(titleGuessed),
+            ShouldBlur(artistGuessed),
+            _spoilerMode == SpoilerMode.BlurAll
+                && !string.Equals(session.ProfileName, _activeProfileName, StringComparison.OrdinalIgnoreCase));
+    }
 
     private void UpdateLeaderboard(QuizSession selectedSession)
     {
         var matches = _allRows
             .Where(row => IsSameQuiz(row.Session, selectedSession))
-            .GroupBy(row => row.ProfileName, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(row => row.Session.Percentage)
-                .ThenByDescending(row => row.Session.TotalPoints)
-                .First())
             .OrderByDescending(row => row.Session.Percentage)
             .ThenByDescending(row => row.Session.TotalPoints)
             .ThenBy(row => row.Session.Date)
@@ -293,7 +293,6 @@ public partial class HistoryView : UserControl
             HistoryGrid.ItemsSource = null;
             DetailGrid.ItemsSource = null;
             DetailHeading.Text = "Select a quiz to review its answers";
-            _spoilerMode = SpoilerMode.BlurAll;
             UpdateSpoilerToggle();
             ResetSettingsSummary();
             await LoadAsync();
@@ -310,14 +309,14 @@ public partial class HistoryView : UserControl
     private void ResetSettingsSummary()
     {
         SettingsSummaryPanel.Children.Clear();
-        SettingsSummaryPanel.Children.Add(new TextBlock
+        var message = new TextBlock
         {
             Text = "Select a quiz to see its settings and power usage.",
-            Foreground = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(0x34, 0x44, 0x5C)),
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap
-        });
+        };
+        message.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryTextBrush");
+        SettingsSummaryPanel.Children.Add(message);
     }
 
     private void ShowSettingsSummary(QuizSession session)
@@ -348,6 +347,7 @@ public partial class HistoryView : UserControl
         var powers = string.Join("; ",
             FormatPower("Mulligan", config.MulliganCount, session.MulligansUsed),
             FormatPower("Extender", config.ExtenderCount, session.ExtendersUsed),
+            FormatPower("Clip reroll", config.ClipRerollCount, session.ClipRerollsUsed),
             FormatPower("Hint", config.HintCount, session.HintsUsed));
         var hintTypes = string.Join(", ", (config.EnabledHintTypes ?? [])
             .Select(hint => hint switch
@@ -366,7 +366,7 @@ public partial class HistoryView : UserControl
             var pointsBeforePenalty = QuizSession.CalculateEarnedPoints(result, config);
             return Math.Max(0, pointsBeforePenalty - QuizSession.CalculatePoints(result, config));
         });
-        var powerCosts = $"Mulligan {config.MulliganPenalty:F1} pts; Extender {config.ExtenderPenalty:F1} pts; Hint {config.HintPenalty:F1} pts";
+        var powerCosts = $"Mulligan {config.MulliganPenalty:F1} pts; Extender {config.ExtenderPenalty:F1} pts; Clip reroll {config.ClipRerollPenalty:F1} pts; Hint {config.HintPenalty:F1} pts";
         var filters = new List<string>();
         SettingsSummaryPanel.Children.Clear();
         AddSettingsSection("QUIZ RULES",
@@ -404,6 +404,10 @@ public partial class HistoryView : UserControl
             poolRows.Add(("Genres / years", string.Join("\n", filters)));
         if (config.MinSongDuration is not null || config.MaxSongDuration is not null)
             poolRows.Add(("Track length", $"{config.MinSongDuration?.TotalSeconds.ToString("0") ?? "any"}–{config.MaxSongDuration?.TotalSeconds.ToString("0") ?? "any"} seconds"));
+        if (config.UniqueArtistsOnly)
+            poolRows.Add(("Artists", "One track per artist"));
+        if (config.ExcludeRecentQuizSongs)
+            poolRows.Add(("Recent quizzes", $"Exclude tracks from the latest {config.RecentQuizzesToExclude}"));
         if (poolRows.Count == 0)
             poolRows.Add(("Filters", "All tracks"));
         AddSettingsSection("SONG POOL", poolRows.ToArray());
@@ -420,15 +424,15 @@ public partial class HistoryView : UserControl
     private void AddSettingsSection(string heading, params (string Label, string Value)[] rows)
     {
         var content = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
-        content.Children.Add(new TextBlock
+        var title = new TextBlock
         {
             Text = heading,
             FontSize = 10,
             FontWeight = FontWeights.Bold,
-            Foreground = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(0x65, 0x73, 0x8A)),
             Margin = new Thickness(0, 0, 0, 5)
-        });
+        };
+        title.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
+        content.Children.Add(title);
 
         var rowsGrid = new Grid();
         rowsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
@@ -441,11 +445,10 @@ public partial class HistoryView : UserControl
                 Text = rows[index].Label,
                 FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0x65, 0x73, 0x8A)),
                 Margin = new Thickness(0, 0, 8, 5),
                 TextWrapping = TextWrapping.Wrap
             };
+            label.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
             Grid.SetRow(label, index);
             rowsGrid.Children.Add(label);
 
@@ -454,11 +457,10 @@ public partial class HistoryView : UserControl
                 Text = rows[index].Value,
                 FontSize = 12,
                 LineHeight = 18,
-                Foreground = new System.Windows.Media.SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(0x34, 0x44, 0x5C)),
                 Margin = new Thickness(0, 0, 0, 5),
                 TextWrapping = TextWrapping.Wrap
             };
+            value.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryTextBrush");
             Grid.SetRow(value, index);
             Grid.SetColumn(value, 1);
             rowsGrid.Children.Add(value);

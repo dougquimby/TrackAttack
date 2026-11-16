@@ -7,6 +7,9 @@ namespace TrackAttack.Services;
 /// aspect of matching, so new strictness settings can be added over time
 /// without changing the AnswerMatcher call sites again. Guess matching is
 /// accent-insensitive, so letters such as "ñ" and "ÿ" match "n" and "y".
+/// Apostrophes are ignored, and "&amp;" matches "and" in either mode.
+/// Song-title matching also treats "(remix)", "(new)", and "(new version)"
+/// as optional in either mode.
 /// </summary>
 public class GuessMatchingOptions
 {

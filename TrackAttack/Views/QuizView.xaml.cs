@@ -77,6 +77,11 @@ public partial class QuizView : UserControl, IDisposable
         _lastAudibleVolume = volume > 0 ? (float)volume : 1f;
         _isInitializingVolume = false;
         UpdateMuteButton();
+        if (_playback is NAudioPlaybackService localPlayback)
+        {
+            localPlayback.PlaybackFailed += OnLocalPlaybackFailed;
+            localPlayback.PlaybackStarted += OnLocalPlaybackStarted;
+        }
         if (_playback is SpotifyPlaybackService spotifyPlayback)
         {
             spotifyPlayback.PlaybackFailed += OnPlaybackFailed;
@@ -89,10 +94,12 @@ public partial class QuizView : UserControl, IDisposable
         _engine.SongCorrect += OnSongCorrect;
         _engine.ArtistBonusGuessed += OnArtistGuessed;
         _engine.SongPassed += OnSongPassed;
+        _engine.SongTimedOut += OnSongTimedOut;
         _engine.TimerTick += OnTimerTick;
         _engine.QuizEnded += OnQuizEnded;
         _engine.MulliganUsed += OnMulliganUsed;
         _engine.ExtenderUsed += (_, _) => UpdatePowers();
+        _engine.ClipRerollUsed += OnClipRerollUsed;
         _engine.HintUsed += OnHintUsed;
         _progressTimer.Tick += OnProgressTick;
         TimerText.Text = FormatTime(_engine.RemainingSeconds);
@@ -126,8 +133,12 @@ public partial class QuizView : UserControl, IDisposable
         AnswerText.Clear();
         FeedbackText.Text = string.Empty;
         _playbackFailureMessage = null;
+        if (_playback is NAudioPlaybackService)
+            PlaybackStatusText.Visibility = Visibility.Collapsed;
         HintsList.ItemsSource = _hintsBySong.TryGetValue(e.Song.SourcePath, out var hints) ? hints.ToArray() : null;
         UpdatePrompt();
+        if (AnswerText.IsEnabled)
+            AnswerText.Focus();
         ClipProgressFill.Width = 0;
         ClipPauseButton.Content = "Ⅱ";
         ClipPauseButton.ToolTip = "Pause only the song clip";
@@ -186,14 +197,48 @@ public partial class QuizView : UserControl, IDisposable
         UpdateScore();
     }
 
+    private void OnSongTimedOut(object? sender, Song song)
+    {
+        FindRow(song).Status = "Timed out";
+    }
+
     private void OnPlaybackFailed(object? sender, PlaybackFailureEventArgs e)
+        => ShowPlaybackFailure(e.Message);
+
+    private void OnLocalPlaybackFailed(Song song, string message)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_disposed || _displayedSong?.SourcePath != song.SourcePath)
+                return;
+            _playbackFailureMessage = message;
+            FeedbackText.Text = message;
+            PlaybackStatusText.Text = "Playback failed. Click Replay to retry, or select another song.";
+            PlaybackStatusText.Visibility = Visibility.Visible;
+        });
+    }
+
+    private void OnLocalPlaybackStarted(Song song)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_disposed || _displayedSong?.SourcePath != song.SourcePath || _playbackFailureMessage is null)
+                return;
+            if (string.Equals(FeedbackText.Text, _playbackFailureMessage, StringComparison.Ordinal))
+                FeedbackText.Text = string.Empty;
+            _playbackFailureMessage = null;
+            PlaybackStatusText.Visibility = Visibility.Collapsed;
+        });
+    }
+
+    private void ShowPlaybackFailure(string message)
     {
         Dispatcher.BeginInvoke(() =>
         {
             if (_disposed)
                 return;
-            _playbackFailureMessage = e.Message;
-            FeedbackText.Text = e.Message;
+            _playbackFailureMessage = message;
+            FeedbackText.Text = message;
             PlaybackStatusText.Text = "Playback failed. Click Replay to retry, or select another song.";
             PlaybackStatusText.Visibility = Visibility.Visible;
         });
@@ -305,6 +350,7 @@ public partial class QuizView : UserControl, IDisposable
             Results = e.Results.ToList(),
             MulligansUsed = _engine.MulligansUsed,
             ExtendersUsed = _engine.ExtendersUsed,
+            ClipRerollsUsed = _engine.ClipRerollsUsed,
             HintsUsed = _engine.HintsUsed,
             Duration = e.Duration
         };
@@ -375,6 +421,8 @@ public partial class QuizView : UserControl, IDisposable
         }
         if (ExtenderButton.IsEnabled != _engine.CanUseExtender)
             ExtenderButton.IsEnabled = _engine.CanUseExtender;
+        if (ClipRerollButton.IsEnabled != _engine.CanUseClipReroll)
+            ClipRerollButton.IsEnabled = _engine.CanUseClipReroll;
     }
 
     private void OnProgressRendering(object? sender, EventArgs e)
@@ -403,7 +451,15 @@ public partial class QuizView : UserControl, IDisposable
 
     private void UpdatePrompt()
     {
-        AnswerPrompt.Text = _config.QuizMode switch
+        AnswerText.IsEnabled = _engine.IsRunning && !_engine.IsPaused && !_engine.IsCurrentSongCompleted;
+        var timerFrozen = _config.TimerMode == TimerMode.PerSong && _engine.IsRevisitingCompletedSong;
+        TimerText.Text = timerFrozen
+            ? "—"
+            : FormatTime(_engine.RemainingSeconds);
+        TimerText.ToolTip = timerFrozen ? "The per-song timer is paused while revisiting a correct song." : null;
+        AnswerPrompt.Text = _engine.IsCurrentSongCompleted
+            ? "Already guessed. Select another song or press Pass."
+            : _config.QuizMode switch
         {
             QuizMode.GuessArtist => "Type the artist name.",
             QuizMode.GuessBoth => _engine.GuessBothTitleDone ? "Now guess the artist." :
@@ -414,7 +470,8 @@ public partial class QuizView : UserControl, IDisposable
 
     private void UpdatePowers()
     {
-        var hasPowers = _config.MulliganCount > 0 || _config.ExtenderCount > 0 || _config.HintCount > 0;
+        var hasPowers = _config.MulliganCount > 0 || _config.ExtenderCount > 0
+            || _config.ClipRerollCount > 0 || _config.HintCount > 0;
         PowerGroupPanel.Visibility = hasPowers ? Visibility.Visible : Visibility.Collapsed;
         MulliganCountText.Text = _engine.MulligansRemaining.ToString();
         MulliganButton.ToolTip = $"Replace the current song ({_engine.MulligansRemaining} remaining)";
@@ -424,6 +481,10 @@ public partial class QuizView : UserControl, IDisposable
         ExtenderButton.ToolTip = $"Extend the current song clip ({_engine.ExtendersRemaining} remaining)";
         ExtenderButton.IsEnabled = _engine.CanUseExtender;
         ExtenderButton.Visibility = _config.ExtenderCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ClipRerollCountText.Text = _engine.ClipRerollsRemaining.ToString();
+        ClipRerollButton.ToolTip = $"Choose a new random clip start ({_engine.ClipRerollsRemaining} remaining)";
+        ClipRerollButton.IsEnabled = _engine.CanUseClipReroll;
+        ClipRerollButton.Visibility = _config.ClipRerollCount > 0 ? Visibility.Visible : Visibility.Collapsed;
         HintCountText.Text = _engine.HintsRemaining.ToString();
         HintButton.ToolTip = $"Reveal a hint for the current song ({_engine.HintsRemaining} remaining)";
         HintButton.IsEnabled = _engine.CanUseHint && !_hintRequestInProgress;
@@ -445,8 +506,11 @@ public partial class QuizView : UserControl, IDisposable
     }
     private void SubmitAnswer()
     {
+        if (!AnswerText.IsEnabled)
+            return;
         _engine.SubmitGuess(AnswerText.Text);
-        AnswerText.Focus();
+        if (AnswerText.IsEnabled)
+            AnswerText.Focus();
     }
     private void OnClipPauseClick(object sender, RoutedEventArgs e)
     {
@@ -474,19 +538,14 @@ public partial class QuizView : UserControl, IDisposable
     private void OnQuizPauseClick(object sender, RoutedEventArgs e)
     {
         if (_engine.IsPaused)
-        {
             _engine.Resume();
-            QuizPauseButton.Content = "Ⅱ";
-            ClipPauseButton.IsEnabled = true;
-        }
         else
-        {
             _engine.Pause();
-            QuizPauseButton.Content = "▶";
-            ClipPauseButton.IsEnabled = false;
-        }
+        QuizPauseButton.Content = _engine.IsPaused ? "▶" : "Ⅱ";
+        ClipPauseButton.IsEnabled = _engine.IsRunning && !_engine.IsPaused;
         AutomationProperties.SetName(QuizPauseButton, _engine.IsPaused ? "Resume the entire quiz" : "Pause the entire quiz");
         QuizPauseButton.ToolTip = _engine.IsPaused ? "Resume the entire quiz" : "Pause the entire quiz";
+        UpdatePrompt();
         UpdatePowers();
     }
 
@@ -523,6 +582,17 @@ public partial class QuizView : UserControl, IDisposable
     private void OnPassClick(object sender, RoutedEventArgs e) => _engine.PassCurrentSong();
     private void OnMulliganClick(object sender, RoutedEventArgs e) => _engine.UseMulligan();
     private void OnExtenderClick(object sender, RoutedEventArgs e) => _engine.UseExtender();
+    private void OnClipRerollClick(object sender, RoutedEventArgs e) => _engine.UseClipReroll();
+
+    private void OnClipRerollUsed(object? sender, int remaining)
+    {
+        ClipPauseButton.Content = _playback.IsPaused ? "▶" : "Ⅱ";
+        ClipPauseButton.ToolTip = _playback.IsPaused ? "Resume song clip" : "Pause only the song clip";
+        AutomationProperties.SetName(ClipPauseButton, _playback.IsPaused ? "Resume song clip" : "Pause only the song clip");
+        OnProgressTick(this, EventArgs.Empty);
+        UpdatePowers();
+        AnswerText.Focus();
+    }
     private async void OnHintClick(object sender, RoutedEventArgs e)
     {
         if (_hintRequestInProgress || _engine.CurrentSong is not { } requestedSong)
@@ -739,11 +809,12 @@ public partial class QuizView : UserControl, IDisposable
     {
         var baseStyle = Application.Current.TryFindResource(typeof(DataGridCell)) as Style;
         var style = new Style(typeof(DataGridCell), baseStyle);
-        AddStatusTrigger(style, statusPath, "Correct", "#C6EFCE", "#006100");
-        AddStatusTrigger(style, statusPath, "Title guessed", "#FFEB96", "#644600");
-        AddStatusTrigger(style, statusPath, "Artist guessed", "#ADD8E6", "#00376E");
-        AddStatusTrigger(style, statusPath, "Playing", "#D2E6FF", "#1E3C82");
-        AddStatusTrigger(style, statusPath, "Missed", "#FFC7CE", "#9C0006");
+        AddStatusTrigger(style, statusPath, "Correct", "QuizCorrectSurfaceBrush", "QuizCorrectTextBrush");
+        AddStatusTrigger(style, statusPath, "Title guessed", "QuizTitleSurfaceBrush", "QuizTitleTextBrush");
+        AddStatusTrigger(style, statusPath, "Artist guessed", "QuizArtistSurfaceBrush", "QuizArtistTextBrush");
+        AddStatusTrigger(style, statusPath, "Playing", "QuizPlayingSurfaceBrush", "QuizPlayingTextBrush");
+        AddStatusTrigger(style, statusPath, "Missed", "QuizMissedSurfaceBrush", "QuizMissedTextBrush");
+        AddStatusTrigger(style, statusPath, "Timed out", "QuizMissedSurfaceBrush", "QuizMissedTextBrush");
         return style;
     }
 
@@ -754,9 +825,9 @@ public partial class QuizView : UserControl, IDisposable
             Binding = new Binding(statusPath),
             Value = status
         };
-        trigger.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush((Color)ColorConverter.ConvertFromString(background))));
-        trigger.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush((Color)ColorConverter.ConvertFromString(foreground))));
-        trigger.Setters.Add(new Setter(DataGridCell.BorderBrushProperty, Brushes.White));
+        trigger.Setters.Add(new Setter(Control.BackgroundProperty, new DynamicResourceExtension(background)));
+        trigger.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension(foreground)));
+        trigger.Setters.Add(new Setter(DataGridCell.BorderBrushProperty, new DynamicResourceExtension("SurfaceBrush")));
         trigger.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0, 0, 1, 1)));
         style.Triggers.Add(trigger);
     }
@@ -790,6 +861,11 @@ public partial class QuizView : UserControl, IDisposable
         _albumCoverWindow?.Close();
         _lifetimeCts.Cancel();
         _lifetimeCts.Dispose();
+        if (_playback is NAudioPlaybackService localPlayback)
+        {
+            localPlayback.PlaybackFailed -= OnLocalPlaybackFailed;
+            localPlayback.PlaybackStarted -= OnLocalPlaybackStarted;
+        }
         if (_playback is SpotifyPlaybackService spotifyPlayback)
         {
             spotifyPlayback.PlaybackFailed -= OnPlaybackFailed;

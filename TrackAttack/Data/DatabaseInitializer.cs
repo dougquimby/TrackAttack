@@ -29,6 +29,7 @@ public static class DatabaseInitializer
                 MulligansUsed   INTEGER,
                 ExtendersUsed   INTEGER,
                 HintsUsed       INTEGER,
+                ClipRerollsUsed INTEGER,
                 ProfileName     TEXT    NOT NULL DEFAULT 'Default'
             );
             CREATE TABLE IF NOT EXISTS QuizSongResult (
@@ -44,7 +45,8 @@ public static class DatabaseInitializer
                 UserGuess     TEXT,
                 ArtistGuess   TEXT,
                 ArtistCorrect INTEGER NOT NULL DEFAULT 0,
-                PowerPenalty  REAL    NOT NULL DEFAULT 0
+                PowerPenalty  REAL    NOT NULL DEFAULT 0,
+                MulliganSongsJson TEXT
             );
             """;
         cmd.ExecuteNonQuery();
@@ -55,6 +57,7 @@ public static class DatabaseInitializer
         var hasArtistCorrect = false;
         var hasSongPath = false;
         var hasPowerPenalty = false;
+        var hasMulliganSongs = false;
         using (var reader = columnsCmd.ExecuteReader())
         {
             while (reader.Read())
@@ -64,6 +67,7 @@ public static class DatabaseInitializer
                 hasArtistCorrect |= string.Equals(columnName, "ArtistCorrect", StringComparison.OrdinalIgnoreCase);
                 hasSongPath |= string.Equals(columnName, "SongPath", StringComparison.OrdinalIgnoreCase);
                 hasPowerPenalty |= string.Equals(columnName, "PowerPenalty", StringComparison.OrdinalIgnoreCase);
+                hasMulliganSongs |= string.Equals(columnName, "MulliganSongsJson", StringComparison.OrdinalIgnoreCase);
             }
 
         }
@@ -99,6 +103,11 @@ public static class DatabaseInitializer
                 alterCmd.CommandText = "ALTER TABLE QuizSongResult ADD COLUMN PowerPenalty REAL NOT NULL DEFAULT 0;";
                 alterCmd.ExecuteNonQuery();
             }
+            if (!hasMulliganSongs)
+            {
+                alterCmd.CommandText = "ALTER TABLE QuizSongResult ADD COLUMN MulliganSongsJson TEXT;";
+                alterCmd.ExecuteNonQuery();
+            }
             if (!historyColumns.Contains("MulligansUsed"))
             {
                 alterCmd.CommandText = "ALTER TABLE QuizHistory ADD COLUMN MulligansUsed INTEGER;";
@@ -112,6 +121,11 @@ public static class DatabaseInitializer
             if (!historyColumns.Contains("HintsUsed"))
             {
                 alterCmd.CommandText = "ALTER TABLE QuizHistory ADD COLUMN HintsUsed INTEGER;";
+                alterCmd.ExecuteNonQuery();
+            }
+            if (!historyColumns.Contains("ClipRerollsUsed"))
+            {
+                alterCmd.CommandText = "ALTER TABLE QuizHistory ADD COLUMN ClipRerollsUsed INTEGER;";
                 alterCmd.ExecuteNonQuery();
             }
             if (!historyColumns.Contains("ProfileName"))

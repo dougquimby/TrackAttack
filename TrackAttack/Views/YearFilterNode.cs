@@ -8,10 +8,22 @@ internal sealed class YearFilterNode : INotifyPropertyChanged
     private readonly YearFilterNode? _parent;
     private readonly Action _selectionChanged;
     private bool _isChecked;
+    private bool _isExpanded;
 
     public string Value { get; }
     public List<YearFilterNode> Children { get; } = [];
     public string Display { get; }
+
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            OnPropertyChanged();
+        }
+    }
 
     public bool? IsChecked
     {
@@ -34,7 +46,7 @@ internal sealed class YearFilterNode : INotifyPropertyChanged
         bool isChecked, Action selectionChanged, YearFilterNode? parent = null)
     {
         Value = value;
-        Display = showSongCount ? $"{value} ({count})" : value;
+        Display = count == 0 ? $"{value} (no tracks)" : showSongCount ? $"{value} ({count})" : value;
         _isChecked = isChecked;
         _selectionChanged = selectionChanged;
         _parent = parent;

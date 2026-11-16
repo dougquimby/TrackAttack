@@ -13,6 +13,9 @@
 
   <ItemGroup>
     <Content Include="TrackAttackLogo.ico" />
+    <Resource Include="Assets\SpotifyHelp\more-menu.png" />
+    <Resource Include="Assets\SpotifyHelp\add-to-other-playlist.png" />
+    <Resource Include="Assets\SpotifyHelp\new-playlist.png" />
   </ItemGroup>
 
   <ItemGroup>

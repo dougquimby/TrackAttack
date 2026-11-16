@@ -2,7 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Track Attack" Height="820" Width="1280" MinHeight="620" MinWidth="980"
-        Background="#F3F5F8" WindowStartupLocation="CenterScreen">
+        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource TextBrush}"
+        WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="230"/>
@@ -42,9 +43,9 @@
                             <ColumnDefinition Width="40"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="20" Background="#EAF4FD">
+                        <Border Width="40" Height="40" CornerRadius="20" Background="{DynamicResource IconSurfaceBrush}">
                             <Grid>
-                                <TextBlock x:Name="NavigationProfileInitials" Foreground="#1677C8"
+                                <TextBlock x:Name="NavigationProfileInitials" Foreground="{DynamicResource AccentTextBrush}"
                                            FontSize="13" FontWeight="Bold"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 <Image x:Name="NavigationProfileImage" Stretch="UniformToFill"
@@ -117,10 +118,10 @@
                         <GradientStop Color="#24354D" Offset="1"/>
                     </LinearGradientBrush>
                 </Border.Background>
-                <DockPanel Margin="22,0">
+                <DockPanel Margin="22,0,24,0">
                     <Button x:Name="BackButton" Content="‹ Back" Click="OnBackClick" Visibility="Collapsed"
                             DockPanel.Dock="Right"
-                            MinWidth="76" Height="34" Padding="12,5" Margin="0,0,20,0"
+                            MinWidth="76" Height="34" Padding="12,5"
                             VerticalAlignment="Center" Background="#2D405A" Foreground="#EAF4FD"
                             BorderBrush="#4B6584" BorderThickness="1" FontWeight="SemiBold"/>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
