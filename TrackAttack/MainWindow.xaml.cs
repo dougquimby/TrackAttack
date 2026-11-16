@@ -10,6 +10,7 @@ using TrackAttack.Views;
 
 namespace TrackAttack;
 
+/// <summary>Hosts application navigation, views, and quiz composition.</summary>
 public partial class MainWindow : Window
 {
     private static readonly SolidColorBrush ActiveNavigationBrush = new(Color.FromRgb(23, 105, 170));
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
     private bool _wasMaximized;
     private bool _replayingHistoryQuiz;
 
+    /// <summary>Creates the main window and initializes history and navigation.</summary>
     public MainWindow()
     {
         InitializeComponent();

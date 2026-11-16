@@ -6,18 +6,26 @@ using TrackAttack.Settings;
 
 namespace TrackAttack.Views;
 
+/// <summary>Displays the active profile, recent quiz, and main navigation actions.</summary>
 public partial class HomeView : UserControl
 {
     private readonly IQuizHistoryRepository _history;
     private AppSettings _settings;
     private bool _initializingProfiles = true;
 
+    /// <summary>Occurs when the player requests quiz setup.</summary>
     public event Action? NewQuizRequested;
+    /// <summary>Occurs when the player requests metadata editing.</summary>
     public event Action? MetadataRequested;
+    /// <summary>Occurs when the player requests quiz history.</summary>
     public event Action? HistoryRequested;
+    /// <summary>Occurs when the player requests settings.</summary>
     public event Action? SettingsRequested;
+    /// <summary>Occurs after the active profile changes.</summary>
     public event Action? ProfileChanged;
 
+    /// <summary>Creates the home view.</summary>
+    /// <param name="history">The repository used to display the latest quiz.</param>
     public HomeView(IQuizHistoryRepository history)
     {
         _history = history;
@@ -52,6 +60,7 @@ public partial class HomeView : UserControl
         }
     }
 
+    /// <summary>Reloads profiles and the active profile's most recent quiz.</summary>
     public void RefreshProfiles()
     {
         _settings = AppSettings.Load();

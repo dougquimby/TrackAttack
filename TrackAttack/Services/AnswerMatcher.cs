@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace TrackAttack.Services;
 
+/// <summary>Compares player answers against song titles and artists.</summary>
 public static class AnswerMatcher
 {
     private static readonly Regex PunctuationRegex = new(@"[^\w\s]", RegexOptions.Compiled);
@@ -22,9 +23,18 @@ public static class AnswerMatcher
 
     // Overloads without options use the default (strict) behavior so existing
     // call sites keep compiling; QuizEngine passes its configured options.
+    /// <summary>Compares two answers using the default matching options.</summary>
+    /// <param name="input">The player's answer.</param>
+    /// <param name="target">The expected answer.</param>
+    /// <returns>Whether the normalized values match.</returns>
     public static bool IsMatch(string input, string target) =>
         IsMatch(input, target, GuessMatchingOptions.Default);
 
+    /// <summary>Compares two answers using the specified matching options.</summary>
+    /// <param name="input">The player's answer.</param>
+    /// <param name="target">The expected answer.</param>
+    /// <param name="options">The normalization options.</param>
+    /// <returns>Whether the normalized values match.</returns>
     public static bool IsMatch(string input, string target, GuessMatchingOptions options)
     {
         if (IsMatch(input, target, options, false, false))
@@ -40,6 +50,12 @@ public static class AnswerMatcher
         => Normalize(input, options, options.IgnorePunctuation, expandAmpersand, separateElidedN)
             == Normalize(target, options, options.IgnorePunctuation, expandAmpersand, separateElidedN);
 
+    /// <summary>Compares a title guess, optionally accepting a matching significant word.</summary>
+    /// <param name="input">The player's title guess.</param>
+    /// <param name="target">The expected title.</param>
+    /// <param name="fuzzy">Whether significant-word matching is enabled.</param>
+    /// <param name="options">The normalization options.</param>
+    /// <returns>Whether the title guess matches.</returns>
     public static bool IsSongTitleMatch(string input, string target, bool fuzzy, GuessMatchingOptions options)
     {
         if (IsMatch(input, target, options))
@@ -62,9 +78,20 @@ public static class AnswerMatcher
     }
 
     // Exact match first; if fuzzy=true, also accept any significant word from input appearing in target
+    /// <summary>Compares an artist guess using the default matching options.</summary>
+    /// <param name="input">The player's artist guess.</param>
+    /// <param name="target">The expected artist.</param>
+    /// <param name="fuzzy">Whether significant-word matching is enabled.</param>
+    /// <returns>Whether the artist guess matches.</returns>
     public static bool IsArtistMatch(string input, string target, bool fuzzy) =>
         IsArtistMatch(input, target, fuzzy, GuessMatchingOptions.Default);
 
+    /// <summary>Compares an artist guess with the specified matching options.</summary>
+    /// <param name="input">The player's artist guess.</param>
+    /// <param name="target">The expected artist.</param>
+    /// <param name="fuzzy">Whether significant-word matching is enabled.</param>
+    /// <param name="options">The normalization options.</param>
+    /// <returns>Whether the artist guess matches.</returns>
     public static bool IsArtistMatch(string input, string target, bool fuzzy, GuessMatchingOptions options)
     {
         if (IsMatch(input, target, options)) return true;

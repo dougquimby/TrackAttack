@@ -15,6 +15,7 @@ Use this repository map before exploring. Treat the code as authoritative when b
 - One app project: `TrackAttack/TrackAttack.csproj`; solution: `TrackAttack.slnx`.
 - Build: `dotnet build TrackAttack/TrackAttack.csproj`
 - Run: `dotnet run --project TrackAttack/TrackAttack.csproj`
+- Generate XML API documentation: `dotnet build TrackAttack/TrackAttack.csproj -p:GenerateDocumentationFile=true` (some legacy APIs still report missing-comment warnings). Keep public local quiz contracts documented with XML comments and validate their parameter and reference tags with this build.
 - No test project currently exists. Build code changes and report that automated tests are unavailable.
 - Main dependencies: MetaBrainz.MusicBrainz and MetaBrainz.MusicBrainz.CoverArt, TheAudioDB catalog suggestions, Microsoft.Data.Sqlite, NAudio, SQLitePCLRaw, TagLibSharp, and the optional Spotify Web API packages.
 

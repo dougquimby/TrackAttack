@@ -6,25 +6,50 @@ using TrackAttack.Settings;
 
 namespace TrackAttack.Views;
 
+/// <summary>Provides display values for a saved quiz in the history list.</summary>
+/// <param name="session">The saved quiz session.</param>
 public sealed class HistoryRow(QuizSession session)
 {
+    /// <summary>Gets the underlying session.</summary>
     public QuizSession Session { get; } = session;
     public bool IsSpotify => string.Equals(Session.Config.SourceType, "Spotify", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Gets a display label for the music source.</summary>
     public string SourceLabel => IsSpotify ? "Spotify playlist" : "Local music library";
+    /// <summary>Gets the formatted session date.</summary>
     public string DateLabel => Session.Date.ToString("g");
+    /// <summary>Gets the quiz title or its source when the title is blank.</summary>
     public string Title => string.IsNullOrWhiteSpace(Session.Config.QuizTitle) ? Session.Config.SourceDirectory : Session.Config.QuizTitle;
+    /// <summary>Gets the recorded profile name, defaulting to the default profile label.</summary>
     public string ProfileName => string.IsNullOrWhiteSpace(Session.ProfileName) ? "Default" : Session.ProfileName;
+    /// <summary>Gets the formatted score.</summary>
     public string Score => HomeView.UsesPoints(Session.Config)
         ? $"{Session.TotalPoints:F1}/{Session.MaxPoints:F1}" : $"{Session.Score}/{Session.Results.Count}";
+    /// <summary>Gets the formatted percentage.</summary>
     public string Percentage => $"{Session.Percentage:F0}%";
+    /// <summary>Gets the formatted quiz duration.</summary>
     public string Duration => $"{(int)Session.Duration.TotalMinutes}:{Session.Duration.Seconds:D2}";
 }
 
+/// <summary>Represents a profile selection in the history filter.</summary>
+/// <param name="Name">The displayed profile or all-profiles label.</param>
+/// <param name="IsAll">Whether the selection includes every profile.</param>
 public sealed record HistoryProfileFilter(string Name, bool IsAll)
 {
+    /// <inheritdoc />
     public override string ToString() => Name;
 }
 
+/// <summary>Provides display and spoiler state for a song result in history.</summary>
+/// <param name="Number">The one-based quiz slot number.</param>
+/// <param name="Title">The song title.</param>
+/// <param name="Artist">The formatted artist and year.</param>
+/// <param name="Guess">The accepted title guess.</param>
+/// <param name="ArtistGuess">The accepted artist guess.</param>
+/// <param name="Points">The formatted points.</param>
+/// <param name="Status">The result status.</param>
+/// <param name="IsTitleSpoilerHidden">Whether the title is blurred.</param>
+/// <param name="IsArtistSpoilerHidden">Whether the artist is blurred.</param>
+/// <param name="AreGuessesSpoilerHidden">Whether the guesses are blurred.</param>
 public sealed record HistoryDetailRow(
     int Number,
     string Title,
@@ -37,6 +62,12 @@ public sealed record HistoryDetailRow(
     bool IsArtistSpoilerHidden,
     bool AreGuessesSpoilerHidden);
 
+/// <summary>Provides one ranked attempt for the history leaderboard.</summary>
+/// <param name="Rank">The attempt's rank.</param>
+/// <param name="ProfileName">The player's profile name.</param>
+/// <param name="Score">The formatted score.</param>
+/// <param name="Percentage">The formatted percentage.</param>
+/// <param name="Date">The formatted attempt date.</param>
 public sealed record HistoryLeaderboardRow(
     int Rank,
     string ProfileName,
@@ -44,6 +75,7 @@ public sealed record HistoryLeaderboardRow(
     string Percentage,
     string Date);
 
+/// <summary>Displays saved quizzes, answers, and comparable attempts.</summary>
 public partial class HistoryView : UserControl
 {
     private enum SpoilerMode
@@ -59,8 +91,11 @@ public partial class HistoryView : UserControl
     private bool _initializingProfileFilter = true;
     private SpoilerMode _spoilerMode = SpoilerMode.BlurAll;
 
+    /// <summary>Occurs when the player requests a replay of a saved quiz.</summary>
     public event Action<QuizSession>? ReplayRequested;
 
+    /// <summary>Creates the quiz history view.</summary>
+    /// <param name="history">The repository used to load and delete sessions.</param>
     public HistoryView(IQuizHistoryRepository history)
     {
         _history = history;

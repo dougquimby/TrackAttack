@@ -5,10 +5,13 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Views;
 
+/// <summary>Displays and searches a list of matching songs.</summary>
 public partial class SongsView : UserControl
 {
     private readonly IReadOnlyList<Song> _songs;
 
+    /// <summary>Creates a view for the supplied songs.</summary>
+    /// <param name="songs">The songs available for display and searching.</param>
     public SongsView(IReadOnlyList<Song> songs)
     {
         _songs = songs;

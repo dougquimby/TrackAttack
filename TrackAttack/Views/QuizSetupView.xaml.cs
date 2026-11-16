@@ -11,6 +11,7 @@ using SpotifyAPI.Web;
 
 namespace TrackAttack.Views;
 
+/// <summary>Collects quiz configuration, library filters, and saved setup selections.</summary>
 public partial class QuizSetupView : UserControl
 {
     private static readonly HintType[] HintTypes = Enum.GetValues<HintType>();
@@ -45,9 +46,15 @@ public partial class QuizSetupView : UserControl
     private bool IsSelectedSpotifyPlaylistDenied =>
         IsSpotifySource && SpotifyPlaylistCombo.SelectedItem is SpotifyPlaylistChoice { IsAccessDenied: true };
 
+    /// <summary>Occurs with the configuration, initial songs, and mulligan reserve when a quiz is requested.</summary>
     public event Action<QuizConfig, IReadOnlyList<Song>, IReadOnlyList<Song>>? QuizRequested;
+    /// <summary>Occurs with the current matching songs when the song list is requested.</summary>
     public event Action<IReadOnlyList<Song>>? SongsRequested;
 
+    /// <summary>Creates the quiz setup view.</summary>
+    /// <param name="musicSource">The source used to scan the library.</param>
+    /// <param name="history">The repository used for recent-song exclusions.</param>
+    /// <param name="spotifyEnabled">Whether the optional source selector is enabled.</param>
     public QuizSetupView(IMusicSource musicSource, IQuizHistoryRepository history, bool spotifyEnabled = false)
     {
         _musicSource = musicSource;
@@ -280,6 +287,8 @@ public partial class QuizSetupView : UserControl
     private void UpdateClipStartInput()
         => ClipStartPanel.IsEnabled = RandomClipCheck.IsChecked != true;
 
+    /// <summary>Reloads profile settings and refreshes the library or recent-song filters as needed.</summary>
+    /// <returns>A task that completes after any required refresh.</returns>
     public async Task RefreshProfileSettingsAsync()
     {
         while (_scanCompletion is { } scan)

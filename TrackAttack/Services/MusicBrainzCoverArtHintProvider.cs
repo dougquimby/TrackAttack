@@ -7,10 +7,16 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Services;
 
+/// <summary>Retrieves front cover art for quiz hints using MusicBrainz release information.</summary>
 public sealed class MusicBrainzCoverArtHintProvider
 {
     private const int MinimumReleaseMatchScore = 85;
     private static readonly Uri ContactUri = new("https://github.com/dougquimby/TrackAttack");
+    /// <summary>Retrieves cover image bytes for a tagged or matched release.</summary>
+    /// <param name="song">The song whose album cover is requested.</param>
+    /// <param name="cancellationToken">A token that cancels the lookup.</param>
+    /// <returns>The image bytes, or null if no matching cover was found.</returns>
+    /// <exception cref="ArgumentNullException">The song is null.</exception>
     public async Task<byte[]?> GetFrontCoverAsync(Song song, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(song);

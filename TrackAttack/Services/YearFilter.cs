@@ -1,5 +1,6 @@
 namespace TrackAttack.Services;
 
+/// <summary>Matches years against selected years, decades, and the unknown-year option.</summary>
 public sealed class YearFilter
 {
     private readonly HashSet<int> _years = [];
@@ -7,6 +8,8 @@ public sealed class YearFilter
     private readonly bool _includeUnknown;
     private readonly bool _hasSelection;
 
+    /// <summary>Creates a filter from the selected values.</summary>
+    /// <param name="selections">Years, decade labels such as <c>1990s</c>, or the unknown option.</param>
     public YearFilter(IEnumerable<string> selections)
     {
         foreach (var selection in selections)
@@ -24,9 +27,15 @@ public sealed class YearFilter
         }
     }
 
+    /// <summary>Creates a filter from comma- or semicolon-separated selections.</summary>
+    /// <param name="value">The selections, or null for no filter.</param>
+    /// <returns>The resulting year filter.</returns>
     public static YearFilter FromString(string? value)
         => new((value ?? string.Empty).Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
+    /// <summary>Tests a year against this filter.</summary>
+    /// <param name="year">The year to test, or a nonpositive value for unknown.</param>
+    /// <returns>Whether the year is selected; an empty selection matches all years.</returns>
     public bool Matches(int year)
         => !_hasSelection || (year <= 0 ? _includeUnknown : _years.Contains(year) || _decades.Contains(year / 10 * 10));
 }

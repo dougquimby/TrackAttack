@@ -2,10 +2,19 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Services;
 
+/// <summary>Contains resolved replay tracks in their original slot order.</summary>
+/// <param name="Slots">The resolved songs, with null for missing or ambiguous tracks.</param>
+/// <param name="RelocatedCount">The number of tracks recovered at a different path.</param>
 public sealed record ReplayTrackResolution(IReadOnlyList<Song?> Slots, int RelocatedCount);
 
+/// <summary>Resolves recorded local quiz songs against the current library.</summary>
 public static class ReplayTrackResolver
 {
+    /// <summary>Resolves exact paths first, then unambiguous title and artist matches.</summary>
+    /// <param name="historySongs">The recorded songs in quiz order.</param>
+    /// <param name="availableSongs">The currently available library songs.</param>
+    /// <returns>Resolved slots retaining the original quiz metadata and the relocation count.</returns>
+    /// <remarks>Album metadata is used to distinguish multiple title and artist matches.</remarks>
     public static ReplayTrackResolution Resolve(IReadOnlyList<Song> historySongs, IReadOnlyList<Song> availableSongs)
     {
         var slots = new Song?[historySongs.Count];

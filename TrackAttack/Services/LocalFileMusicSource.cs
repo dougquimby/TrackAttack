@@ -3,13 +3,17 @@ using TagLib;
 
 namespace TrackAttack.Services;
 
+/// <summary>Reads quiz songs and metadata from local MP3 and FLAC files.</summary>
 public class LocalFileMusicSource : IMusicSource
 {
     private static readonly string[] SupportedExtensions = [".mp3", ".flac"];
+    /// <summary>Identifies songs with missing genre or year metadata in filter lists.</summary>
     public const string UnknownMetadataOption = "! Unknown";
 
+    /// <inheritdoc />
     public string SourceType => "Local";
 
+    /// <inheritdoc />
     public Task<IEnumerable<Song>> GetSongsAsync(QuizConfig config)
     {
         return Task.Run(() => GetFilteredSongs(config));
@@ -44,6 +48,7 @@ public class LocalFileMusicSource : IMusicSource
         return shuffledSongs.Take(config.SongCount);
     }
 
+    /// <inheritdoc />
     public Task<IEnumerable<string>> GetAvailableGenresAsync(string sourceIdentifier)
     {
         return Task.Run(() =>
@@ -61,6 +66,7 @@ public class LocalFileMusicSource : IMusicSource
         });
     }
 
+    /// <inheritdoc />
     public Task<IEnumerable<string>> GetAvailableDecadesAsync(string sourceIdentifier)
     {
         return Task.Run(() =>
@@ -79,6 +85,7 @@ public class LocalFileMusicSource : IMusicSource
         });
     }
 
+    /// <inheritdoc />
     public IEnumerable<Song> ScanDirectory(string directory)
     {
         if (!Directory.Exists(directory))
@@ -95,6 +102,11 @@ public class LocalFileMusicSource : IMusicSource
         }
     }
 
+    /// <summary>Scans selected local folders without traversing directory links.</summary>
+    /// <param name="roots">The library roots to scan.</param>
+    /// <param name="rules">Optional folder inclusion and exclusion rules.</param>
+    /// <param name="issues">An optional collection for file and folder access failures; failures are thrown when absent.</param>
+    /// <returns>The readable songs in included folders.</returns>
     public IEnumerable<Song> ScanSelectedDirectories(
         IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules,
         ICollection<LibraryScanIssue>? issues = null)
@@ -141,6 +153,10 @@ public class LocalFileMusicSource : IMusicSource
         }
     }
 
+    /// <summary>Scans selected folders and collects access failures alongside readable songs.</summary>
+    /// <param name="roots">The library roots to scan.</param>
+    /// <param name="rules">Optional folder inclusion and exclusion rules.</param>
+    /// <returns>The songs and issues found during the scan.</returns>
     public LibraryScanResult ScanLibrary(IEnumerable<string> roots, IReadOnlyList<MusicFolderRule>? rules)
     {
         var issues = new List<LibraryScanIssue>();

@@ -7,10 +7,11 @@ using TrackAttack.Settings;
 namespace TrackAttack
 {
     /// <summary>
-    /// Interaction logic for App.xaml
+    /// Initializes application resources and handles settings-load failures.
     /// </summary>
     public partial class App : Application
     {
+        /// <summary>Creates the application and registers settings error handling.</summary>
         public App()
         {
             DispatcherUnhandledException += (_, e) =>
@@ -31,6 +32,7 @@ namespace TrackAttack
                 typeof(FrameworkContentElement), new FrameworkPropertyMetadata(200));
         }
 
+        /// <inheritdoc />
         protected override void OnStartup(StartupEventArgs e)
         {
             try

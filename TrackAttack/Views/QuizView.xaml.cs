@@ -18,6 +18,7 @@ using TrackAttack.Settings;
 
 namespace TrackAttack.Views;
 
+/// <summary>Presents a running quiz and forwards player actions to the quiz engine.</summary>
 public partial class QuizView : UserControl, IDisposable
 {
     private sealed record QuizHintDisplay(string DisplayText, BitmapImage? Artwork);
@@ -54,8 +55,16 @@ public partial class QuizView : UserControl, IDisposable
     private BitmapImage? _preparedCoverArtImage;
     private AlbumCoverWindow? _albumCoverWindow;
 
+    /// <summary>Occurs after a finished quiz has been prepared for results display.</summary>
     public event Action<QuizSession>? QuizFinished;
 
+    /// <summary>Creates a quiz view and its engine.</summary>
+    /// <param name="config">The quiz rules.</param>
+    /// <param name="songs">The initial quiz songs.</param>
+    /// <param name="reserve">The mulligan replacement songs.</param>
+    /// <param name="history">The repository used to save quiz history.</param>
+    /// <param name="playback">The playback service, or null to create local playback.</param>
+    /// <param name="profileName">The player profile recorded with the quiz.</param>
     public QuizView(
         QuizConfig config,
         IReadOnlyList<Song> songs,
@@ -847,6 +856,7 @@ public partial class QuizView : UserControl, IDisposable
             _engine.JumpToSong(songRow.Song);
     }
 
+    /// <summary>Stops an abandoned quiz without raising the finished event.</summary>
     public void Abandon()
     {
         _finished = true;
@@ -854,6 +864,7 @@ public partial class QuizView : UserControl, IDisposable
         _engine.Dispose();
     }
 
+    /// <summary>Releases the quiz engine, playback, timers, and other view resources.</summary>
     public void Dispose()
     {
         if (_disposed) return;

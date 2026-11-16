@@ -23,11 +23,14 @@ public class GuessMatchingOptions
     /// </summary>
     public bool IgnorePunctuation { get; set; }
 
+    /// <summary>Gets the shared default matching options.</summary>
     public static GuessMatchingOptions Default { get; } = new();
 
     /// <summary>
     /// Builds the effective matching options for a quiz run from its config.
     /// </summary>
+    /// <param name="config">The quiz configuration.</param>
+    /// <returns>The matching options for the quiz.</returns>
     public static GuessMatchingOptions FromConfig(QuizConfig config) => new()
     {
         IgnorePunctuation = config.IgnorePunctuation

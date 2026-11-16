@@ -10,6 +10,7 @@ using TrackAttack.Settings;
 
 namespace TrackAttack.Views;
 
+/// <summary>Displays and stages local-library metadata edits.</summary>
 public partial class MetadataView : UserControl
 {
     private const int MaximumDurationDifferenceSeconds = 10;
@@ -20,6 +21,7 @@ public partial class MetadataView : UserControl
     private bool _initializingProvider = true;
     private bool _gridRefreshPending;
 
+    /// <summary>Creates the metadata editing view.</summary>
     public MetadataView()
     {
         InitializeComponent();

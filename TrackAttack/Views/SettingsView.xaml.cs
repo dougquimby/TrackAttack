@@ -9,6 +9,7 @@ using TrackAttack.Settings;
 
 namespace TrackAttack.Views;
 
+/// <summary>Displays and saves profile, library, appearance, and application settings.</summary>
 public partial class SettingsView : UserControl
 {
     private AppSettings _settings = AppSettings.Load();
@@ -24,9 +25,13 @@ public partial class SettingsView : UserControl
         "AudioVolumeSlider", "DarkModeCheck"
     ];
 
+    /// <summary>Occurs after settings have been saved.</summary>
     public event Action? SettingsSaved;
+    /// <summary>Occurs after the active profile changes.</summary>
     public event Action? ProfileChanged;
 
+    /// <summary>Creates the settings view.</summary>
+    /// <param name="history">The repository used for history management.</param>
     public SettingsView(IQuizHistoryRepository history)
     {
         _history = history;
@@ -122,6 +127,8 @@ public partial class SettingsView : UserControl
         _savedMusicFolders = _musicFolders.ToArray();
     }
 
+    /// <summary>Tests whether staged settings differ from the last saved inputs.</summary>
+    /// <returns>Whether there are unsaved changes.</returns>
     public bool HasUnsavedChanges()
         => !_savedMusicFolders.SequenceEqual(_musicFolders)
            || _savedInputs.Any(entry => !Equals(entry.Value, GetInputValue(entry.Key)));
@@ -514,6 +521,9 @@ public partial class SettingsView : UserControl
     private void OnSaveClick(object sender, RoutedEventArgs e)
         => TrySaveSettings(showConfirmation: true);
 
+    /// <summary>Attempts to save staged settings and apply the chosen appearance.</summary>
+    /// <param name="showConfirmation">Whether to display a confirmation after saving.</param>
+    /// <returns>Whether the settings were saved successfully.</returns>
     public bool TrySaveSettings(bool showConfirmation = false)
     {
         _settings.SetMusicDirectories(_musicFolders);

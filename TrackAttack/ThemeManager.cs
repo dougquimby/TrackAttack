@@ -2,8 +2,11 @@ using System.Windows;
 
 namespace TrackAttack;
 
+/// <summary>Applies the application's light or dark WPF resource palette.</summary>
 public static class ThemeManager
 {
+    /// <summary>Switches the active application resource dictionary.</summary>
+    /// <param name="darkMode">Whether to use the dark palette.</param>
     public static void Apply(bool darkMode)
     {
         var resources = Application.Current.Resources.MergedDictionaries;

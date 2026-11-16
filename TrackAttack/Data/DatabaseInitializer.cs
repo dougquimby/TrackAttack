@@ -3,10 +3,13 @@ using TrackAttack.Settings;
 
 namespace TrackAttack.Data;
 
+/// <summary>Creates and migrates the local quiz history database.</summary>
 public static class DatabaseInitializer
 {
+    /// <summary>Gets the path to the user history database.</summary>
     public static string DatabasePath => Path.Combine(AppDataPaths.DirectoryPath, "history.db");
 
+    /// <summary>Creates the database and applies required schema migrations.</summary>
     public static void Initialize()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);

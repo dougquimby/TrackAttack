@@ -4,10 +4,12 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Data;
 
+/// <summary>Stores quiz history and song results in the local SQLite database.</summary>
 public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
 {
     private string ConnectionString => $"Data Source={DatabaseInitializer.DatabasePath}";
 
+    /// <inheritdoc />
     public async Task SaveAsync(QuizSession session)
     {
         using var connection = new SqliteConnection(ConnectionString);
@@ -64,6 +66,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         await transaction.CommitAsync();
     }
 
+    /// <inheritdoc />
     public async Task<IEnumerable<QuizSession>> GetAllAsync()
     {
         using var connection = new SqliteConnection(ConnectionString);
@@ -141,6 +144,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         return sessions;
     }
 
+    /// <inheritdoc />
     public async Task<QuizSession?> GetByIdAsync(int id)
     {
         using var connection = new SqliteConnection(ConnectionString);
@@ -216,6 +220,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
             : JsonSerializer.Deserialize<List<MulliganSong>>(reader.GetString(ordinal))
                 ?? throw new InvalidDataException("Mulligan song history is invalid.");
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Song>> GetRecentQuizSongsAsync(
         int quizCount, string sourceType, string sourceDirectory, string profileName)
     {
@@ -266,6 +271,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         return songs;
     }
 
+    /// <inheritdoc />
     public async Task ClearAllAsync()
     {
         using var connection = new SqliteConnection(ConnectionString);
@@ -290,6 +296,7 @@ public class SQLiteQuizHistoryRepository : IQuizHistoryRepository
         }
     }
 
+    /// <inheritdoc />
     public async Task<bool> DeleteAsync(int id)
     {
         using var connection = new SqliteConnection(ConnectionString);

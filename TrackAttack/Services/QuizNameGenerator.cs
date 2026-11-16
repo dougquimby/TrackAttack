@@ -2,6 +2,7 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Services;
 
+/// <summary>Generates a quiz title from the selected songs.</summary>
 public static class QuizNameGenerator
 {
     private sealed record DecadeInfo(string? Decade, bool IsDominant, bool HasMultiple);
@@ -34,6 +35,9 @@ public static class QuizNameGenerator
         "A Little Bit of Everything"
     ];
 
+    /// <summary>Chooses a title based on the dominant genre and decade when available.</summary>
+    /// <param name="songs">The selected songs.</param>
+    /// <returns>A generated quiz title.</returns>
     public static string Generate(IEnumerable<Song> songs)
     {
         var selection = songs.ToArray();

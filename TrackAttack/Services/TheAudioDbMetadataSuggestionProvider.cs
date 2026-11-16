@@ -5,6 +5,7 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Services;
 
+/// <summary>Searches TheAudioDB for ranked track metadata candidates.</summary>
 public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionProvider
 {
     private const int MaximumRetries = 3;
@@ -14,6 +15,8 @@ public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionPr
     private static readonly SemaphoreSlim RequestGate = new(1, 1);
     private static DateTimeOffset _nextRequestAt;
 
+    /// <inheritdoc />
+    /// <exception cref="ArgumentException">The request lacks a title or artist.</exception>
     public async Task<IReadOnlyList<MetadataSuggestion>> SearchAsync(
         MetadataSuggestionSearchRequest request,
         CancellationToken cancellationToken = default,
@@ -101,6 +104,11 @@ public sealed class TheAudioDbMetadataSuggestionProvider : IMetadataSuggestionPr
             .ToArray();
     }
 
+    /// <summary>Retrieves album-cover image bytes for a song from TheAudioDB.</summary>
+    /// <param name="song">The song whose artist and album identify the cover.</param>
+    /// <param name="cancellationToken">A token that cancels the lookup.</param>
+    /// <returns>The image bytes, or null when no usable cover is available.</returns>
+    /// <exception cref="ArgumentNullException">The song is null.</exception>
     public async Task<byte[]?> GetAlbumCoverArtAsync(
         Song song,
         CancellationToken cancellationToken = default)

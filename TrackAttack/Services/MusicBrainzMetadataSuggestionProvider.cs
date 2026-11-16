@@ -7,12 +7,14 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Services;
 
+/// <summary>Searches MusicBrainz for ranked recording metadata candidates.</summary>
 public sealed class MusicBrainzMetadataSuggestionProvider : IMetadataSuggestionProvider
 {
     private const int ResultLimit = 5;
     private const int MaximumServerBusyRetries = 3;
     private static readonly Uri ContactUri = new("https://github.com/dougquimby/TrackAttack");
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<MetadataSuggestion>> SearchAsync(
         MetadataSuggestionSearchRequest request,
         CancellationToken cancellationToken = default,

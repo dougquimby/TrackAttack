@@ -4,16 +4,23 @@ using TrackAttack.Settings;
 
 namespace TrackAttack.Services;
 
+/// <summary>Scans and edits local audio tags with recovery snapshots for applied batches.</summary>
 public sealed class LocalMetadataManager
 {
     private static readonly string[] SupportedExtensions = [".mp3", ".flac"];
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private static string BackupDirectory => Path.Combine(AppDataPaths.DirectoryPath, "MetadataBackups");
 
+    /// <summary>Gets whether a metadata recovery snapshot is available.</summary>
     public bool HasUndoAvailable =>
         Directory.Exists(BackupDirectory)
         && Directory.EnumerateFiles(BackupDirectory, "*.json").Any();
 
+    /// <summary>Scans a directory recursively for editable MP3 and FLAC tags.</summary>
+    /// <param name="directory">The directory to scan.</param>
+    /// <param name="progress">An optional recipient for the number of files scanned.</param>
+    /// <returns>Staged entries, including non-editable entries for unreadable files.</returns>
+    /// <exception cref="DirectoryNotFoundException">The directory does not exist.</exception>
     public Task<IReadOnlyList<MetadataEditEntry>> ScanAsync(string directory, IProgress<int>? progress = null)
     {
         return Task.Run<IReadOnlyList<MetadataEditEntry>>(() =>
@@ -37,9 +44,20 @@ public sealed class LocalMetadataManager
         });
     }
 
+    /// <summary>Snapshots and writes modified editable entries, attempting rollback on failure.</summary>
+    /// <param name="entries">The staged entries to apply.</param>
+    /// <returns>A task that completes when the batch has been applied.</returns>
+    /// <exception cref="InvalidDataException">An edited year is invalid.</exception>
+    /// <exception cref="FileNotFoundException">A selected file no longer exists.</exception>
+    /// <exception cref="InvalidOperationException">Writing failed; the exception describes the rollback outcome.</exception>
     public Task ApplyAsync(IReadOnlyCollection<MetadataEditEntry> entries)
         => Task.Run(() => Apply(entries));
 
+    /// <summary>Restores the most recent metadata recovery snapshot.</summary>
+    /// <returns>A task that completes when the snapshot has been restored.</returns>
+    /// <exception cref="InvalidOperationException">No snapshot exists or restoration fails.</exception>
+    /// <exception cref="InvalidDataException">The snapshot is invalid.</exception>
+    /// <exception cref="FileNotFoundException">A file in the snapshot no longer exists.</exception>
     public Task UndoLastApplyAsync()
         => Task.Run(UndoLastApply);
 

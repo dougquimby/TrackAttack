@@ -4,6 +4,7 @@ using NAudio.Wave;
 
 namespace TrackAttack.Services;
 
+/// <summary>Plays clips through NAudio with per-stream volume and clip-relative seeking.</summary>
 public class NAudioPlaybackService : IPlaybackService
 {
     private WaveOut? _output;
@@ -23,16 +24,21 @@ public class NAudioPlaybackService : IPlaybackService
     private (Song Song, TimeSpan Start, TimeSpan Duration, ClipPlaybackMode Mode)? _failedClip;
     private (Song Song, TimeSpan Start, TimeSpan Duration, ClipPlaybackMode Mode)? _playingClip;
 
+    /// <inheritdoc />
     public event EventHandler? ClipEnded;
+    /// <summary>Occurs when a song cannot be played; the second argument describes the failure.</summary>
     public event Action<Song, string>? PlaybackFailed;
+    /// <summary>Occurs after playback of a song starts successfully.</summary>
     public event Action<Song>? PlaybackStarted;
 
-    // Engine sets this after a correct guess when SkipOnCorrectGuess is false,
-    // so the clip finishes its current cycle and fires ClipEnded instead of looping.
+    /// <inheritdoc />
     public bool ShouldStopLooping { get; set; }
 
+    /// <inheritdoc />
     public bool IsPlaying => _output?.PlaybackState == PlaybackState.Playing;
+    /// <inheritdoc />
     public bool IsPaused => _output?.PlaybackState == PlaybackState.Paused;
+    /// <inheritdoc />
     public float Volume
     {
         get => _volume;
@@ -43,6 +49,7 @@ public class NAudioPlaybackService : IPlaybackService
                 _volumeStream.Volume = _volume;
         }
     }
+    /// <inheritdoc />
     public TimeSpan CurrentPosition
     {
         get
@@ -51,7 +58,9 @@ public class NAudioPlaybackService : IPlaybackService
                 return GetCurrentPosition();
         }
     }
+    /// <inheritdoc />
     public TimeSpan ClipDuration => _clipDuration;
+    /// <inheritdoc />
     public TimeSpan SongPosition
     {
         get
@@ -60,8 +69,10 @@ public class NAudioPlaybackService : IPlaybackService
                 return _reader == null ? TimeSpan.Zero : _clipStart + GetCurrentPosition();
         }
     }
+    /// <inheritdoc />
     public TimeSpan SongDuration => _reader?.TotalTime ?? TimeSpan.Zero;
 
+    /// <inheritdoc />
     public void PlayClip(Song song, TimeSpan startTime, TimeSpan duration, ClipPlaybackMode mode)
     {
         lock (_lock)
@@ -189,6 +200,7 @@ public class NAudioPlaybackService : IPlaybackService
             ClipEnded?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <inheritdoc />
     public void RestartClip()
     {
         lock (_lock)
@@ -210,6 +222,7 @@ public class NAudioPlaybackService : IPlaybackService
         }
     }
 
+    /// <inheritdoc />
     public void SeekClip(TimeSpan position)
     {
         lock (_lock)
@@ -237,6 +250,7 @@ public class NAudioPlaybackService : IPlaybackService
     // Extends the clip's total duration to newDuration WITHOUT restarting playback â€”
     // the audio keeps playing from its current position and only the clip-end timer is
     // re-armed. Used by the Extender power so the user doesn't lose their place.
+    /// <inheritdoc />
     public void ExtendClip(TimeSpan newDuration)
     {
         lock (_lock)
@@ -257,6 +271,7 @@ public class NAudioPlaybackService : IPlaybackService
         }
     }
 
+    /// <inheritdoc />
     public void Stop()
     {
         lock (_lock)
@@ -287,6 +302,7 @@ public class NAudioPlaybackService : IPlaybackService
         _positionAnchor = TimeSpan.Zero;
     }
 
+    /// <inheritdoc />
     public void Pause()
     {
         lock (_lock)
@@ -300,6 +316,7 @@ public class NAudioPlaybackService : IPlaybackService
         }
     }
 
+    /// <inheritdoc />
     public void Resume()
     {
         lock (_lock)
@@ -340,6 +357,7 @@ public class NAudioPlaybackService : IPlaybackService
     private static TimeSpan ClampPositive(TimeSpan t) =>
         t < TimeSpan.Zero ? TimeSpan.Zero : t;
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed) return;

@@ -4,8 +4,17 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Views;
 
+/// <summary>Provides one song's display values in quiz results.</summary>
+/// <param name="Number">The one-based quiz slot number.</param>
+/// <param name="Title">The song title.</param>
+/// <param name="Artist">The formatted artist and year.</param>
+/// <param name="Guess">The accepted title guess.</param>
+/// <param name="ArtistGuess">The accepted artist guess.</param>
+/// <param name="Points">The formatted points.</param>
+/// <param name="Status">The result status.</param>
 public sealed record ResultsRow(int Number, string Title, string Artist, string Guess, string ArtistGuess, string Points, string Status);
 
+/// <summary>Displays a completed quiz and actions for playing again or viewing history.</summary>
 public partial class ResultsView : UserControl
 {
     private static readonly string[] PerfectMessages =
@@ -62,9 +71,14 @@ public partial class ResultsView : UserControl
         "A mysterious performance. The songs remain unidentified."
     ];
 
+    /// <summary>Occurs when the player requests another quiz.</summary>
     public event Action? PlayAgainRequested;
+    /// <summary>Occurs when the player requests quiz history.</summary>
     public event Action? HistoryRequested;
 
+    /// <summary>Creates the results view for a quiz session.</summary>
+    /// <param name="session">The quiz session to display.</param>
+    /// <param name="history">The history repository supplied by the host.</param>
     public ResultsView(QuizSession session, IQuizHistoryRepository history)
     {
         InitializeComponent();

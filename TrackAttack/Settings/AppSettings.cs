@@ -4,41 +4,68 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Settings;
 
+/// <summary>Stores global preferences and the active profile's settings.</summary>
 public class AppSettings
 {
+    /// <summary>Gets or sets the active profile's primary library folder.</summary>
     public string MusicDirectory { get; set; } = string.Empty;
+    /// <summary>Gets or sets additional library folders for the active profile.</summary>
     public List<string> AdditionalMusicDirectories { get; set; } = [];
+    /// <summary>Gets or sets the profile's legacy default seconds per song.</summary>
     public int DefaultSecondsPerSong { get; set; } = 30;
+    /// <summary>Gets or sets the profile's legacy default clip length in seconds.</summary>
     public int DefaultClipDurationSeconds { get; set; } = 15;
+    /// <summary>Gets or sets the profile's normalized playback volume.</summary>
     public double AudioVolume { get; set; } = 1.0;
+    /// <summary>Gets or sets the profile's default fuzzy artist matching preference.</summary>
     public bool FuzzyArtistMatching { get; set; } = true;
+    /// <summary>Gets or sets the profile's default fuzzy title matching preference.</summary>
     public bool FuzzySongTitleMatching { get; set; } = true;
+    /// <summary>Gets or sets the profile's default punctuation matching preference.</summary>
     public bool IgnorePunctuation { get; set; } = true;
+    /// <summary>Gets or sets whether correct answers advance immediately by default.</summary>
     public bool SkipOnCorrectGuess { get; set; } = true;
+    /// <summary>Gets or sets whether song counts are shown in filter lists.</summary>
     public bool ShowSongCountsInLists { get; set; } = true;
+    /// <summary>Gets or sets whether recent quiz songs are excluded by default.</summary>
     public bool ExcludeRecentQuizSongs { get; set; }
+    /// <summary>Gets or sets the default number of recent quizzes considered for exclusion.</summary>
     public int RecentQuizzesToExclude { get; set; } = 5;
     public bool EnableSpotifyIntegration { get; set; }
     public string SpotifyClientId { get; set; } = string.Empty;
     public string SpotifyRefreshToken { get; set; } = string.Empty;
     public string SpotifyDisplayName { get; set; } = string.Empty;
+    /// <summary>Gets or sets the selected metadata catalog.</summary>
     public MetadataSuggestionProviderKind MetadataSuggestionProvider { get; set; } = MetadataSuggestionProviderKind.MusicBrainz;
+    /// <summary>Gets or sets the saved named quiz setups.</summary>
     public List<LocalQuizPreset> LocalQuizPresets { get; set; } = [];
+    /// <summary>Gets or sets the saved player profiles.</summary>
     public List<QuizProfile> Profiles { get; set; } = [];
+    /// <summary>Gets or sets the active profile's name.</summary>
     public string ActiveProfileName { get; set; } = "Default";
+    /// <summary>Gets or sets whether the window was maximized.</summary>
     public bool WindowMaximized { get; set; }
+    /// <summary>Gets or sets whether normal window bounds were saved.</summary>
     public bool WindowRestored { get; set; }
+    /// <summary>Gets or sets the saved normal window bounds.</summary>
     public Rectangle WindowBounds { get; set; }
+    /// <summary>Gets or sets whether the navigation sidebar is collapsed.</summary>
     public bool NavigationCollapsed { get; set; }
+    /// <summary>Gets or sets the active profile's dark-mode preference.</summary>
     public bool DarkModeEnabled { get; set; }
 
+    /// <summary>Gets the path to the user settings JSON file.</summary>
     public static string FilePath => Path.Combine(AppDataPaths.DirectoryPath, "settings.json");
 
+    /// <summary>Gets the configured library folders, omitting blank and duplicate paths.</summary>
+    /// <returns>The primary and additional library folders in order.</returns>
     public List<string> GetMusicDirectories()
         => new[] { MusicDirectory }.Concat(AdditionalMusicDirectories ?? [])
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
+    /// <summary>Sets the primary and additional library folders.</summary>
+    /// <param name="directories">The folders in order; the first becomes the primary folder.</param>
     public void SetMusicDirectories(IEnumerable<string> directories)
     {
         var folders = directories.ToList();
@@ -46,6 +73,9 @@ public class AppSettings
         AdditionalMusicDirectories = folders.Skip(1).ToList();
     }
 
+    /// <summary>Loads user settings, or creates defaults when the file is absent.</summary>
+    /// <returns>The loaded settings with an active profile.</returns>
+    /// <exception cref="SettingsLoadException">The settings file is invalid or cannot be read.</exception>
     public static AppSettings Load()
     {
         var filePath = FilePath;
@@ -69,6 +99,10 @@ public class AppSettings
         }
     }
 
+    /// <summary>Persists the active profile's playback volume.</summary>
+    /// <param name="volume">A finite normalized volume, clamped to the range 0 to 1.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The volume is not finite.</exception>
+    /// <exception cref="SettingsLoadException">Existing settings cannot be loaded.</exception>
     public static void SaveAudioVolume(double volume)
     {
         if (!double.IsFinite(volume))
@@ -79,6 +113,9 @@ public class AppSettings
         settings.Save();
     }
 
+    /// <summary>Activates and saves an existing profile.</summary>
+    /// <param name="name">The profile name, matched without regard to case.</param>
+    /// <exception cref="ArgumentException">The name is blank or does not identify a profile.</exception>
     public void ActivateProfile(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -92,6 +129,11 @@ public class AppSettings
         Save();
     }
 
+    /// <summary>Creates, activates, and saves a profile based on the current profile.</summary>
+    /// <param name="name">The new profile name.</param>
+    /// <returns>The newly created profile.</returns>
+    /// <exception cref="ArgumentException">The name is blank.</exception>
+    /// <exception cref="InvalidOperationException">A profile with the same name already exists.</exception>
     public QuizProfile AddProfile(string name)
     {
         name = NormalizeProfileName(name);
@@ -110,6 +152,10 @@ public class AppSettings
         return profile;
     }
 
+    /// <summary>Renames and saves the active profile.</summary>
+    /// <param name="name">The new profile name.</param>
+    /// <exception cref="ArgumentException">The name is blank.</exception>
+    /// <exception cref="InvalidOperationException">Another profile has the same name.</exception>
     public void RenameActiveProfile(string name)
     {
         name = NormalizeProfileName(name);
@@ -125,6 +171,8 @@ public class AppSettings
         Save();
     }
 
+    /// <summary>Deletes the active profile, activates another profile, and saves the settings.</summary>
+    /// <exception cref="InvalidOperationException">The active profile is the last profile.</exception>
     public void DeleteActiveProfile()
     {
         EnsureProfiles(applyProfileSettings: false);
@@ -184,8 +232,12 @@ public class AppSettings
         => Profiles.First(profile =>
             string.Equals(profile.Name, ActiveProfileName, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>Gets the active profile's last started quiz setup.</summary>
+    /// <returns>The saved setup, or null if no setup was recorded.</returns>
     public LocalQuizPreset? GetLastQuizSetup() => GetActiveProfile().LastQuizSetup;
 
+    /// <summary>Sets the active profile's last started quiz setup in memory.</summary>
+    /// <param name="setup">The setup to retain; call <see cref="Save"/> to persist it.</param>
     public void SetLastQuizSetup(LocalQuizPreset setup) => GetActiveProfile().LastQuizSetup = setup;
 
     private void StoreActiveProfileSettings()
@@ -246,6 +298,7 @@ public class AppSettings
         return name.Trim();
     }
 
+    /// <summary>Persists settings using a temporary file before replacing the existing file.</summary>
     public void Save()
     {
         EnsureProfiles(applyProfileSettings: false);
@@ -268,5 +321,8 @@ public class AppSettings
     }
 }
 
+/// <summary>Indicates that existing user settings could not be read or parsed.</summary>
+/// <param name="message">The user-facing description of the failure.</param>
+/// <param name="innerException">The underlying read or parse failure.</param>
 public sealed class SettingsLoadException(string message, Exception innerException)
     : IOException(message, innerException);

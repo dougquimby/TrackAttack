@@ -3,12 +3,27 @@ using TrackAttack.Models;
 
 namespace TrackAttack.Views;
 
-public enum MissingTrackChoice { Cancel, Remaining, Replace }
+/// <summary>Describes how to proceed when replay tracks are unavailable.</summary>
+public enum MissingTrackChoice
+{
+    /// <summary>Cancel the replay.</summary>
+    Cancel,
+    /// <summary>Replay only the available original tracks.</summary>
+    Remaining,
+    /// <summary>Replace all missing tracks with eligible songs.</summary>
+    Replace
+}
 
+/// <summary>Prompts for a replay action when original tracks are unavailable.</summary>
 public partial class ReplayMissingTracksWindow : Window
 {
+    /// <summary>Gets the selected replay action.</summary>
     public MissingTrackChoice Choice { get; private set; }
 
+    /// <summary>Creates the missing-track prompt.</summary>
+    /// <param name="missing">The unavailable original tracks.</param>
+    /// <param name="availableCount">The number of available original tracks.</param>
+    /// <param name="replacementCount">The number of eligible replacement tracks.</param>
     public ReplayMissingTracksWindow(IReadOnlyList<Song> missing, int availableCount, int replacementCount)
     {
         InitializeComponent();

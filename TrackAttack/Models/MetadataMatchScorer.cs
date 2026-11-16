@@ -3,6 +3,7 @@ using System.Text;
 
 namespace TrackAttack.Models;
 
+/// <summary>Scores catalog candidates against the existing track metadata.</summary>
 public static class MetadataMatchScorer
 {
     private const int TitleWeight = 20;
@@ -10,6 +11,11 @@ public static class MetadataMatchScorer
     private const int AlbumWeight = 20;
     private const int DurationWeight = 45;
 
+    /// <summary>Calculates a weighted match score from available text and duration fields.</summary>
+    /// <param name="request">The existing track metadata.</param>
+    /// <param name="suggestion">The catalog candidate.</param>
+    /// <returns>A rounded score from 0 to 100; zero indicates no comparable fields.</returns>
+    /// <exception cref="ArgumentNullException">The request or suggestion is null.</exception>
     public static int Calculate(MetadataSuggestionSearchRequest request, MetadataSuggestion suggestion)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -38,6 +44,9 @@ public static class MetadataMatchScorer
         }
     }
 
+    /// <summary>Scores a nonnegative difference between track durations.</summary>
+    /// <param name="difference">The absolute difference between durations.</param>
+    /// <returns>A score from 0 to 100, decreasing as the difference grows.</returns>
     public static int DurationScore(TimeSpan difference)
         => difference.TotalSeconds switch
         {

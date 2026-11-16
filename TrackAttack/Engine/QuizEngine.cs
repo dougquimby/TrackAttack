@@ -4,6 +4,8 @@ using TrackAttack.Services;
 
 namespace TrackAttack.Engine;
 
+/// <summary>Runs a quiz, including song rotation, answers, timers, scoring, and powers.</summary>
+/// <remarks>Timer and clip-end callbacks are dispatched through the synchronization context captured at construction.</remarks>
 public class QuizEngine : IDisposable
 {
     private readonly QuizConfig _config;
@@ -50,37 +52,64 @@ public class QuizEngine : IDisposable
     // engine must remember which songs were extended and re-apply it).
     private readonly HashSet<string> _extendedSongs = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Occurs when a song becomes current.</summary>
     public event EventHandler<SongChangedEventArgs>? SongChanged;
+    /// <summary>Occurs when the primary answer is guessed correctly.</summary>
     public event EventHandler<SongCorrectEventArgs>? SongCorrect;
+    /// <summary>Occurs when the artist answer is guessed correctly in combined mode.</summary>
     public event EventHandler<SongCorrectEventArgs>? ArtistBonusGuessed;
+    /// <summary>Occurs when the current song is passed.</summary>
     public event EventHandler? SongPassed;
+    /// <summary>Occurs when a song's per-song timer expires.</summary>
     public event EventHandler<Song>? SongTimedOut;
+    /// <summary>Occurs when the displayed remaining seconds change.</summary>
     public event EventHandler<int>? TimerTick;
+    /// <summary>Occurs when the quiz ends and its results are ready.</summary>
     public event EventHandler<QuizEndedEventArgs>? QuizEnded;
+    /// <summary>Occurs after a song is replaced with a mulligan.</summary>
     public event EventHandler<MulliganUsedEventArgs>? MulliganUsed;
+    /// <summary>Occurs after an extender is used; the event value is the remaining count.</summary>
     public event EventHandler<int>? ExtenderUsed;
+    /// <summary>Occurs after a clip reroll is used; the event value is the remaining count.</summary>
     public event EventHandler<int>? ClipRerollUsed;
+    /// <summary>Occurs after a hint is revealed.</summary>
     public event EventHandler<HintUsedEventArgs>? HintUsed;
 
+    /// <summary>Gets the current song, if one has been selected.</summary>
     public Song? CurrentSong { get; private set; }
+    /// <summary>Gets the number of song slots in the quiz.</summary>
     public int TotalSongs { get; }
+    /// <summary>Gets the number of recorded correct primary answers.</summary>
     public int CorrectCount => _results.Count(r => r.IsCorrect);
+    /// <summary>Gets the points earned so far after power penalties.</summary>
     public double TotalPoints => _results.Sum(result => QuizSession.CalculatePoints(result, _config));
+    /// <summary>Gets the maximum points available for all song slots.</summary>
     public double MaxPoints => QuizSession.CalculateMaxPointsPerSong(_config) * TotalSongs;
+    /// <summary>Gets the displayed seconds remaining on the active timer.</summary>
     public int RemainingSeconds => _secondsRemaining;
+    /// <summary>Gets whether the quiz is running.</summary>
     public bool IsRunning { get; private set; }
+    /// <summary>Gets whether the quiz timer and playback are paused together.</summary>
     public bool IsPaused => _isPaused;
+    /// <summary>Gets whether the current song has been fully answered.</summary>
     public bool IsCurrentSongCompleted => _songCompleted;
+    /// <summary>Gets whether the current song is a previously completed song being revisited.</summary>
     public bool IsRevisitingCompletedSong => _isRevisitingCompletedSong;
+    /// <summary>Gets whether the title portion of the current combined answer is complete.</summary>
     public bool GuessBothTitleDone => _guessBothTitleDone;
+    /// <summary>Gets whether the artist portion of the current combined answer is complete.</summary>
     public bool GuessBothArtistDone => _guessBothArtistDone;
+    /// <summary>Gets whether exactly one answer in combined mode has been completed.</summary>
     public bool IsGuessBothPending => _config.QuizMode == QuizMode.GuessBoth && (_guessBothTitleDone || _guessBothArtistDone) && !(_guessBothTitleDone && _guessBothArtistDone);
+    /// <summary>Gets the configured answer mode.</summary>
     public QuizMode Mode => _config.QuizMode;
+    /// <summary>Gets whether a mulligan can be used on the current song.</summary>
     public bool CanUseMulligan => _mulligansRemaining > 0
         && CurrentSong != null
         && !_songCompleted
         && !_isPaused
         && IsRunning;
+    /// <summary>Gets whether the current clip can be extended.</summary>
     public bool CanUseExtender => _extendersRemaining > 0
         && CurrentSong != null
         && !_songCompleted
@@ -88,6 +117,7 @@ public class QuizEngine : IDisposable
         && !_isPaused
         && (_playback.IsPlaying || _playback.IsPaused)
         && IsRunning;
+    /// <summary>Gets whether the current clip can be rerolled to a different start.</summary>
     public bool CanUseClipReroll => _clipRerollsRemaining > 0
         && CurrentSong is { } song
         && !_songCompleted
@@ -97,21 +127,35 @@ public class QuizEngine : IDisposable
         && (GetRerollLatestStart(song) > TimeSpan.Zero
             || (_assignedStartTimes.ContainsKey(song.SourcePath)
                 && GetCurrentClipStart() > TimeSpan.FromMilliseconds(1)));
+    /// <summary>Gets whether an unused applicable hint is available for the current song.</summary>
     public bool CanUseHint => _hintsRemaining > 0
         && CurrentSong != null
         && !_songCompleted
         && !_isPaused
         && IsRunning
         && GetUnusedHints(CurrentSong).Count > 0;
+    /// <summary>Gets the remaining mulligan count.</summary>
     public int MulligansRemaining => _mulligansRemaining;
+    /// <summary>Gets the remaining extender count.</summary>
     public int ExtendersRemaining => _extendersRemaining;
+    /// <summary>Gets the remaining clip-reroll count.</summary>
     public int ClipRerollsRemaining => _clipRerollsRemaining;
+    /// <summary>Gets the remaining hint count.</summary>
     public int HintsRemaining => _hintsRemaining;
+    /// <summary>Gets the number of mulligans used.</summary>
     public int MulligansUsed => Math.Max(0, _config.MulliganCount - _mulligansRemaining);
+    /// <summary>Gets the number of extenders used.</summary>
     public int ExtendersUsed => Math.Max(0, _config.ExtenderCount - _extendersRemaining);
+    /// <summary>Gets the number of clip rerolls used.</summary>
     public int ClipRerollsUsed => Math.Max(0, _config.ClipRerollCount - _clipRerollsRemaining);
+    /// <summary>Gets the number of hints used.</summary>
     public int HintsUsed => Math.Max(0, _config.HintCount - _hintsRemaining);
 
+    /// <summary>Creates a quiz engine using the supplied songs and playback service.</summary>
+    /// <param name="config">The quiz rules and power counts.</param>
+    /// <param name="songs">The ordered initial songs.</param>
+    /// <param name="mulliganReserve">The ordered replacement songs.</param>
+    /// <param name="playback">The playback service controlled by the engine.</param>
     public QuizEngine(QuizConfig config, IEnumerable<Song> songs, IEnumerable<Song> mulliganReserve, IPlaybackService playback)
     {
         _syncCtx = SynchronizationContext.Current ?? new SynchronizationContext();
@@ -141,6 +185,7 @@ public class QuizEngine : IDisposable
         _hintsRemaining = config.HintCount;
     }
 
+    /// <summary>Starts the timer and advances to the first song.</summary>
     public void Start()
     {
         IsRunning = true;
@@ -150,6 +195,8 @@ public class QuizEngine : IDisposable
         AdvanceToNext();
     }
 
+    /// <summary>Checks an answer for the current song and records any correct portion.</summary>
+    /// <param name="input">The player's answer.</param>
     public void SubmitGuess(string input)
     {
         if (!IsRunning || _isPaused || string.IsNullOrWhiteSpace(input) || CurrentSong == null) return;
@@ -260,6 +307,7 @@ public class QuizEngine : IDisposable
         }
     }
 
+    /// <summary>Passes the current song and advances to another eligible song.</summary>
     public void PassCurrentSong()
     {
         if (!IsRunning || _isPaused || _songsInSession.Count == 0) return;
@@ -289,6 +337,8 @@ public class QuizEngine : IDisposable
     }
 
 
+    /// <summary>Switches to an unfinished or previously completed song in the quiz.</summary>
+    /// <param name="target">The song to select; unavailable and timed-out songs are ignored.</param>
     public void JumpToSong(Song target)
     {
         if (!IsRunning || _isPaused || CurrentSong?.SourcePath == target.SourcePath) return;
@@ -522,6 +572,7 @@ public class QuizEngine : IDisposable
         }, null);
     }
 
+    /// <summary>Restarts the current song's clip when the quiz is active.</summary>
     public void RestartCurrentSong()
     {
         if (!IsRunning || _isPaused) return;
@@ -530,6 +581,7 @@ public class QuizEngine : IDisposable
         _playback.RestartClip();
     }
 
+    /// <summary>Pauses quiz timing and any currently playing audio.</summary>
     public void Pause()
     {
         if (!IsRunning || _isPaused)
@@ -547,6 +599,7 @@ public class QuizEngine : IDisposable
             _playback.Pause();
     }
 
+    /// <summary>Resumes quiz timing and audio that was playing before the quiz pause.</summary>
     public void Resume()
     {
         if (!IsRunning || !_isPaused)
@@ -561,6 +614,7 @@ public class QuizEngine : IDisposable
         _timer.Start();
     }
 
+    /// <summary>Replaces the current song with the next reserve song when available.</summary>
     public void UseMulligan()
     {
         if (!CanUseMulligan) return;
@@ -611,6 +665,7 @@ public class QuizEngine : IDisposable
         MulliganUsed?.Invoke(this, new MulliganUsedEventArgs(oldSong, newSong, num, _mulligansRemaining));
     }
 
+    /// <summary>Extends the current clip without restarting it when available.</summary>
     public void UseExtender()
     {
         if (!CanUseExtender) return;
@@ -628,6 +683,7 @@ public class QuizEngine : IDisposable
         ExtenderUsed?.Invoke(this, _extendersRemaining);
     }
 
+    /// <summary>Chooses a different start for the current clip when available.</summary>
     public void UseClipReroll()
     {
         if (!CanUseClipReroll || CurrentSong is not { } song)
@@ -663,6 +719,10 @@ public class QuizEngine : IDisposable
         ClipRerollUsed?.Invoke(this, _clipRerollsRemaining);
     }
 
+    /// <summary>Reveals an unused applicable hint for the current song.</summary>
+    /// <param name="fetchAlbumCover">Retrieves cover image bytes when the chosen hint requires them.</param>
+    /// <param name="cancellationToken">A token passed to the cover lookup.</param>
+    /// <returns>Whether a hint was revealed and consumed.</returns>
     public async Task<bool> UseHintAsync(
         Func<Song, CancellationToken, Task<byte[]?>> fetchAlbumCover,
         CancellationToken cancellationToken = default)
@@ -864,6 +924,7 @@ public class QuizEngine : IDisposable
         return !letters.SequenceEqual(originalLetters);
     }
 
+    /// <summary>Stops the quiz, records remaining songs as missed, and raises <see cref="QuizEnded"/>.</summary>
     public void End()
     {
         if (_ended) return;
@@ -902,6 +963,7 @@ public class QuizEngine : IDisposable
         QuizEnded?.Invoke(this, new QuizEndedEventArgs(orderedResults, endedAt - _startTime - pausedDuration));
     }
 
+    /// <summary>Stops playback and releases timer and event subscriptions.</summary>
     public void Dispose()
     {
         if (_disposed) return;
@@ -919,10 +981,31 @@ public class QuizEngine : IDisposable
 
 }
 
+/// <summary>Describes a newly selected song.</summary>
+/// <param name="Song">The selected song.</param>
+/// <param name="SongNumber">Its one-based quiz slot number.</param>
 public record SongChangedEventArgs(Song Song, int SongNumber);
+/// <summary>Describes a correct answer.</summary>
+/// <param name="Song">The song answered.</param>
+/// <param name="CorrectCount">The number of correct primary answers so far.</param>
+/// <param name="TotalSongs">The number of quiz slots.</param>
 public record SongCorrectEventArgs(Song Song, int CorrectCount, int TotalSongs);
+/// <summary>Provides the final ordered results and elapsed quiz duration.</summary>
+/// <param name="Results">The results in quiz-slot order.</param>
+/// <param name="Duration">The elapsed duration excluding quiz pauses.</param>
 public record QuizEndedEventArgs(IReadOnlyList<SongResult> Results, TimeSpan Duration);
+/// <summary>Describes a track replacement.</summary>
+/// <param name="OldSong">The song replaced.</param>
+/// <param name="NewSong">The replacement song.</param>
+/// <param name="SongNumber">The one-based quiz slot number.</param>
+/// <param name="RemainingMulligans">The remaining replacement count.</param>
 public record MulliganUsedEventArgs(Song OldSong, Song NewSong, int SongNumber, int RemainingMulligans);
+/// <summary>Describes a revealed hint.</summary>
+/// <param name="Label">The hint type's display label.</param>
+/// <param name="Hint">The text of the clue.</param>
+/// <param name="RemainingHints">The remaining hint count.</param>
+/// <param name="CoverArt">The cover image bytes, when applicable.</param>
+/// <param name="FallbackMessage">An explanation when an unavailable cover caused another hint to be used.</param>
 public record HintUsedEventArgs(
     string Label,
     string Hint,
