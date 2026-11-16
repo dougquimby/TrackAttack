@@ -31,6 +31,8 @@ public sealed class PresetPersistenceTests
                             LocalMusicDirectories = [@"C:\Music"],
                             LocalFolderRules = [new MusicFolderRule { Path = @"C:\Music\Excluded", Included = false }],
                             QuizMode = QuizMode.GuessBoth,
+                            MinSongDuration = TimeSpan.FromSeconds(90),
+                            MaxSongDuration = TimeSpan.FromSeconds(3665),
                             QuickGuessBonusEnabled = true,
                             QuickGuessBonusSeconds = 7,
                             QuickGuessBonusPoints = 0.75,
@@ -56,6 +58,10 @@ public sealed class PresetPersistenceTests
             Assert.Equal(@"C:\Music", Assert.Single(preset.Config.LocalMusicDirectories!));
             Assert.False(Assert.Single(preset.Config.LocalFolderRules!).Included);
             Assert.Equal(QuizMode.GuessBoth, preset.Config.QuizMode);
+            Assert.Equal(TimeSpan.FromSeconds(90), preset.Config.MinSongDuration);
+            Assert.Equal(TimeSpan.FromSeconds(3665), preset.Config.MaxSongDuration);
+            Assert.Equal("1:30", TrackLengthInput.Format(preset.Config.MinSongDuration));
+            Assert.Equal("61:05", TrackLengthInput.Format(preset.Config.MaxSongDuration));
             Assert.True(preset.Config.QuickGuessBonusEnabled);
             Assert.Equal(7, preset.Config.QuickGuessBonusSeconds);
             Assert.Equal(0.75, preset.Config.QuickGuessBonusPoints);

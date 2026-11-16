@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Collections.ObjectModel;
+using System.Reflection;
 using Microsoft.Win32;
 using TrackAttack.Data;
 using TrackAttack.Models;
@@ -29,6 +30,8 @@ public partial class SettingsView : UserControl
     public event Action? SettingsSaved;
     /// <summary>Occurs after the active profile changes.</summary>
     public event Action? ProfileChanged;
+    /// <summary>Occurs when the player requests metadata editing.</summary>
+    public event Action? MetadataRequested;
 
     /// <summary>Creates the settings view.</summary>
     /// <param name="history">The repository used for history management.</param>
@@ -36,6 +39,13 @@ public partial class SettingsView : UserControl
     {
         _history = history;
         InitializeComponent();
+        var assembly = typeof(SettingsView).Assembly;
+        var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
+            ?? throw new InvalidOperationException("The application version is missing.");
+        var buildDate = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(attribute => attribute.Key == "BuildDateUtc").Value
+            ?? throw new InvalidOperationException("The application build date is missing.");
+        BuildInfoText.Text = $"Version {version} · Built {buildDate} (UTC)";
         ProfileCombo.ItemsSource = _settings.Profiles;
         ProfileCombo.SelectedItem = _settings.Profiles.FirstOrDefault(profile =>
             string.Equals(profile.Name, _settings.ActiveProfileName, StringComparison.OrdinalIgnoreCase));
@@ -117,6 +127,8 @@ public partial class SettingsView : UserControl
         Slider slider => slider.Value,
         _ => throw new InvalidOperationException("Unsupported settings input.")
     };
+
+    private void OnMetadataClick(object sender, RoutedEventArgs e) => MetadataRequested?.Invoke();
 
     private void RememberSavedInputs(bool profileOnly = false)
     {

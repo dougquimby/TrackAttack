@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Microsoft.Win32;
 using DrawingRectangle = System.Drawing.Rectangle;
 using TrackAttack.Data;
 using TrackAttack.Models;
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
     private bool _navigationCollapsed;
     private bool _wasMaximized;
     private bool _replayingHistoryQuiz;
+    private bool _loadingChallenge;
 
     /// <summary>Creates the main window and initializes history and navigation.</summary>
     public MainWindow()
@@ -143,10 +145,10 @@ public partial class MainWindow : Window
         SetNavigationButtonActive(HomeNavigationButton, _currentView is HomeView);
         SetNavigationButtonActive(NewQuizNavigationButton,
             _currentView is QuizSetupView or SongsView or QuizView or ResultsView);
-        SetNavigationButtonActive(MetadataNavigationButton, _currentView is MetadataView);
         SetNavigationButtonActive(HistoryNavigationButton, _currentView is HistoryView);
         SetNavigationButtonActive(StatisticsNavigationButton, _currentView is StatisticsView);
-        SetNavigationButtonActive(SettingsNavigationButton, _currentView is SettingsView);
+        SetNavigationButtonActive(SocialNavigationButton, _currentView is SocialView);
+        SetNavigationButtonActive(SettingsNavigationButton, _currentView is SettingsView or MetadataView);
     }
 
     private static void SetNavigationButtonActive(Button button, bool isActive)
@@ -159,7 +161,7 @@ public partial class MainWindow : Window
     {
         var home = new HomeView(_history);
         home.NewQuizRequested += OnNewQuizClickFromHome;
-        home.MetadataRequested += OnMetadataClickFromHome;
+        home.MetadataRequested += OnMetadataRequested;
         home.HistoryRequested += OnHistoryClickFromHome;
         home.SettingsRequested += OnSettingsClickFromHome;
         home.ProfileChanged += OnHomeProfileChanged;
@@ -167,7 +169,6 @@ public partial class MainWindow : Window
     }
 
     private void OnNewQuizClickFromHome() => OnNewQuizClick(this, new RoutedEventArgs());
-    private void OnMetadataClickFromHome() => OnMetadataClick(this, new RoutedEventArgs());
     private void OnHistoryClickFromHome() => OnHistoryClick(this, new RoutedEventArgs());
     private void OnSettingsClickFromHome() => OnSettingsClick(this, new RoutedEventArgs());
     private void OnHomeProfileChanged()
@@ -192,11 +193,16 @@ public partial class MainWindow : Window
         var settings = AppSettings.Load();
         var setup = new QuizSetupView(_musicSource, _history, settings.EnableSpotifyIntegration);
         setup.QuizRequested += OnQuizRequested;
+        setup.ChallengeRequested += OnCreateChallengeRequested;
         setup.SongsRequested += songs => Navigate(new SongsView(songs), "Songs matching filters");
         Navigate(setup, "New Quiz");
     }
 
     private void OnQuizRequested(QuizConfig config, IReadOnlyList<Song> songs, IReadOnlyList<Song> reserve)
+        => StartQuiz(config, songs, reserve);
+
+    private void StartQuiz(QuizConfig config, IReadOnlyList<Song> songs, IReadOnlyList<Song> reserve,
+        IReadOnlyList<TimeSpan>? clipStarts = null)
     {
         if (!CanLeaveSettings())
             return;
@@ -217,7 +223,7 @@ public partial class MainWindow : Window
             playback = new NAudioPlaybackService();
         }
 
-        _activeQuiz = new QuizView(config, songs, reserve, _history, playback, AppSettings.Load().ActiveProfileName);
+        _activeQuiz = new QuizView(config, songs, reserve, _history, playback, AppSettings.Load().ActiveProfileName, clipStarts);
         _activeQuiz.QuizFinished += session =>
         {
             _activeQuiz = null;
@@ -229,7 +235,7 @@ public partial class MainWindow : Window
         Navigate(_activeQuiz, config.QuizTitle);
     }
 
-    private void OnMetadataClick(object sender, RoutedEventArgs e)
+    private void OnMetadataRequested()
     {
         if (GuardNavigation())
             Navigate(new MetadataView(), "Fix Library Metadata");
@@ -241,8 +247,171 @@ public partial class MainWindow : Window
         {
             var historyView = new HistoryView(_history);
             historyView.ReplayRequested += OnReplayQuizRequested;
+            historyView.ChallengeRequested += OnHistoryChallengeRequested;
             Navigate(historyView, "Quiz History");
         }
+    }
+
+    private void OnSocialClick(object sender, RoutedEventArgs e)
+    {
+        if (!GuardNavigation())
+            return;
+        var social = new SocialView();
+        social.OpenChallengeRequested += OnOpenChallengeRequested;
+        social.CreateChallengeRequested += OnNewQuizClickFromHome;
+        social.HistoryRequested += OnHistoryClickFromHome;
+        Navigate(social, "Social");
+    }
+
+    private void OnCreateChallengeRequested(QuizConfig config, IReadOnlyList<Song> songs, IReadOnlyList<Song> reserve)
+    {
+        try
+        {
+            var challenge = QuizChallengeService.Create(config, songs);
+            if (SaveChallenge(challenge))
+                StartQuiz(config, songs, reserve, challenge.Tracks.Select(track => track.ClipStart).ToArray());
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"Could not create the challenge:\n{exception.Message}",
+                "Challenge creation failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private bool SaveChallenge(QuizChallenge challenge)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save challenge",
+            Filter = "TrackAttack challenge (*.tachallenge)|*.tachallenge|All files (*.*)|*.*",
+            DefaultExt = ".tachallenge",
+            FileName = "TrackAttack Challenge.tachallenge"
+        };
+        if (dialog.ShowDialog(this) != true)
+            return false;
+        QuizChallengeService.Save(dialog.FileName, challenge);
+        MessageBox.Show(this, "Challenge saved. It contains track answers but no audio; anyone opening the file as text can see the answers.",
+            "Challenge saved", MessageBoxButton.OK, MessageBoxImage.Information);
+        return true;
+    }
+
+    private async void OnHistoryChallengeRequested(QuizSession session)
+    {
+        if (_loadingChallenge || !GuardNavigation())
+            return;
+        if (MessageBox.Show(this,
+                "History does not save the original clip positions. New positions will be chosen, so the original result is not directly comparable. The final tracks after any mulligans are used.\n\nContinue?",
+                "Create challenge from history", MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes)
+            return;
+        _loadingChallenge = true;
+        var originalView = _currentView;
+        try
+        {
+            var songs = session.Results.Select(result => result.Song).ToArray();
+            var local = (LocalFileMusicSource)_musicSource;
+            var historyRoots = string.IsNullOrWhiteSpace(session.Config.LocalPlaylistPath)
+                ? MusicFolderSelection.Roots(session.Config) : [];
+            var roots = historyRoots.Concat(AppSettings.Load().GetMusicDirectories())
+                .Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            var scan = await Task.Run(() => local.ScanLibrary(roots, null));
+            var originals = await Task.Run(() => local.ScanFiles(songs.Select(song => song.SourcePath)
+                .Where(path => !string.IsNullOrWhiteSpace(path))));
+            if (_currentView != originalView)
+                return;
+            ShowScanWarnings(scan.Issues.Concat(originals.Issues).ToArray());
+            var available = scan.Songs.Concat(originals.Songs)
+                .DistinctBy(song => song.SourcePath, StringComparer.OrdinalIgnoreCase).ToArray();
+            var slots = ReplayTrackResolver.Resolve(songs, available).Slots;
+            if (ShowUnavailableTracks(songs, slots))
+                return;
+            SaveChallenge(QuizChallengeService.Create(session.Config, slots.OfType<Song>().ToArray()));
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"Could not create the challenge:\n{exception.Message}",
+                "Challenge creation failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally { _loadingChallenge = false; }
+    }
+
+    private async void OnOpenChallengeRequested()
+    {
+        if (_loadingChallenge || !GuardNavigation())
+            return;
+        var dialog = new OpenFileDialog
+        {
+            Title = "Open challenge",
+            Filter = "TrackAttack challenge (*.tachallenge)|*.tachallenge|All files (*.*)|*.*"
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+        _loadingChallenge = true;
+        var originalView = _currentView;
+        try
+        {
+            var challenge = QuizChallengeService.Load(dialog.FileName);
+            var settings = AppSettings.Load();
+            var roots = settings.GetMusicDirectories().Where(path => !string.IsNullOrWhiteSpace(path)).ToArray();
+            if (roots.Length == 0)
+            {
+                var folder = new OpenFolderDialog { Title = "Select the folder containing your music" };
+                if (folder.ShowDialog(this) != true)
+                    return;
+                roots = [folder.FolderName];
+            }
+            var scan = await Task.Run(() => ((LocalFileMusicSource)_musicSource).ScanLibrary(roots, null));
+            if (_currentView != originalView)
+                return;
+            ShowScanWarnings(scan.Issues);
+            var slots = QuizChallengeService.Resolve(challenge, scan.Songs);
+            var requested = challenge.Tracks.Select(track => new Song { Title = track.Title, Artist = track.Artist }).ToArray();
+            if (ShowUnavailableTracks(requested, slots))
+                return;
+            var selected = slots.OfType<Song>().ToArray();
+            var config = challenge.Config.Clone();
+            config.SourceDirectory = roots[0];
+            config.LocalMusicDirectories = [.. roots];
+            var recent = config.ExcludeRecentQuizSongs
+                ? await _history.GetRecentQuizSongsAsync(config.RecentQuizzesToExclude, config.SourceType,
+                    config.SourceDirectory, settings.ActiveProfileName)
+                : [];
+            if (_currentView != originalView)
+                return;
+            var reserve = GetLocalReplayCandidates(config, scan.Songs, selected, recent, selected)
+                .Take(config.MulliganCount).ToArray();
+            if (reserve.Length < config.MulliganCount)
+            {
+                MessageBox.Show(this, $"This challenge needs {config.MulliganCount} eligible reserve tracks, but only {reserve.Length} were found. Add more matching tracks before playing.",
+                    "Challenge reserve unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            StartQuiz(config, selected, reserve, challenge.Tracks.Select(track => track.ClipStart).ToArray());
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"Could not open the challenge:\n{exception.Message}",
+                "Challenge open failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally { _loadingChallenge = false; }
+    }
+
+    private void ShowScanWarnings(IReadOnlyList<LibraryScanIssue> issues)
+    {
+        if (issues.Count > 0)
+            MessageBox.Show(this, LibraryScanIssueSummary.Format(issues),
+                "Library scan warnings", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private bool ShowUnavailableTracks(IReadOnlyList<Song> requested, IReadOnlyList<Song?> slots)
+    {
+        var missing = requested.Where((_, index) => slots[index] is null).ToArray();
+        if (missing.Length == 0)
+            return false;
+        var list = string.Join(Environment.NewLine, missing.Take(10).Select(song => $"• {song.Artist} — {song.Title}"));
+        var remaining = missing.Length > 10 ? $"\n…and {missing.Length - 10} more." : string.Empty;
+        MessageBox.Show(this, $"{missing.Length} track(s) are missing, ambiguous, or have an incompatible duration. All tracks are required.\n{list}{remaining}",
+            "Challenge tracks unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return true;
     }
 
     private void OnStatisticsClick(object sender, RoutedEventArgs e)
@@ -543,6 +712,7 @@ public partial class MainWindow : Window
         view.SettingsSaved += RefreshQuizSetupProfileSettings;
         view.SettingsSaved += RefreshNavigationProfile;
         view.ProfileChanged += OnHomeProfileChanged;
+        view.MetadataRequested += OnMetadataRequested;
         return view;
     }
 
@@ -677,9 +847,9 @@ public partial class MainWindow : Window
         {
             (HomeNavigationButton, HomeNavigationLabel),
             (NewQuizNavigationButton, NewQuizNavigationLabel),
-            (MetadataNavigationButton, MetadataNavigationLabel),
             (HistoryNavigationButton, HistoryNavigationLabel),
             (StatisticsNavigationButton, StatisticsNavigationLabel),
+            (SocialNavigationButton, SocialNavigationLabel),
             (SettingsNavigationButton, SettingsNavigationLabel)
         };
         foreach (var (button, label) in navigationButtons)

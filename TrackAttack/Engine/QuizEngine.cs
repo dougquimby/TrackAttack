@@ -165,7 +165,9 @@ public class QuizEngine : IDisposable
     /// <param name="songs">The ordered initial songs.</param>
     /// <param name="mulliganReserve">The ordered replacement songs.</param>
     /// <param name="playback">The playback service controlled by the engine.</param>
-    public QuizEngine(QuizConfig config, IEnumerable<Song> songs, IEnumerable<Song> mulliganReserve, IPlaybackService playback)
+    /// <param name="initialClipStarts">Optional initial clip positions in song order.</param>
+    public QuizEngine(QuizConfig config, IEnumerable<Song> songs, IEnumerable<Song> mulliganReserve, IPlaybackService playback,
+        IReadOnlyList<TimeSpan>? initialClipStarts = null)
     {
         _syncCtx = SynchronizationContext.Current ?? new SynchronizationContext();
         _config = config;
@@ -173,6 +175,18 @@ public class QuizEngine : IDisposable
         _allSongs = songs.ToList();
         _songsInSession = songs.ToList();
         TotalSongs = _allSongs.Count;
+        if (initialClipStarts is not null)
+        {
+            if (initialClipStarts.Count != _allSongs.Count || initialClipStarts.Any(start => start < TimeSpan.Zero)
+                || _allSongs.Any(song => string.IsNullOrWhiteSpace(song.SourcePath))
+                || _allSongs.Select(song => song.SourcePath).Distinct(StringComparer.OrdinalIgnoreCase).Count() != _allSongs.Count
+                || _allSongs.Where((song, index) => song.Duration <= TimeSpan.Zero
+                    || initialClipStarts[index] > (song.Duration > config.ClipDuration
+                        ? song.Duration - config.ClipDuration : TimeSpan.Zero)).Any())
+                throw new ArgumentException("Initial clip positions must fit distinct playable songs.", nameof(initialClipStarts));
+            for (var index = 0; index < _allSongs.Count; index++)
+                _assignedStartTimes.Add(_allSongs[index].SourcePath, initialClipStarts[index]);
+        }
 
         _songNumbers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < _allSongs.Count; i++)

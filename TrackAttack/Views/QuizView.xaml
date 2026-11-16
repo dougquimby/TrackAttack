@@ -113,7 +113,7 @@
             <StackPanel>
                 <TextBlock x:Name="NowPlayingText" Text="Starting…" FontSize="18" FontWeight="SemiBold"
                            Foreground="{DynamicResource StrongTextBrush}"/>
-                <Grid Margin="0,6,0,0" Height="30">
+                <Grid x:Name="StreakPanel" Margin="0,6,0,0" Height="30" Visibility="Collapsed">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Border x:Name="StreakIndicator" Background="{DynamicResource SubtleSurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}"
                             BorderThickness="1" CornerRadius="5" Padding="9,0" Margin="0,0,8,0" Height="30">

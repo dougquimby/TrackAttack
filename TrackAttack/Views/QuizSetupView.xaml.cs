@@ -52,6 +52,8 @@ public partial class QuizSetupView : UserControl
 
     /// <summary>Occurs with the configuration, initial songs, and mulligan reserve when a quiz is requested.</summary>
     public event Action<QuizConfig, IReadOnlyList<Song>, IReadOnlyList<Song>>? QuizRequested;
+    /// <summary>Occurs when a local challenge is requested from the selected quiz.</summary>
+    public event Action<QuizConfig, IReadOnlyList<Song>, IReadOnlyList<Song>>? ChallengeRequested;
     /// <summary>Occurs with the current matching songs when the song list is requested.</summary>
     public event Action<IReadOnlyList<Song>>? SongsRequested;
 
@@ -74,6 +76,8 @@ public partial class QuizSetupView : UserControl
             SourceCombo.SelectedIndex = 2;
         UpdateSourcePanels();
         GenreList.ItemsSource = _genres;
+        CheckGenreMenu.ItemsSource = BroadGenreMatcher.Categories;
+        UncheckGenreMenu.ItemsSource = BroadGenreMatcher.Categories;
         DecadeList.ItemsSource = _decades;
         QuizModeCombo.SelectedIndex = 2;
         PlaybackCombo.SelectedIndex = 0;
@@ -783,8 +787,10 @@ public partial class QuizSetupView : UserControl
                 }
             }
             var rules = savedRules ?? GetFolderRules();
+            var previousFirstRoot = _folderNodes.FirstOrDefault();
             var treeIssues = new List<LibraryScanIssue>();
             var nodes = await Task.Run(() => roots.Select(root => MusicFolderNode.Create(root, rules, treeIssues)).ToList());
+            SetInitialFirstRootExpansion(nodes, previousFirstRoot);
             var existingPaths = nodes.SelectMany(node => node.Paths()).ToHashSet(StringComparer.OrdinalIgnoreCase);
             _unavailableFolderRules = rules.Where(rule => !existingPaths.Contains(
                 Path.TrimEndingDirectorySeparator(Path.GetFullPath(rule.Path)))).ToList();
@@ -898,7 +904,7 @@ public partial class QuizSetupView : UserControl
 
     private List<string> GetSelectedYears() => _decades.SelectMany(node => node.SelectedValues()).ToList();
 
-    private List<Song> GetMatchingSongs()
+    private List<Song> GetMatchingSongs(int minimumSeconds, int maximumSeconds)
     {
         var selectedGenres = IsSpotifySource
             ? []
@@ -909,9 +915,9 @@ public partial class QuizSetupView : UserControl
             songs = songs.Where(song => selectedGenres.Any(value => value == LocalFileMusicSource.UnknownMetadataOption
                 ? string.IsNullOrWhiteSpace(song.Genre) : string.Equals(value, song.Genre, StringComparison.OrdinalIgnoreCase)));
         songs = songs.Where(song => yearFilter.Matches(song.Year));
-        if (TryInt(MinLengthText.Text, 0, 0, 86400, out var minimumSeconds) && minimumSeconds > 0)
+        if (minimumSeconds > 0)
             songs = songs.Where(song => song.Duration.TotalSeconds >= minimumSeconds);
-        if (TryInt(MaxLengthText.Text, 0, 0, 86400, out var maximumSeconds) && maximumSeconds > 0)
+        if (maximumSeconds > 0)
             songs = songs.Where(song => song.Duration.TotalSeconds <= maximumSeconds);
         if (ExcludeRecentCheck.IsChecked == true)
             songs = _recentHistoryLoaded
@@ -933,6 +939,8 @@ public partial class QuizSetupView : UserControl
     private void OnFilterCheckedChanged(object sender, RoutedEventArgs e) => UpdateMatchCount();
     private void OnSelectAllGenresClick(object sender, RoutedEventArgs e) => SetFilterChoices(_genres, true);
     private void OnSelectNoGenresClick(object sender, RoutedEventArgs e) => SetFilterChoices(_genres, false);
+    private void OnCheckGenreGroupClick(object sender, RoutedEventArgs e) => SetGenreGroup(sender, true);
+    private void OnUncheckGenreGroupClick(object sender, RoutedEventArgs e) => SetGenreGroup(sender, false);
     private void OnSelectAllDecadesClick(object sender, RoutedEventArgs e) => SetYearChoices(true);
     private void OnSelectNoDecadesClick(object sender, RoutedEventArgs e) => SetYearChoices(false);
     private void OnExpandFoldersClick(object sender, RoutedEventArgs e) => SetFolderExpansion(true);
@@ -941,6 +949,16 @@ public partial class QuizSetupView : UserControl
     private void OnCollapseDecadesClick(object sender, RoutedEventArgs e) => SetDecadeExpansion(false);
     private void OnSelectAllHintsClick(object sender, RoutedEventArgs e) => SetHintTypes(true);
     private void OnSelectNoHintsClick(object sender, RoutedEventArgs e) => SetHintTypes(false);
+
+    private static void SetInitialFirstRootExpansion(IReadOnlyList<MusicFolderNode> nodes, MusicFolderNode? previousRoot)
+    {
+        if (nodes.FirstOrDefault() is not { Children.Count: > 0 } firstRoot)
+            return;
+        firstRoot.IsExpanded = previousRoot is { Children.Count: > 0 }
+            && string.Equals(previousRoot.Path, firstRoot.Path, StringComparison.OrdinalIgnoreCase)
+                ? previousRoot.IsExpanded
+                : true;
+    }
 
     private void SetFolderExpansion(bool expanded)
         => SetTreeExpansion(_folderNodes, node => node.Children, (node, value) => node.IsExpanded = value, expanded);
@@ -965,6 +983,21 @@ public partial class QuizSetupView : UserControl
         foreach (var choice in choices)
             choice.IsChecked = isChecked;
         UpdateMatchCount();
+    }
+
+    private void SetGenreGroup(object sender, bool isChecked)
+    {
+        if (sender is not MenuItem { Tag: string category })
+            throw new InvalidOperationException("The selected genre category is missing.");
+
+        var matches = _genres.Where(choice => BroadGenreMatcher.Matches(category, choice.Value)).ToArray();
+        if (matches.Length == 0)
+        {
+            MessageBox.Show($"No genres matching {category} were found in the filter list.",
+                "No matching genres", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        SetFilterChoices(matches, isChecked);
     }
 
     private void SetYearChoices(bool isChecked)
@@ -1082,19 +1115,30 @@ public partial class QuizSetupView : UserControl
     {
         if (_initializing)
             return;
-        _matchingSongCount = GetMatchingSongs().Count;
+        if (!TrackLengthInput.TryParseRange(MinLengthText.Text, MaxLengthText.Text, out var minimum, out var maximum))
+        {
+            _matchingSongCount = 0;
+            MatchCountText.Text = "Invalid track lengths (use m:ss).";
+            UpdateQuizTime();
+            return;
+        }
+        _matchingSongCount = GetMatchingSongs(minimum, maximum).Count;
         MatchCountText.Text = $"{_matchingSongCount:N0} matching tracks";
         UpdateQuizTime();
     }
     private void OnViewSongsClick(object sender, RoutedEventArgs e)
     {
-        if (!_busy)
-            SongsRequested?.Invoke(GetMatchingSongs());
+        if (!_busy && TryGetTrackLengths(out var minimum, out var maximum))
+            SongsRequested?.Invoke(GetMatchingSongs(minimum, maximum));
     }
 
-    private async void OnStartQuizClick(object sender, RoutedEventArgs e)
+    private async void OnStartQuizClick(object sender, RoutedEventArgs e) => await BeginQuizAsync(false);
+
+    private async void OnCreateChallengeClick(object sender, RoutedEventArgs e) => await BeginQuizAsync(true);
+
+    private async Task BeginQuizAsync(bool createChallenge)
     {
-        if (_busy || IsSelectedSpotifyPlaylistDenied)
+        if (_busy || IsSelectedSpotifyPlaylistDenied || (createChallenge && IsSpotifySource))
             return;
         SetBusy(true);
         try
@@ -1119,12 +1163,12 @@ public partial class QuizSetupView : UserControl
                     return;
                 }
             }
-            StartQuiz();
+            StartQuiz(createChallenge);
         }
         finally { SetBusy(false); }
     }
 
-    private void StartQuiz()
+    private void StartQuiz(bool createChallenge = false)
     {
         if (IsLocalPlaylistSource && !_localPlaylistLoaded)
         {
@@ -1148,7 +1192,9 @@ public partial class QuizSetupView : UserControl
                 "Playlist required", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        var candidates = GetMatchingSongs();
+        if (!TryGetTrackLengths(out var minLength, out var maxLength))
+            return;
+        var candidates = GetMatchingSongs(minLength, maxLength);
         if (candidates.Count == 0)
         {
             if (_scannedSongs.Count == 0)
@@ -1166,15 +1212,6 @@ public partial class QuizSetupView : UserControl
         {
             QuizRulesTab.IsSelected = true;
             MessageBox.Show("Check the song count, timer, and clip settings.", "Invalid settings",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-        if (!TryInt(MinLengthText.Text, 0, 0, 86400, out var minLength)
-            || !TryInt(MaxLengthText.Text, 0, 0, 86400, out var maxLength)
-            || (minLength > 0 && maxLength > 0 && minLength > maxLength))
-        {
-            TrackFiltersTab.IsSelected = true;
-            MessageBox.Show("Check the track-length settings.", "Invalid settings",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -1311,7 +1348,10 @@ public partial class QuizSetupView : UserControl
         {
             MessageBox.Show($"Could not save quiz preferences:\n{ex.Message}", "Settings save failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
-        QuizRequested?.Invoke(config, selected, reserve);
+        if (createChallenge)
+            ChallengeRequested?.Invoke(config, selected, reserve);
+        else
+            QuizRequested?.Invoke(config, selected, reserve);
     }
 
     private void OnSavePresetClick(object sender, RoutedEventArgs e)
@@ -1336,6 +1376,8 @@ public partial class QuizSetupView : UserControl
             MessageBox.Show("Enter a name for this setup.", "Preset name required", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        if (!TryGetTrackLengths(out var minLength, out var maxLength))
+            return;
         if (!TryGetQuizPointValues(out var quizMode, out var songTitlePoints, out var artistPoints))
             return;
         if (!TryGetQuickGuessSettings(out var quickGuessSeconds, out var quickGuessPoints))
@@ -1348,8 +1390,6 @@ public partial class QuizSetupView : UserControl
         TryInt(SecondsText.Text, 30, 5, 600, out var seconds);
         TryInt(ClipDurationText.Text, 15, 3, 120, out var clipDuration);
         TryInt(SongCountText.Text, 20, 1, 1000, out var songCount);
-        TryInt(MinLengthText.Text, 0, 0, 86400, out var minLength);
-        TryInt(MaxLengthText.Text, 0, 0, 86400, out var maxLength);
         var config = new QuizConfig
         {
             SourceType = IsSpotifySource ? "Spotify" : "Local",
@@ -1567,8 +1607,8 @@ public partial class QuizSetupView : UserControl
         SecondsText.Text = ((int)config.TimePerSong.TotalSeconds).ToString();
         ClipDurationText.Text = ((int)config.ClipDuration.TotalSeconds).ToString();
         ClipStartText.Text = ((int)config.ClipStartTime.TotalSeconds).ToString();
-        MinLengthText.Text = ((int)(config.MinSongDuration?.TotalSeconds ?? 0)).ToString();
-        MaxLengthText.Text = ((int)(config.MaxSongDuration?.TotalSeconds ?? 0)).ToString();
+        MinLengthText.Text = TrackLengthInput.Format(config.MinSongDuration);
+        MaxLengthText.Text = TrackLengthInput.Format(config.MaxSongDuration);
         TimerModeCombo.SelectedIndex = config.TimerMode == TimerMode.TotalQuiz ? 1 : 0;
         GridColumnsCombo.SelectedIndex = config.GridColumns switch { GridColumns.One => 1, GridColumns.Two => 2, GridColumns.Three => 3, GridColumns.Four => 4, _ => 0 };
         PlaybackCombo.SelectedIndex = config.ClipPlaybackMode switch { ClipPlaybackMode.PlayOnceStop => 1, ClipPlaybackMode.PlayOnceAutoAdvance => 2, _ => 0 };
@@ -1658,6 +1698,17 @@ public partial class QuizSetupView : UserControl
         return false;
     }
 
+    private bool TryGetTrackLengths(out int minimum, out int maximum)
+    {
+        if (TrackLengthInput.TryParseRange(MinLengthText.Text, MaxLengthText.Text, out minimum, out maximum))
+            return true;
+        TrackFiltersTab.IsSelected = true;
+        MessageBox.Show("Enter track lengths as minutes:seconds (for example 1:30), from 0:00 to 1440:00. "
+            + "Use 0:00 for no limit; the minimum cannot exceed the maximum.",
+            "Invalid track lengths", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
+    }
+
     private static bool TryInt(string text, int fallback, int min, int max, out int value)
         => int.TryParse(text, out value) && value >= min && value <= max;
     private static bool TryPointValue(string text, out double value)
@@ -1696,5 +1747,8 @@ public partial class QuizSetupView : UserControl
     }
 
     private void UpdateStartQuizAvailability()
-        => StartQuizButton.IsEnabled = !_busy && !IsSelectedSpotifyPlaylistDenied;
+    {
+        StartQuizButton.IsEnabled = !_busy && !IsSelectedSpotifyPlaylistDenied;
+        CreateChallengeButton.IsEnabled = !_busy && !IsSpotifySource;
+    }
 }

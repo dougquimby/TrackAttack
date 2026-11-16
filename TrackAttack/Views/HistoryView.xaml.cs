@@ -93,6 +93,8 @@ public partial class HistoryView : UserControl
 
     /// <summary>Occurs when the player requests a replay of a saved quiz.</summary>
     public event Action<QuizSession>? ReplayRequested;
+    /// <summary>Occurs when a challenge is requested from a saved local quiz.</summary>
+    public event Action<QuizSession>? ChallengeRequested;
 
     /// <summary>Creates the quiz history view.</summary>
     /// <param name="history">The repository used to load and delete sessions.</param>
@@ -148,6 +150,7 @@ public partial class HistoryView : UserControl
             LeaderboardGrid.Visibility = Visibility.Collapsed;
             LeaderboardEmptyText.Visibility = Visibility.Visible;
             ReplayQuizButton.IsEnabled = false;
+            ExportChallengeButton.IsEnabled = false;
             DeleteQuizButton.IsEnabled = false;
             ToggleSpoilersButton.IsEnabled = false;
             UpdateSpoilerToggle();
@@ -158,6 +161,7 @@ public partial class HistoryView : UserControl
         DetailGrid.ItemsSource = CreateDetailRows(row.Session);
         UpdateLeaderboard(row.Session);
         ReplayQuizButton.IsEnabled = row.Session.Results.Count > 0;
+        ExportChallengeButton.IsEnabled = row.Session.Results.Count > 0 && !row.IsSpotify;
         DeleteQuizButton.IsEnabled = true;
         ToggleSpoilersButton.IsEnabled = row.Session.Results.Count > 0;
         UpdateSpoilerToggle();
@@ -305,6 +309,12 @@ public partial class HistoryView : UserControl
             ReplayRequested?.Invoke(row.Session);
     }
 
+    private void OnExportChallengeClick(object sender, RoutedEventArgs e)
+    {
+        if (HistoryGrid.SelectedItem is HistoryRow { IsSpotify: false } row)
+            ChallengeRequested?.Invoke(row.Session);
+    }
+
     private async void OnDeleteQuizClick(object sender, RoutedEventArgs e)
     {
         if (HistoryGrid.SelectedItem is not HistoryRow row)
@@ -321,6 +331,7 @@ public partial class HistoryView : UserControl
 
         DeleteQuizButton.IsEnabled = false;
         ReplayQuizButton.IsEnabled = false;
+        ExportChallengeButton.IsEnabled = false;
         try
         {
             if (!await _history.DeleteAsync(row.Session.Id))
@@ -343,6 +354,7 @@ public partial class HistoryView : UserControl
                 "Delete failed", MessageBoxButton.OK, MessageBoxImage.Error);
             DeleteQuizButton.IsEnabled = true;
             ReplayQuizButton.IsEnabled = row.Session.Results.Count > 0;
+            ExportChallengeButton.IsEnabled = row.Session.Results.Count > 0 && !row.IsSpotify;
         }
     }
 

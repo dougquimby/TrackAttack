@@ -22,6 +22,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="DetailHeading" Text="Select a quiz to review its answers" FontSize="12"
                        Foreground="{DynamicResource MutedTextBrush}" FontWeight="Bold" VerticalAlignment="Center"
@@ -35,7 +36,12 @@
                     AutomationProperties.Name="Replay selected quiz"
                     FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
                     IsEnabled="False" Click="OnReplayQuizClick"/>
-            <Button x:Name="DeleteQuizButton" Grid.Column="3" Content="×"
+            <Button x:Name="ExportChallengeButton" Grid.Column="3" Content="⇧"
+                    ToolTip="Create a challenge from this local quiz"
+                    AutomationProperties.Name="Create challenge from selected quiz"
+                    FontSize="18" Width="34" Height="30" Padding="0" Margin="4,0,0,0"
+                    IsEnabled="False" Click="OnExportChallengeClick"/>
+            <Button x:Name="DeleteQuizButton" Grid.Column="4" Content="×"
                     ToolTip="Delete this quiz from history"
                     AutomationProperties.Name="Delete selected quiz from history"
                     FontSize="20" Width="34" Height="30" Padding="0" Margin="4,0,0,0"

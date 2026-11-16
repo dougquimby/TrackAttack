@@ -67,19 +67,21 @@ public partial class QuizView : UserControl, IDisposable
     /// <param name="history">The repository used to save quiz history.</param>
     /// <param name="playback">The playback service, or null to create local playback.</param>
     /// <param name="profileName">The player profile recorded with the quiz.</param>
+    /// <param name="initialClipStarts">Optional initial clip positions in song order.</param>
     public QuizView(
         QuizConfig config,
         IReadOnlyList<Song> songs,
         IReadOnlyList<Song> reserve,
         IQuizHistoryRepository history,
         IPlaybackService? playback = null,
-        string profileName = "Default")
+        string profileName = "Default",
+        IReadOnlyList<TimeSpan>? initialClipStarts = null)
     {
         _config = config;
         _history = history;
         _profileName = profileName;
         _playback = playback ?? new NAudioPlaybackService();
-        _engine = new QuizEngine(config, songs, reserve, _playback);
+        _engine = new QuizEngine(config, songs, reserve, _playback, initialClipStarts);
         InitializeComponent();
         var volume = GetNormalizedAudioVolume(AppSettings.Load().AudioVolume);
         VolumeSlider.Value = volume;
@@ -133,6 +135,7 @@ public partial class QuizView : UserControl, IDisposable
 
     private void UpdateStreak()
     {
+        StreakPanel.Visibility = _config.StarPowerEnabled ? Visibility.Visible : Visibility.Collapsed;
         StreakText.Text = $"STREAK  {_engine.CurrentStreak}";
         var active = _engine.IsStarPowerActive;
         StarPowerBanner.Visibility = active ? Visibility.Visible : Visibility.Collapsed;

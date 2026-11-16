@@ -1,0 +1,24 @@
+<UserControl x:Class="TrackAttack.Views.SocialView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MaxWidth="850" HorizontalAlignment="Left">
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel>
+                    <TextBlock Text="CHALLENGES" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource MutedTextBrush}"/>
+                    <TextBlock Text="Play the same quiz with friends" FontSize="19" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                    <TextBlock Text="Challenge files contain track details, quiz rules, and clip positions—not audio. Each player needs matching local tracks and the same app version."
+                               Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,8,0,14"/>
+                    <WrapPanel>
+                        <Button Content="Open challenge…" Style="{StaticResource ActionButton}" Click="OnOpenChallengeClick" Margin="0,0,8,8"/>
+                        <Button Content="Create a challenge…" Click="OnCreateChallengeClick" Margin="0,0,8,8"/>
+                        <Button Content="Create from history…" Click="OnHistoryClick" Margin="0,0,0,8"/>
+                    </WrapPanel>
+                    <TextBlock Text="Challenge files reveal the answers if opened as text. Random power outcomes can differ between players."
+                               Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
